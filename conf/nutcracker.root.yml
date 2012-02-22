@@ -1,0 +1,8 @@
+root:
+  listen: 127.0.0.1:22120
+  hash: fnv1a_64
+  distribution: ketama
+  preconnect: true
+  auto_eject_hosts: false
+  servers:
+   - 127.0.0.1:22121:1

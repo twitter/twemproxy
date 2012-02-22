@@ -1,0 +1,5 @@
+2012-02-09  Manju Rajashekhar  <manj@twitter.com>
+
+    * twemproxy: version 0.1.16 release
+      twemproxy (aka nutcracker) is a fast and lightweight proxy for memcached protocol.
+

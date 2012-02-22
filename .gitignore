@@ -1,0 +1,65 @@
+# Compiled Object files
+*.lo
+*.o
+
+# Compiled Dynamic libraries
+*.so
+
+# Compiled Static libraries
+*.la
+*.a
+
+# Compiled misc
+*.dep
+*.gcda
+*.gcno
+*.gcov
+
+# Packages
+*.tar.gz
+*.tar.bz2
+
+# Logs
+*.log
+
+# Temporary
+*.swp
+*.~
+*.project
+*.cproject
+
+# Core and executable
+core*
+nutcracker
+
+# extracted yaml
+!/contrib/yaml-0.1.4.tar.gz
+
+# Autotools
+.deps
+.libs
+
+/aclocal.m4
+/autom4te.cache
+/stamp-h1
+/autoscan.log
+/libtool
+
+/config/config.guess
+/config/config.sub
+/config/depcomp
+/config/install-sh
+/config/ltmain.sh
+/config/missing
+/config
+
+/config.h
+/config.h.in
+/config.h.in~
+/config.log
+/config.status
+/configure.scan
+/configure
+
+Makefile
+Makefile.in

@@ -1,0 +1,95 @@
+- strace
+  strace -o strace.txt -ttT -s 1024 -p `pgrep nutcracker`
+
+- epoll
+
+  EPOLLIN     = 0x001,
+  EPOLLPRI    = 0x002,
+  EPOLLOUT    = 0x004,
+  EPOLLERR    = 0x008,
+  EPOLLHUP    = 0x010,
+  EPOLLRDNORM = 0x040,
+  EPOLLRDBAND = 0x080,
+  EPOLLWRNORM = 0x100,
+  EPOLLWRBAND = 0x200,
+  EPOLLMSG    = 0x400,
+  EPOLLRDHUP  = 0x2000,
+  EPOLLONESHOT = (1 << 30),
+  EPOLLET = (1 << 31)
+
+- libyaml (yaml-0.1.4)
+
+  - yaml tokens:
+
+  0  YAML_NO_TOKEN,
+  1  YAML_STREAM_START_TOKEN,
+  2  YAML_STREAM_END_TOKEN,
+  3  YAML_VERSION_DIRECTIVE_TOKEN,
+  4  YAML_TAG_DIRECTIVE_TOKEN,
+  5  YAML_DOCUMENT_START_TOKEN,
+  6  YAML_DOCUMENT_END_TOKEN,
+  7  YAML_BLOCK_SEQUENCE_START_TOKEN,
+  8  YAML_BLOCK_MAPPING_START_TOKEN,
+  9  YAML_BLOCK_END_TOKEN,
+  10 YAML_FLOW_SEQUENCE_START_TOKEN,
+  11 YAML_FLOW_SEQUENCE_END_TOKEN,
+  12 YAML_FLOW_MAPPING_START_TOKEN,
+  13 YAML_FLOW_MAPPING_END_TOKEN,
+  14 YAML_BLOCK_ENTRY_TOKEN,
+  15 YAML_FLOW_ENTRY_TOKEN,
+  16 YAML_KEY_TOKEN,
+  17 YAML_VALUE_TOKEN,
+  18 YAML_ALIAS_TOKEN,
+  19 YAML_ANCHOR_TOKEN,
+  20 YAML_TAG_TOKEN,
+  21 YAML_SCALAR_TOKEN
+
+  - yaml events
+
+  0  YAML_NO_EVENT,
+  1  YAML_STREAM_START_EVENT,
+  2  YAML_STREAM_END_EVENT,
+  3  YAML_DOCUMENT_START_EVENT,
+  4  YAML_DOCUMENT_END_EVENT,
+  5  YAML_ALIAS_EVENT,
+  6  YAML_SCALAR_EVENT,
+  7  YAML_SEQUENCE_START_EVENT,
+  8  YAML_SEQUENCE_END_EVENT,
+  9  YAML_MAPPING_START_EVENT,
+  10 YAML_MAPPING_END_EVENT
+
+- sys/queue.h
+
+  queue.h is a generic linked list library adapted from BSD. It has three
+  macro knobs that are useful for debugging:
+
+  - QUEUE_MACRO_SCRUB nullifies links (next and prev pointers) of deleted
+    elements and catches cases where we are attempting to do operations
+    on an element that has already been unlinked.
+  - QUEUE_MACRO_TRACE keeps track of __FILE__ and __LINE__ of last two
+    updates to the list data structure.
+  - QUEUE_MACRO_ASSERT verifies the sanity of list data structure on every
+    operation.
+
+- valgrind
+  valgrind --tool=memcheck --leak-check=yes <program>
+
+- Core dump
+  $ ulimit -c unlimited
+
+- Generate ENOMEM to test "Out of Memory"
+  $ ulimit -m <size>    # limit maximum memory size
+  $ ulimit -v <size>    # limit virtual memory
+
+- get nutcracker stats
+  $ printf "" | socat  - TCP:localhost:22222 | tee stats.txt
+
+- Signalling and Logging
+  SIGTTIN - To up the log level
+  SIGTTOU - To down the log level
+  SIGHUP  - To reopen log file
+
+- Error codes:
+  http://www.cs.utah.edu/dept/old/texinfo/glibc-manual-0.02/library_2.html
+  /usr/include/asm-generic/errno-base.h
+  /usr/include/asm-generic/errno.h

@@ -1,0 +1,131 @@
+- int listen(int sockfd, int backlog);
+
+  Linux: The  backlog  argument defines the maximum length to which the
+  queue of pending connections for sockfd may grow.  If a connection
+  request arrives when the queue is full, the client may receive an error
+  with an indication of ECONNREFUSED or, if the underlying protocol
+  supports retransmission, the request may be ignored so that a later
+  reattempt at connection succeeds.
+
+  backlog specifies the queue length for completely established sockets
+  waiting to be accepted, instead of the number of incomplete connection
+  requests. The maximum length of the queue for incomplete sockets can
+  be set using /proc/sys/net/ipv4/tcp_max_syn_backlog.
+
+  If the backlog argument is greater than the value in /proc/sys/net/core/somaxconn,
+  then it is silently truncated to that value; the default value in this
+  file is 128.  In kernels before 2.4.25, this limit was a hard coded value,
+  SOMAXCONN, with the value 128.
+
+  BSD: The backlog argument defines the maximum length the queue of pending
+  connections may grow to.  The real maximum queue length will be 1.5 times
+  more than the value specified in the backlog argument.  A subsequent
+  listen() system call on the listening socket allows the caller to change
+  the maximum queue length using a new backlog argument.  If a connection
+  request arrives with the queue full the client may receive an error with
+  an indication of ECONNREFUSED, or, in the case of TCP, the connection
+  will be silently dropped.
+
+  The listen() system call appeared in 4.2BSD.  The ability to configure
+  the maximum backlog at run-time, and to use a negative backlog to request
+  the maximum allowable value, was introduced in FreeBSD 2.2.
+
+- SO_LINGER (linger) socket option
+
+  This option specifies what should happen when the socket of a type that
+  promises reliable delivery still has untransmitted messages when it is
+  closed
+
+  struct linger {
+      int l_onoff;  /* nonzero to linger on close  */
+      int l_linger; /* time to linger (in secs)  */
+  };
+
+  l_onoff = 0 (default), then l_linger value is ignored and close returns
+  immediately. But if there is any data still remaining in the socket send
+  buffer, the system will try to deliver the data to the peer
+
+  l_onoff = nonzero, then close blocks until data is transmitted or the
+  l_linger timeout period expires
+  a) l_linger = 0, TCP aborts connection, discards any data still remaining
+     in the socket send buffer and sends RST to peer. This avoids the
+     TCP's TIME_WAIT state
+  b) l_linger = nonzero, then kernel will linger when socket is closed. If
+     there is any pending data in the socket send buffer, the kernel waits
+     until all the data is sent and acknowledged by peer TCP, or the
+     linger time expires
+
+  If a socket is set as nonblocking, it will not wait for close to complete
+  even if linger time is nonzero
+
+- TIME_WAIT state
+
+  The end that performs active close i.e. the end that sends the first FIN
+  goes into TIME_WAIT state. After a FIN packet is sent to the peer and
+  after that peers FIN/ACK arrvies and is ACKed, we go into a TIME_WAIT
+  state. The duration that the end point remains in this state is 2 x MSL
+  (maximum segment lifetime). The reason that the duration of the TIME_WAIT
+  state is 2 x MSL is because the maximum amount of time a packet can wander
+  around a network is assumed to be MSL seconds. The factor of 2 is for the
+  round-trip. The recommended value for MSL is 120 seconds, but Berkeley
+  derived implementations normally use 30 seconds instead. This means a
+  TIME_WAIT delay is between 1 and 4 minutes.
+
+  For Linux, the TIME_WAIT state duration is 1 minute (net/tcp.h):
+  #define TCP_TIMEWAIT_LEN (60*HZ) /* how long to wait to destroy TIME-WAIT
+                                    * state, about 60 seconds */
+
+  TIME_WAIT state on client, combined with limited number of ephermeral ports
+  available for TCP connections severely limits the rate at which new
+  connections to the server can be created. On Linux, by default ephemeral
+  ports are in the range of 32768 to 61000:
+
+  $ cat /proc/sys/net/ipv4/ip_local_port_range
+  32768 61000
+
+  So with a TIME_WAIT state duration of 1 minute, the maximum sustained rate
+  for any client is ~470 new connections per second
+
+- TCP keepalive
+
+  TCP keepalive packet (TCP packet with no data and the ACK flag turned on)
+  is used to assert that connection is still up and running. This is useful
+  because if the remote peer goes away without closing their connection, the
+  keepalive probe will detect this and notice that the connection is broken
+  even if there is no traffic on it.
+
+  Imagine, the following scenario: You have a valid TCP connection established
+  between two endpoints A and B. B terminates abnormally (think kernel panic
+  or unplugging of network cable) without sending anything over the network
+  to notify A that connection is broken. A, from its side, is ready to
+  receive data, and has no idea that B has gone away. Now B comes back up
+  again, and while A knows about a connection with B and still thinks that it
+  active, B has no such idea. A tries to send data to B over a dead
+  connection, and B replies with an RST packet, causing A to finally close
+  the connection. So, without a keepalive probe A would never close the
+  connection if it never sent data over it.
+
+- There are four socket functions that pass a socket address structure from
+  the process to the kernel - bind, connect, sendmsg and sendto. These
+  function are also responsible for passing the length of the sockaddr that
+  they are passing (socklen_t).
+  There are five socket functions that pass a socket from the kernel to the
+  process - accept, recvfrom, recvmsg, getpeername, getsockname. The kernel
+  is also responsible for returning the length of the sockaddr struct that
+  it returns back to the userspace
+
+  Different sockaddr structs:
+  1. sockaddr_in
+  2. sockaddr_in6
+  3. sockaddr_un
+
+  Special types of in_addr_t
+  /* Address to accept any incoming messages */
+  #define INADDR_ANY ((in_addr_t) 0x00000000)
+
+  /* Address to send to all hosts */
+  #define INADDR_BROADCAST ((in_addr_t) 0xffffffff)
+
+  /* Address indicating an error return */
+  #define INADDR_NONE ((in_addr_t) 0xffffffff)
+

@@ -1,0 +1,44 @@
+MAINTAINERCLEANFILES = Makefile.in
+
+AM_CPPFLAGS = -D_GNU_SOURCE -D_XOPEN_SOURCE
+AM_CPPFLAGS += -I $(top_srcdir)/src/hashkit -I $(top_srcdir)/contrib/yaml-0.1.4/include
+
+AM_CFLAGS = -Wall -Wshadow
+AM_CFLAGS += -Wpointer-arith
+AM_CFLAGS += -Winline
+AM_CFLAGS += -Wunused-function -Wunused-variable -Wunused-value
+AM_CFLAGS += -Wno-unused-parameter -Wno-unused-value
+AM_CFLAGS += -Wconversion -Wsign-compare
+AM_CFLAGS += -Wstrict-prototypes -Wmissing-prototypes -Wredundant-decls -Wmissing-declarations
+
+AM_LDFLAGS = -lm -lpthread -rdynamic
+
+SUBDIRS = hashkit
+
+bin_PROGRAMS = nutcracker
+
+nutcracker_SOURCES =			\
+	nc_core.c nc_core.h		\
+	nc_connection.c nc_connection.h	\
+	nc_client.c nc_client.h		\
+	nc_server.c nc_server.h		\
+	nc_proxy.c nc_proxy.h		\
+	nc_message.c nc_message.h	\
+	nc_request.c			\
+	nc_response.c			\
+	nc_mbuf.c nc_mbuf.h		\
+	nc_parse.c nc_parse.h		\
+	nc_event.c nc_event.h		\
+	nc_conf.c nc_conf.h		\
+	nc_stats.c nc_stats.h		\
+	nc_signal.c nc_signal.h		\
+	nc_rbtree.c nc_rbtree.h		\
+	nc_log.c nc_log.h		\
+	nc_string.c nc_string.h		\
+	nc_array.c nc_array.h		\
+	nc_util.c nc_util.h		\
+	nc_queue.h			\
+	nc.c
+
+nutcracker_LDADD = $(top_builddir)/src/hashkit/libhashkit.a
+nutcracker_LDADD += $(top_builddir)/contrib/yaml-0.1.4/src/.libs/libyaml.a

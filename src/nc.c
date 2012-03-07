@@ -78,7 +78,7 @@ nc_daemonize(int dump_core)
 
     default:
         /* parent terminates */
-        exit(0);
+        _exit(0);
     }
 
     /* 1st child continues and becomes the session leader */
@@ -105,7 +105,7 @@ nc_daemonize(int dump_core)
 
     default:
         /* 1st child terminates */
-        exit(0);
+        _exit(0);
     }
 
     /* 2nd child continues */
@@ -122,7 +122,7 @@ nc_daemonize(int dump_core)
     /* clear file mode creation mask */
     umask(0);
 
-    /* redirect stdin, stdout and stderr to /dev/null */
+    /* redirect stdin, stdout and stderr to "/dev/null" */
 
     fd = open("/dev/null", O_RDWR);
     if (fd < 0) {

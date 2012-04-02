@@ -1,0 +1,7 @@
+#!/usr/bin/make -f
+%:
+	dh $@
+
+override_dh_clean:
+	rm -f contrib/yaml-0.1.4/doc/html/*.png
+	dh_clean

@@ -1,0 +1,118 @@
+#! /bin/sh
+### BEGIN INIT INFO
+# Provides:		twemproxy
+# Required-Start:	$local_fs $remote_fs $network $syslog
+# Required-Stop:	$local_fs $remote_fs $network $syslog
+# Should-Start:		$local_fs
+# Should-Stop:		$local_fs
+# Default-Start:	2 3 4 5
+# Default-Stop:		0 1 6
+# Short-Description:	nutcracker
+# Description:		nutcracker - Memcached proxy daemon
+### END INIT INFO
+
+
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+DAEMON=/usr/bin/nutcracker
+NAME=nutcracker
+DESC=nutcracker
+
+RUNDIR=/var/run/${NAME}
+LOGDIR=/var/log/${NAME}
+CONF_FILE=/etc/nutcracker.conf
+
+DAEMON_OPTS="-c /etc/nutcracker.conf -p ${PIDFILE} -o ${LOGFILE}"
+
+# Include nutcracker defaults if available
+if [ -f /etc/default/nutcracker ]; then
+        . /etc/default/nutcracker
+fi
+
+DAEMON_OPTS="${DAEMONIZE} ${VERBOSITY} ${STATS_PORT} ${STATS_INTERVAL} -c ${CONF_FILE} -p ${RUNDIR}/${PIDFILE} -o ${LOGDIR}/${LOGFILE}"
+
+
+[ -f ${CONF_FILE} ] || (echo "Please fill config file in ${CONF_FILE} and restart." && exit  0)
+
+test -x $DAEMON || exit 0
+
+set -e
+
+test_config() {
+        if $DAEMON -t $DAEMON_OPTS >/dev/null 2>&1; then
+                return 0
+        else
+                $DAEMON -t $DAEMON_OPTS
+                return $?
+        fi
+}
+
+case "$1" in
+
+    start)
+	echo -n "Starting $DESC: "
+        test_config
+        # Check if the ULIMIT is set in /etc/default/nginx
+        if [ -n "$ULIMIT" ]; then
+            # Set the ulimits
+            ulimit $ULIMIT
+        fi
+        mkdir -p ${LOGDIR}
+	touch ${LOGDIR}/${LOGFILE}
+        chown -R nobody:nogroup ${LOGDIR}
+	chmod 755 ${LOGDIR}
+	mkdir -p ${RUNDIR}
+	touch ${RUNDIR}/${PIDFILE}
+	chown -R nobody:nogroup ${RUNDIR}
+	chmod 755 ${RUNDIR}
+	start-stop-daemon --start --quiet --umask 007 --pidfile ${RUNDIR}/${PIDFILE} \
+            --chuid nobody:nogroup --exec $DAEMON -- $DAEMON_OPTS || true
+        echo "$NAME."
+	;;
+
+    stop)
+	echo -n "Stopping $DESC: "
+	start-stop-daemon --stop --quiet --pidfile ${RUNDIR}/${PIDFILE} \
+            --exec $DAEMON || true
+	echo "$NAME."
+	rm -f ${RUNDIR}/*
+	;;
+
+    restart|force-reload)
+        test_config
+        echo -n "Restarting $DESC: "
+        start-stop-daemon --stop --quiet --pidfile ${RUNDIR}/${PIDFILE} \
+            --exec $DAEMON || true
+        start-stop-daemon --start --quiet --umask 007 --pidfile ${RUNDIR}/${PIDFILE} \
+            --chuid nobody:nogroup --exec $DAEMON -- $DAEMON_OPTS || true
+        echo "$NAME."
+	;;
+
+    reload)
+        echo -n "Reloading $DESC configuration: "
+        test_config
+        start-stop-daemon --stop --signal HUP --quiet --pidfile ${RUNDIR}/${PIDFILE} \
+            --exec $DAEMON || true
+        echo "$NAME."
+        ;;
+
+    configtest|testconfig)
+        echo -n "Testing $DESC configuration: "
+        if test_nutcracker_config; then
+            echo "$NAME."
+        else
+            exit $?
+        fi
+        ;;
+
+    status)
+        status_of_proc -p ${RUNDIR}/${PIDFILE} "$DAEMON" nutcracker && exit 0 || exit $?
+        ;;
+
+    *)
+	echo "Usage: /etc/init.d/$NAME {start|stop|status|restart|force-reload|configtest|testconfig}" >&2
+	exit 1
+	;;
+
+esac
+
+exit 0

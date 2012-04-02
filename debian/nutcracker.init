@@ -18,98 +18,99 @@ NAME=nutcracker
 DESC=nutcracker
 
 RUNDIR=/var/run/${NAME}
+PIDFILE=${RUNDIR}/${NAME}.pid
 LOGDIR=/var/log/${NAME}
+LOGFILE=${LOGDIR}/${NAME}.log
 CONF_FILE=/etc/nutcracker.conf
 
-DAEMON_OPTS="-c /etc/nutcracker.conf -p ${PIDFILE} -o ${LOGFILE}"
 
 # Include nutcracker defaults if available
 if [ -f /etc/default/nutcracker ]; then
         . /etc/default/nutcracker
 fi
 
-DAEMON_OPTS="${DAEMONIZE} ${VERBOSITY} ${STATS_PORT} ${STATS_INTERVAL} -c ${CONF_FILE} -p ${RUNDIR}/${PIDFILE} -o ${LOGDIR}/${LOGFILE}"
+DAEMON_OPTS="-d -s ${STATS_PORT} -i ${STATS_INTERVAL} -c ${CONF_FILE} -p ${PIDFILE} -o ${LOGFILE}"
 
 
 [ -f ${CONF_FILE} ] || (echo "Please fill config file in ${CONF_FILE} and restart." && exit  0)
 
-test -x $DAEMON || exit 0
+test -x ${DAEMON} || exit 0
 
 set -e
 
 test_config() {
-        if $DAEMON -t $DAEMON_OPTS >/dev/null 2>&1; then
-                return 0
-        else
-                $DAEMON -t $DAEMON_OPTS
-                return $?
-        fi
+    if ${DAEMON} -t -c ${CONF_FILE} >/dev/null 2>&1; then
+        return 0
+    else
+        ${DAEMON} -t -c ${CONF_FILE}
+        return $?
+    fi
 }
 
 case "$1" in
 
     start)
-	echo -n "Starting $DESC: "
+	echo -n "Starting ${DESC}: "
         test_config
         # Check if the ULIMIT is set in /etc/default/nginx
-        if [ -n "$ULIMIT" ]; then
+        if [ -n "${ULIMIT}" ]; then
             # Set the ulimits
-            ulimit $ULIMIT
+            ulimit ${ULIMIT}
         fi
         mkdir -p ${LOGDIR}
-	touch ${LOGDIR}/${LOGFILE}
+	touch ${LOGFILE}
         chown -R nobody:nogroup ${LOGDIR}
 	chmod 755 ${LOGDIR}
 	mkdir -p ${RUNDIR}
-	touch ${RUNDIR}/${PIDFILE}
+	touch ${PIDFILE}
 	chown -R nobody:nogroup ${RUNDIR}
 	chmod 755 ${RUNDIR}
-	start-stop-daemon --start --quiet --umask 007 --pidfile ${RUNDIR}/${PIDFILE} \
-            --chuid nobody:nogroup --exec $DAEMON -- $DAEMON_OPTS || true
-        echo "$NAME."
+	start-stop-daemon --start --quiet --umask 007 --pidfile ${PIDFILE} \
+            --chuid nobody:nogroup --exec ${DAEMON} -- ${DAEMON_OPTS} || true
+        echo "${NAME}."
 	;;
 
     stop)
-	echo -n "Stopping $DESC: "
-	start-stop-daemon --stop --quiet --pidfile ${RUNDIR}/${PIDFILE} \
-            --exec $DAEMON || true
-	echo "$NAME."
+	echo -n "Stopping ${DESC}: "
+	start-stop-daemon --stop --quiet --pidfile ${PIDFILE} \
+            --exec ${DAEMON} || true
+	echo "${NAME}."
 	rm -f ${RUNDIR}/*
 	;;
 
     restart|force-reload)
         test_config
-        echo -n "Restarting $DESC: "
-        start-stop-daemon --stop --quiet --pidfile ${RUNDIR}/${PIDFILE} \
-            --exec $DAEMON || true
-        start-stop-daemon --start --quiet --umask 007 --pidfile ${RUNDIR}/${PIDFILE} \
-            --chuid nobody:nogroup --exec $DAEMON -- $DAEMON_OPTS || true
-        echo "$NAME."
+        echo -n "Restarting ${DESC}: "
+        start-stop-daemon --stop --quiet --pidfile ${PIDFILE} \
+            --exec ${DAEMON} || true
+        start-stop-daemon --start --quiet --umask 007 --pidfile ${PIDFILE} \
+            --chuid nobody:nogroup --exec ${DAEMON} -- ${DAEMON_OPTS} || true
+        echo "${NAME}."
 	;;
 
     reload)
-        echo -n "Reloading $DESC configuration: "
+        echo -n "Reloading ${DESC} configuration: "
         test_config
-        start-stop-daemon --stop --signal HUP --quiet --pidfile ${RUNDIR}/${PIDFILE} \
-            --exec $DAEMON || true
-        echo "$NAME."
+        start-stop-daemon --stop --signal HUP --quiet --pidfile ${PIDFILE} \
+            --exec ${DAEMON} || true
+        echo "${NAME}."
         ;;
 
     configtest|testconfig)
-        echo -n "Testing $DESC configuration: "
-        if test_nutcracker_config; then
-            echo "$NAME."
+        echo -n "Testing ${DESC} configuration: "
+        if test_config; then
+            echo "${NAME}."
         else
             exit $?
         fi
         ;;
 
     status)
-        status_of_proc -p ${RUNDIR}/${PIDFILE} "$DAEMON" nutcracker && exit 0 || exit $?
+        status_of_proc -p ${PIDFILE} "${DAEMON}" nutcracker && exit 0 || exit $?
         ;;
 
     *)
-	echo "Usage: /etc/init.d/$NAME {start|stop|status|restart|force-reload|configtest|testconfig}" >&2
+	echo "Usage: /etc/init.d/${NAME} {start|stop|status|restart|force-reload|configtest|testconfig}" >&2
 	exit 1
 	;;
 

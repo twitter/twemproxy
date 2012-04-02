@@ -1,17 +1,6 @@
-ENABLE=FALSE
 # Set the ulimit variable if you need defaults (1024) to change.
 #  Example: ULIMIT="-n 4096"
 #ULIMIT="-n 4096"
 
-#CONF_FILE="/etc/nutcracker.conf"
-#LOG_FILE="/var/log/nutcracker.log"
-
-DAEMONIZE="-d"
-VERBOSITY="-v 5"
-STATS_PORT="-s 22222"
-STATS_INTERVAL="-i 30000"
-
-PIDFILE=nutcracker.pid
-LOGFILE=nutcracker.log
-
-DAEMON_OPTS="${DAEMONIZE} ${VERBOSITY} ${STATS_PORT} ${STATS_INTERVAL}"
+STATS_PORT="22222"
+STATS_INTERVAL="30000"

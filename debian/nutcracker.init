@@ -29,6 +29,9 @@ if [ -f /etc/default/nutcracker ]; then
         . /etc/default/nutcracker
 fi
 
+[ -z ${STATS_PORT} ] && STATS_PORT="22222"
+[ -z ${STATS_INTERVAL} ] && STATS_INTERVAL="30000"
+
 DAEMON_OPTS="-d -s ${STATS_PORT} -i ${STATS_INTERVAL} -c ${CONF_FILE} -p ${PIDFILE} -o ${LOGFILE}"
 
 

@@ -1,6 +1,7 @@
-# Set the ulimit variable if you need defaults (1024) to change.
-#  Example: ULIMIT="-n 4096"
-#ULIMIT="-n 4096"
+# Uncomment to set your own file descriptors limit (ulimit -n)
+# (useful for higher concurrency)
+#  Default: 1024
+#MAX_FDS="4096"
 
 STATS_PORT="22222"
 STATS_INTERVAL="30000"

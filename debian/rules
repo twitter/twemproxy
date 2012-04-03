@@ -1,6 +1,6 @@
 #!/usr/bin/make -f
 %:
-	dh $@
+	dh $@ --with autoreconf
 
 override_dh_clean:
 	rm -rf contrib/yaml-0.1.4/*

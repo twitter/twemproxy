@@ -3,7 +3,7 @@ Maintainer: Jean Baptiste Favre <debian@jbfavre.org>
 Section: net
 Priority: optional
 Standards-Version: 0.1.16
-Build-Depends: debhelper (>= 7), build-essential, dh-autoreconf
+Build-Depends: debhelper (>= 7), build-essential, dh-autoreconf, hardening-wrapper
 
 Package: nutcracker
 Architecture: any

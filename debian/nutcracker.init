@@ -22,15 +22,13 @@ PIDFILE=${RUNDIR}/${NAME}.pid
 LOGDIR=/var/log/${NAME}
 LOGFILE=${LOGDIR}/${NAME}.log
 CONF_FILE=/etc/nutcracker.conf
-
+STATS_PORT=22222
+STATS_INTERVAL=30000
 
 # Include nutcracker defaults if available
 if [ -f /etc/default/nutcracker ]; then
         . /etc/default/nutcracker
 fi
-
-[ -z ${STATS_PORT} ] && STATS_PORT="22222"
-[ -z ${STATS_INTERVAL} ] && STATS_INTERVAL="30000"
 
 DAEMON_OPTS="-d -s ${STATS_PORT} -i ${STATS_INTERVAL} -c ${CONF_FILE} -p ${PIDFILE} -o ${LOGFILE}"
 
@@ -55,10 +53,10 @@ case "$1" in
     start)
 	echo -n "Starting ${DESC}: "
         test_config
-        # Check if the ULIMIT is set in /etc/default/nginx
-        if [ -n "${ULIMIT}" ]; then
-            # Set the ulimits
-            ulimit ${ULIMIT}
+        # Check if the MAX_FDS limit is set in /etc/default/nutcracker
+        if [ -n "${MAX_FDS}" ]; then
+            # Set the MAX_FDS limit
+            ulimit -n ${MAX_FDS}
         fi
         mkdir -p ${LOGDIR}
 	touch ${LOGFILE}

@@ -32,6 +32,7 @@ fi
 
 DAEMON_OPTS="-d -s ${STATS_PORT} -i ${STATS_INTERVAL} -c ${CONF_FILE} -p ${PIDFILE} -o ${LOGFILE}"
 
+. /lib/lsb/init-functions
 
 [ -f ${CONF_FILE} ] || (echo "Please fill config file in ${CONF_FILE} and restart." && exit  0)
 

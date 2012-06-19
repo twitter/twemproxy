@@ -1,4 +1,4 @@
-# twemproxy (nutcracker) #
+# twemproxy (nutcracker) [![Build Status](https://secure.travis-ci.org/twitter/twemproxy.png)](http://travis-ci.org/twitter/twemproxy)
 
 **twemproxy** (pronounced "two-em-proxy"), aka **nutcracker** is a fast and lightweight proxy for memcached protocol. It was primarily built to reduce the connection count on the backend caching servers.
 

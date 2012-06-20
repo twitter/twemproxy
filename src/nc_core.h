@@ -66,6 +66,7 @@ struct mhdr;
 struct conf;
 struct stats;
 struct epoll_event;
+struct instance;
 
 #include <stddef.h>
 #include <stdint.h>
@@ -116,6 +117,7 @@ struct instance {
     uint16_t        stats_port;                  /* stats monitoring port */
     int             stats_interval;              /* stats aggregation interval */
     char            hostname[NC_MAXHOSTNAMELEN]; /* hostname */
+    size_t          mbuf_chunk_size;             /* mbuf chunk size */
     pid_t           pid;                         /* process id */
     char            *pid_filename;               /* pid filename */
     unsigned        pidfile:1;                   /* pid file created? */

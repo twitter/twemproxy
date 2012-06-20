@@ -97,7 +97,7 @@ mbuf_get(void)
     mbuf->start = buf;
     mbuf->end = buf + mbuf_offset;
 
-    ASSERT(mbuf->end - mbuf->start == mbuf_offset);
+    ASSERT(mbuf->end - mbuf->start == (int)mbuf_offset);
     ASSERT(mbuf->start < mbuf->end);
 
     mbuf->pos = mbuf->start;
@@ -274,7 +274,7 @@ mbuf_init(struct instance *nci)
     mbuf_chunk_size = nci->mbuf_chunk_size;
     mbuf_offset = mbuf_chunk_size - MBUF_HSIZE;
 
-    log_debug(LOG_DEBUG, "mbuf hsize %d chunk size %zu offset %zu length %d",
+    log_debug(LOG_DEBUG, "mbuf hsize %d chunk size %zu offset %zu length %zu",
               MBUF_HSIZE, mbuf_chunk_size, mbuf_offset, mbuf_offset);
 }
 

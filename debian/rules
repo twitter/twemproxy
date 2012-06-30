@@ -1,0 +1,17 @@
+#!/usr/bin/make -f
+
+DEB_BUILD_HARDENING=1
+export DEB_BUILD_HARDENING
+
+CPPFLAGS:=$(shell dpkg-buildflags --get CPPFLAGS)
+CFLAGS:=$(shell dpkg-buildflags --get CFLAGS)
+CXXFLAGS:=$(shell dpkg-buildflags --get CXXFLAGS)
+LDFLAGS:=$(shell dpkg-buildflags --get LDFLAGS)
+
+
+%:
+	dh $@ --with autoreconf
+
+override_dh_clean:
+	rm -rf contrib/yaml-0.1.4/*
+	dh_clean

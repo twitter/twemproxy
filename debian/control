@@ -1,0 +1,13 @@
+Source: nutcracker
+Maintainer: Jean Baptiste Favre <debian@jbfavre.org>
+Section: net
+Priority: optional
+Standards-Version: 0.1.16
+Build-Depends: debhelper (>= 7), build-essential, dh-autoreconf, hardening-wrapper
+
+Package: nutcracker
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: twemproxy (pronounced "two-em-proxy"), aka nutcracker
+ is a fast and lightweight proxy for memcached protocol.
+ It was primarily built to reduce the connection count on the backend caching servers.

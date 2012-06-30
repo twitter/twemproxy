@@ -1,0 +1,5 @@
+nutcracker (0.1.16-1) UNRELEASED; urgency=low
+
+  * Initial release. (Closes: #XXXXXX)
+
+ -- Jean Baptiste Favre <debian@jbfavre.org>  Fri, 30 Mar 2012 11:26:28 +0200

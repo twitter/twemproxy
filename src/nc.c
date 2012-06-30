@@ -39,6 +39,10 @@
 
 #define NC_PID_FILE         NULL
 
+#define NC_MBUF_SIZE        MBUF_SIZE
+#define NC_MBUF_MIN_SIZE    MBUF_MIN_SIZE
+#define NC_MBUF_MAX_SIZE    MBUF_MAX_SIZE
+
 static int show_help;
 static int show_version;
 static int test_conf;
@@ -55,10 +59,11 @@ static struct option long_options[] = {
     { "stats-port",     required_argument,  NULL,   's' },
     { "stats-interval", required_argument,  NULL,   'i' },
     { "pid-file",       required_argument,  NULL,   'p' },
+    { "mbuf-size",      required_argument,  NULL,   'm' },
     { NULL,             0,                  NULL,    0  }
 };
 
-static char short_options[] = "hVtdv:o:c:s:i:p:";
+static char short_options[] = "hVtdv:o:c:s:i:p:m:";
 
 static rstatus_t
 nc_daemonize(int dump_core)
@@ -184,7 +189,7 @@ nc_show_usage(void)
     log_stderr(
         "Usage: nutcracker [-?hVdt] [-v verbosity level] [-o output file]" CRLF
         "                  [-c conf file] [-s stats port] [-i stats interval]" CRLF
-        "                  [-p pid file]" CRLF
+        "                  [-p pid file] [-m mbuf size]" CRLF
         "" CRLF
         "Options:" CRLF
         "  -h, --help             : this help" CRLF
@@ -197,11 +202,13 @@ nc_show_usage(void)
         "  -s, --stats-port=N     : set stats monitoring port (default: %d)" CRLF
         "  -i, --stats-interval=N : set stats aggregation interval in msec (default: %d msec)" CRLF
         "  -p, --pid-file=S       : set pid file (default: %s)" CRLF
+        "  -m, --mbuf-size=N      : set size of mbuf chunk in bytes (default: %d bytes)" CRLF
         "",
         NC_LOG_DEFAULT, NC_LOG_MIN, NC_LOG_MAX,
         NC_LOG_PATH != NULL ? NC_LOG_PATH : "stderr",
         NC_CONF_PATH, NC_STATS_PORT, NC_STATS_INTERVAL,
-        NC_PID_FILE != NULL ? NC_PID_FILE : "off");
+        NC_PID_FILE != NULL ? NC_PID_FILE : "off",
+        NC_MBUF_SIZE);
 }
 
 static rstatus_t
@@ -266,6 +273,8 @@ nc_set_default_options(struct instance *nci)
         nc_snprintf(nci->hostname, NC_MAXHOSTNAMELEN, "unknown");
     }
     nci->hostname[NC_MAXHOSTNAMELEN - 1] = '\0';
+
+    nci->mbuf_chunk_size = NC_MBUF_SIZE;
 
     nci->pid = (pid_t)-1;
     nci->pid_filename = NULL;
@@ -350,6 +359,22 @@ nc_get_options(int argc, char **argv, struct instance *nci)
             nci->pid_filename = optarg;
             break;
 
+        case 'm':
+            value = nc_atoi(optarg, strlen(optarg));
+            if (value <= 0) {
+                log_stderr("nutcracker: option -m requires a non-zero number");
+                return NC_ERROR;
+            }
+
+            if (value < NC_MBUF_MIN_SIZE || value > NC_MBUF_MAX_SIZE) {
+                log_stderr("nutcracker: mbuf chunk size must be between %zu and"
+                           " %zu bytes", NC_MBUF_MIN_SIZE, NC_MBUF_MAX_SIZE);
+                return NC_ERROR;
+            }
+
+            nci->mbuf_chunk_size = (size_t)value;
+            break;
+
         case '?':
             switch (optopt) {
             case 'o':
@@ -359,6 +384,7 @@ nc_get_options(int argc, char **argv, struct instance *nci)
                            optopt);
                 break;
 
+            case 'm':
             case 'v':
             case 's':
             case 'i':

@@ -45,10 +45,10 @@ struct mbuf {
 STAILQ_HEAD(mhdr, mbuf);
 
 #define MBUF_MAGIC      0xdeadbeef
+#define MBUF_MIN_SIZE   512
+#define MBUF_MAX_SIZE   65536
 #define MBUF_SIZE       16384
 #define MBUF_HSIZE      sizeof(struct mbuf)
-#define MBUF_LEN        (MBUF_SIZE - MBUF_HSIZE)
-#define MBUF_OFFSET     MBUF_LEN
 
 static inline bool
 mbuf_empty(struct mbuf *mbuf)
@@ -62,7 +62,7 @@ mbuf_full(struct mbuf *mbuf)
     return mbuf->last == mbuf->end ? true : false;
 }
 
-void mbuf_init(void);
+void mbuf_init(struct instance *nci);
 void mbuf_deinit(void);
 struct mbuf *mbuf_get(void);
 void mbuf_put(struct mbuf *mbuf);

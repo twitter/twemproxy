@@ -1,8 +1,13 @@
+2012-06-19  Manju Rajashekhar  <manj@twitter.com>
+
+    * twemproxy: version 0.1.18 release
+      command line option to set mbuf chunk size
+
 2012-05-09  Manju Rajashekhar  <manj@twitter.com>
 
     * twemproxy: version 0.1.17 release
-	  use _exit(0) instead of exit(0) when daemonizing
-	  use loga instead of log_stderr in nc_stacktrace
+      use _exit(0) instead of exit(0) when daemonizing
+      use loga instead of log_stderr in nc_stacktrace
 
 2012-02-09  Manju Rajashekhar  <manj@twitter.com>
 

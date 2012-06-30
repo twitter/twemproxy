@@ -1,4 +1,4 @@
-# twemproxy (nutcracker) #
+# twemproxy (nutcracker) [![Build Status](https://secure.travis-ci.org/twitter/twemproxy.png)](http://travis-ci.org/twitter/twemproxy)
 
 **twemproxy** (pronounced "two-em-proxy"), aka **nutcracker** is a fast and lightweight proxy for memcached protocol. It was primarily built to reduce the connection count on the backend caching servers.
 
@@ -43,7 +43,7 @@ To build nutcracker from source with _debug logs enabled_ and _assertions disabl
 
     Usage: nutcracker [-?hVdt] [-v verbosity level] [-o output file]
                       [-c conf file] [-s stats port] [-i stats interval]
-                      [-p pid file]
+                      [-p pid file] [-m mbuf size]
 
     Options:
       -h, --help             : this help
@@ -56,6 +56,7 @@ To build nutcracker from source with _debug logs enabled_ and _assertions disabl
       -s, --stats-port=N     : set stats monitoring port (default: 22222)
       -i, --stats-interval=N : set stats aggregation interval in msec (default: 30000 msec)
       -p, --pid-file=S       : set pid file (default: off)
+      -m, --mbuf-size=N      : set size of mbuf chunk in bytes (default: 16384 bytes)
 
 ## Configuration ##
 

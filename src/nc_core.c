@@ -130,7 +130,7 @@ core_start(struct instance *nci)
 {
     struct context *ctx;
 
-    mbuf_init();
+    mbuf_init(nci);
     msg_init();
     conn_init();
 

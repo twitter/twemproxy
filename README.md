@@ -147,7 +147,7 @@ https://github.com/twitter/twemproxy/issues
 
 ## Contributors ##
 
-* Manju Rajashekhar (@manju)
+* Manju Rajashekhar ([@manju](https://twitter.com/manju))
 
 ## License ##
 

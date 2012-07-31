@@ -21,7 +21,12 @@
 
 #include <sys/types.h>
 #include <sys/socket.h>
+#ifdef NC_HAVE_EPOLL
 #include <sys/epoll.h>
+#endif
+#ifdef NC_HAVE_KQUEUE
+#include <sys/event.h>
+#endif
 #include <netinet/in.h>
 
 #include <nc_core.h>
@@ -777,6 +782,7 @@ stats_loop(void *arg)
     int n;
 
     for (;;) {
+#ifdef NC_HAVE_EPOLL
         n = epoll_wait(st->ep, &st->event, 1, st->interval);
         if (n < 0) {
             if (errno == EINTR) {
@@ -786,7 +792,20 @@ stats_loop(void *arg)
                       st->ep, st->sd, strerror(errno));
             break;
         }
-
+#endif
+#ifdef NC_HAVE_KQUEUE
+        struct timespec ts = nc_millisec_to_timespec(st->interval);
+        n = kevent(st->kq, &(st->changes), st->n_changes, &(st->kevents), 1, &ts);
+        st->n_changes = 0;
+        if (n < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            log_error("kevent on kq %d with event m %d failed: %s",
+                      st->kq, st->sd, strerror(errno));
+            break;
+        }
+#endif
         /* aggregate stats from shadow (b) -> sum (c) */
         stats_aggregate(st);
 
@@ -847,7 +866,6 @@ static rstatus_t
 stats_start_aggregator(struct stats *st)
 {
     rstatus_t status;
-    struct epoll_event ev;
 
     if (!stats_enabled) {
         return NC_OK;
@@ -857,6 +875,9 @@ stats_start_aggregator(struct stats *st)
     if (status != NC_OK) {
         return status;
     }
+
+#ifdef NC_HAVE_EPOLL
+    struct epoll_event ev;
 
     st->ep = epoll_create(10);
     if (st->ep < 0) {
@@ -873,6 +894,25 @@ stats_start_aggregator(struct stats *st)
                   strerror(errno));
         return NC_ERROR;
     }
+#endif
+#ifdef NC_HAVE_KQUEUE
+    struct kevent *ev = &(st->changes);
+
+    /* Initialize the kernel queue */
+    if ((st->kq = kqueue()) == -1) {
+        log_error("kernel queue create failed: %s", st->kq, strerror(errno));
+        return NC_ERROR;
+    }
+
+    memset(ev, 0, sizeof(struct kevent));
+
+    ev->ident = st->sd;
+    ev->filter = EVFILT_READ;
+    ev->flags = EV_ADD | EV_CLEAR;
+ 
+    st->n_changes = 1;
+
+#endif
 
     status = pthread_create(&st->tid, NULL, stats_loop, st);
     if (status < 0) {
@@ -891,7 +931,12 @@ stats_stop_aggregator(struct stats *st)
     }
 
     close(st->sd);
+#ifdef NC_HAVE_EPOLL
     close(st->ep);
+#endif
+#ifdef NC_HAVE_KQUEUE
+    close(st->kq);
+#endif
 }
 
 struct stats *
@@ -921,7 +966,13 @@ stats_create(uint16_t stats_port, char *stats_ip, int stats_interval,
     array_null(&st->sum);
 
     st->tid = (pthread_t) -1;
+#ifdef NC_HAVE_EPOLL
     st->ep = -1;
+#endif
+#ifdef NC_HAVE_KQUEUE
+    st->kq = -1;
+    st->n_changes = 0;
+#endif
     st->sd = -1;
 
     string_set_text(&st->service_str, "service");

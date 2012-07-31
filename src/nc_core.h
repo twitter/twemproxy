@@ -40,6 +40,12 @@
 # define NC_STATS 0
 #endif
 
+#ifdef HAVE_EPOLL
+#define NC_HAVE_EPOLL 1
+#elif HAVE_KQUEUE
+#define NC_HAVE_KQUEUE 1
+#endif
+
 #ifdef HAVE_LITTLE_ENDIAN
 # define NC_LITTLE_ENDIAN 1
 #endif
@@ -102,12 +108,21 @@ struct context {
 
     struct array       pool;        /* server_pool[] */
 
+#ifdef NC_HAVE_EPOLL
     int                ep;          /* epoll device */
+    struct epoll_event *event;      /* epoll event */
+#endif
+#ifdef NC_HAVE_KQUEUE
+    int                kq;          /* kernel queue */
+    int                n_changes;
+    struct kevent      *changes;
+    struct kevent      *kevents;
+#endif
     int                nevent;      /* # epoll event */
     int                max_timeout; /* epoll wait max timeout in msec */
     int                timeout;     /* epoll wait timeout in msec */
-    struct epoll_event *event;      /* epoll event */
 };
+
 
 struct instance {
     struct context  *ctx;                        /* active context */

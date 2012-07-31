@@ -1194,7 +1194,7 @@ conf_validate_pool(struct conf *cf, struct conf_pool *cp)
     }
 
     if (cp->item_size_max == CONF_UNSET_NUM) {
-	cp->item_size_max = CONF_DEFAULT_ITEM_SIZE_MAX;
+        cp->item_size_max = CONF_DEFAULT_ITEM_SIZE_MAX;
     }
 
     cp->client_connections = CONF_DEFAULT_CLIENT_CONNECTIONS;

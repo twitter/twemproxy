@@ -449,7 +449,11 @@ nc_resolve_inet(struct string *name, int port, struct sockinfo *si)
     ASSERT(nc_valid_port(port));
 
     memset(&hints, 0, sizeof(hints));
+#ifdef AI_NUMERIC_SERV
     hints.ai_flags = AI_NUMERICSERV;
+#else
+    hints.ai_flags = AI_PASSIVE;
+#endif
     hints.ai_family = AF_UNSPEC;     /* AF_INET or AF_INET6 */
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_protocol = 0;
@@ -619,4 +623,15 @@ nc_unresolve_desc(int sd)
     }
 
     return nc_unresolve_addr(addr, addrlen);
+}
+
+struct timespec
+nc_millisec_to_timespec (int n_millisec)
+{
+    struct timeval tv = {n_millisec/1000LL, (n_millisec%1000LL)*1000LL};
+    struct timespec ts;
+
+    TIMEVAL_TO_TIMESPEC(&tv, &ts);         
+
+    return ts;
 }

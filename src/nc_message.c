@@ -517,7 +517,7 @@ msg_parse(struct context *ctx, struct conn *conn, struct msg *msg)
         break;
     }
 
-    return conn->err != 0 ? NC_ERROR : status;
+    return status;
 }
 
 static rstatus_t

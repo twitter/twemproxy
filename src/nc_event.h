@@ -29,11 +29,11 @@
 int event_init(struct context *ctx, int size);
 void event_deinit(struct context *ctx);
 
-int event_add_out(int ep, struct conn *c);
-int event_del_out(int ep, struct conn *c);
-int event_add_conn(int ep, struct conn *c);
-int event_del_conn(int ep, struct conn *c);
+int event_add_out(struct context *ctx, struct conn *c);
+int event_del_out(struct context *ctx, struct conn *c);
+int event_add_conn(struct context *ctx, struct conn *c);
+int event_del_conn(struct context *ctx, struct conn *c);
 
-int event_wait(int ep, struct epoll_event *event, int nevent, int timeout);
+int event_wait(struct context *ctx);
 
 #endif

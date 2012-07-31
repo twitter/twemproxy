@@ -1,3 +1,8 @@
+2012-07-31  Manju Rajashekhar  <manj@twitter.com>
+
+    * twemproxy: version 0.1.19 release
+      close server connection on a stray reponse (yashh, bmatheny)
+
 2012-06-19  Manju Rajashekhar  <manj@twitter.com>
 
     * twemproxy: version 0.1.18 release

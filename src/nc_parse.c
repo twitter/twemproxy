@@ -289,6 +289,10 @@ parse_request(struct msg *r)
         case SW_KEY:
             if (ch == ' ' || ch == CR) {
                 if ((p - r->key_start) > PARSE_MAX_KEY_LENGTH) {
+                    log_error("req %"PRIu64" of type %d has key with prefix "
+                              "'%.*s...' and length %d that exceeds maximum "
+                              "key length", r->id, r->type, 16, r->key_start,
+                              p - r->key_start);
                     goto error;
                 }
                 r->key_end = p - 1;
@@ -890,6 +894,10 @@ parse_response(struct msg *r)
         case SW_KEY:
             if (ch == ' ') {
                 if ((p - r->key_start) > PARSE_MAX_KEY_LENGTH) {
+                    log_error("req %"PRIu64" of type %d has key with prefix "
+                              "'%.*s...' and length %d that exceeds maximum "
+                              "key length", r->id, r->type, 16, r->key_start,
+                              p - r->key_start);
                     goto error;
                 }
                 r->key_end = p - 1;

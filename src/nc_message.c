@@ -224,6 +224,7 @@ done:
     msg->key_start = NULL;
     msg->key_end = NULL;
     msg->vlen = 0;
+    msg->vlen_rem = 0;
     msg->end = NULL;
     msg->frag_id = 0;
 

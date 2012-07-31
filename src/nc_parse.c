@@ -393,7 +393,7 @@ parse_request(struct msg *r)
                 }
                 /* vlen_start <- p */
                 r->token = p;
-                r->vlen = (uint32_t)(ch - '0');
+                r->vlen_rem = (uint32_t)(ch - '0');
                 state = SW_VLEN;
             }
 
@@ -401,7 +401,7 @@ parse_request(struct msg *r)
 
         case SW_VLEN:
             if (ch >= '0' && ch <= '9') {
-                r->vlen = r->vlen * 10 + (uint32_t)(ch - '0');
+                r->vlen_rem = r->vlen_rem * 10 + (uint32_t)(ch - '0');
             } else if (r->cas) {
                 if (ch != ' ') {
                     goto error;
@@ -409,11 +409,13 @@ parse_request(struct msg *r)
                 /* vlen_end <- p - 1 */
                 p = p - 1; /* go back by 1 byte */
                 r->token = NULL;
+                r->vlen = r->vlen_rem;
                 state = SW_SPACES_BEFORE_CAS;
             } else if (ch == ' ' || ch == CR) {
                 /* vlen_end <- p - 1 */
                 p = p - 1; /* go back by 1 byte */
                 r->token = NULL;
+                r->vlen = r->vlen_rem;
                 state = SW_RUNTO_CRLF;
             } else {
                 goto error;
@@ -463,10 +465,10 @@ parse_request(struct msg *r)
             break;
 
         case SW_VAL:
-            m = p + r->vlen;
+            m = p + r->vlen_rem;
             if (m >= b->last) {
-                ASSERT(r->vlen >= (uint32_t)(b->last - p));
-                r->vlen -= (uint32_t)(b->last - p);
+                ASSERT(r->vlen_rem >= (uint32_t)(b->last - p));
+                r->vlen_rem -= (uint32_t)(b->last - p);
                 m = b->last - 1;
                 p = m; /* move forward by vlen bytes */
                 break;
@@ -932,7 +934,7 @@ parse_response(struct msg *r)
                 }
                 /* vlen_start <- p */
                 r->token = p;
-                r->vlen = (uint32_t)(ch - '0');
+                r->vlen_rem = (uint32_t)(ch - '0');
                 state = SW_VLEN;
             }
 
@@ -940,11 +942,12 @@ parse_response(struct msg *r)
 
         case SW_VLEN:
             if (ch >= '0' && ch <= '9') {
-                r->vlen = r->vlen * 10 + (uint32_t)(ch - '0');
+                r->vlen_rem = r->vlen_rem * 10 + (uint32_t)(ch - '0');
             } else if (ch == ' ' || ch == CR) {
                 /* vlen_end <- p - 1 */
                 p = p - 1; /* go back by 1 byte */
                 r->token = NULL;
+                r->vlen = r->vlen_rem;
                 state = SW_RUNTO_CRLF;
             } else {
                 goto error;
@@ -966,10 +969,10 @@ parse_response(struct msg *r)
             break;
 
         case SW_VAL:
-            m = p + r->vlen;
+            m = p + r->vlen_rem;
             if (m >= b->last) {
-                ASSERT(r->vlen >= (uint32_t)(b->last - p));
-                r->vlen -= (uint32_t)(b->last - p);
+                ASSERT(r->vlen_rem >= (uint32_t)(b->last - p));
+                r->vlen_rem -= (uint32_t)(b->last - p);
                 m = b->last - 1;
                 p = m; /* move forward by vlen bytes */
                 break;

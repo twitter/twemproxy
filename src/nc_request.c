@@ -357,6 +357,8 @@ req_recv_next(struct context *ctx, struct conn *conn, bool alloc)
 static bool
 req_filter(struct context *ctx, struct conn *conn, struct msg *msg)
 {
+    struct server_pool *pool = conn->owner;
+
     ASSERT(conn->client && !conn->proxy);
 
     if (msg_empty(msg)) {
@@ -379,6 +381,19 @@ req_filter(struct context *ctx, struct conn *conn, struct msg *msg)
         conn->recv_ready = 0;
         req_put(msg);
         return true;
+    }
+
+    /* Handle excessively large request payloads */
+    if (msg->vlen > pool->item_size_max) {
+        ASSERT(conn->rmsg == NULL);
+        log_debug(LOG_ERR, "filter size %"PRIu32" > max %"PRIu32" req %"PRIu64" from c %d",
+                msg->vlen, pool->item_size_max, msg->id, conn->sd);
+        conn->done = 1;
+        req_put(msg);
+        return true;
+    } else {
+        log_debug(LOG_DEBUG, "filter size %"PRIu32" req %"PRIu64" from c %d",
+                msg->vlen, msg->id, conn->sd);
     }
 
     return false;

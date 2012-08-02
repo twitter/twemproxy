@@ -26,6 +26,7 @@ To enable debug logging, you have to compile nutcracker with logging enabled usi
 ## Liveness
 
 Failures are a fact of life, especially when things are distributed. To be resilient against failures, it is recommended that you configure the following keys for every server pool. Eg:
+
     resilient_pool:
       auto_eject_hosts: true
       server_retry_timeout: 30000

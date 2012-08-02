@@ -25,11 +25,11 @@ To enable debug logging, you have to compile nutcracker with logging enabled usi
 
 ## Liveness
 
-Failures are a fact of life, especially when things are distributed. To be resilient against failures, it is recommended that you configure the following keys for every server pool
+Failures are a fact of life, especially when things are distributed. To be resilient against failures, it is recommended that you configure the following keys for every server pool. Eg:
     resilient_pool:
-        auto_eject_hosts: true
-        server_retry_timeout: 30000
-        server_failure_limit: 3
+      auto_eject_hosts: true
+      server_retry_timeout: 30000
+      server_failure_limit: 3
 
 Enabling `auto_eject_hosts:` ensures that a dead server can be ejected out of the hash ring after `server_failure_limit:` consecutive failures have been encountered on that said server. A non-zero `server_retry_timeout:` ensures that we don't incorrectly mark a server as dead forever especially when the failures were really transient. The combination of `server_retry_timeout:` and `server_failure_limit:` controls the tradeoff between resiliency to permanent and transient failures.
 
@@ -40,10 +40,10 @@ To ensure that requests always succeed in the face of server ejections (`auto_ej
 It is always a good idea to configure nutcracker `timeout:` for every server pool, rather than purely relying on client-side timeouts. Eg:
 
     resilient_pool_with_timeout:
-        auto_eject_hosts: true
-        server_retry_timeout: 30000
-        server_failure_limit: 3
-        timeout: 400
+      auto_eject_hosts: true
+      server_retry_timeout: 30000
+      server_failure_limit: 3
+      timeout: 400
 
 Relying only on client-side timeouts has the adverse effect of the original request having timedout on the client to proxy connection, but still pending and outstanding on the proxy to server connection. This further gets exacerbated when client retries the original request.
 

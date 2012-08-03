@@ -36,7 +36,7 @@ Enabling `auto_eject_hosts:` ensures that a dead server can be ejected out of th
 
 To ensure that requests always succeed in the face of server ejections (`auto_eject_hosts:` is enabled), some form of retry must be implemented at the client layer since nutcracker itself does not retry a request. This client-side retry count must be greater than `server_failure_limit:` value, which ensures that the original request has a chance to make it to a live server.
 
-# Timeout
+## Timeout
 
 It is always a good idea to configure nutcracker `timeout:` for every server pool, rather than purely relying on client-side timeouts. Eg:
 
@@ -50,13 +50,13 @@ Relying only on client-side timeouts has the adverse effect of the original requ
 
 By default, nutcracker waits indefinitely for any request sent to the server. However, when `timeout:` key is configured, a requests for which no response is received from the server in `timeout:` msec is timedout and an error response `SERVER_ERROR Connection timed out\r\n` is sent back to the client.
 
-# Error response
+## Error response
 
 Whenever a request encounters failure on a server we usually send a response with a general form `SERVER_ERROR <errno description>\r\n` to the client. For example, when a server is down, this error response is usually `SERVER_ERROR Connection refused\r\n` or `SERVER_ERROR Connection reset by peer\r\n` and when the request timedout, the response is `SERVER_ERROR Connection timed out\r\n`.
 
 Seeing a `SERVER_ERROR` response should be considered as a transient failure by a client which makes the original request an ideal candidate for a retry.
 
-# read, writev and mbuf
+## read, writev and mbuf
 
 All memory for incoming requests and outgoing responses is allocated in mbuf. Mbuf enables zero copy for requests and responses flowing through the proxy. By default an mbuf is 16K bytes in size and this value can be tuned between 512 and 65K bytes using -m or --mbuf-size=N argument. Every connection has at least one mbuf allocated to it. This means that the number of concurrent connections nutcracker can support is dependent on the mbuf size. A small mbuf allows us to handle more connections, while a large mbuf allows us to read and write more data to and from kernel socket buffers.
 

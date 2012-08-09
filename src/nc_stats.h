@@ -17,14 +17,9 @@
 
 #ifndef _NC_STATS_H_
 #define _NC_STATS_H_
-#ifdef NC_HAVE_EPOLL
-#include <sys/epoll.h>
-#endif
-#ifdef NC_HAVE_KQUEUE
-#include <sys/event.h>
-#endif
 
 #include <nc_core.h>
+#include <nc_event.h>
 
 #define STATS_POOL_CODEC(ACTION)                                                                            \
     /* client behavior */                                                                                   \
@@ -105,16 +100,8 @@ struct stats {
 
     pthread_t           tid;            /* stats aggregator thread */
     int                 sd;             /* stats descriptor */
-#ifdef NC_HAVE_EPOLL
-    int                 ep;             /* epoll device */
-    struct epoll_event  event;          /* epoll event */
-#endif
-#ifdef NC_HAVE_KQUEUE
-    int                 kq;
-    struct kevent       changes;
-    struct kevent       kevents;
-    int                 n_changes;
-#endif
+
+    struct evbase       *st_evb;
 
     struct string       service_str;    /* service string */
     struct string       service;        /* service */

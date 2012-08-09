@@ -17,12 +17,6 @@
 
 #include <stdlib.h>
 #include <unistd.h>
-#ifdef NC_HAVE_EPOLL
-#include <sys/epoll.h>
-#endif
-#ifdef NC_HAVE_KQUEUE
-#include <sys/event.h>
-#endif
 #include <nc_core.h>
 #include <nc_event.h>
 #include <nc_conf.h>
@@ -44,16 +38,8 @@ core_ctx_create(struct instance *nci)
     ctx->id = ++ctx_id;
     ctx->cf = NULL;
     ctx->stats = NULL;
+    ctx->evb = NULL;
     array_null(&ctx->pool);
-#ifdef NC_HAVE_EPOLL
-    ctx->ep = -1;
-    ctx->event = NULL;
-#endif
-#ifdef NC_HAVE_KQUEUE
-    ctx->kq = -1;
-    ctx->changes = ctx->kevents = NULL;
-#endif
-    ctx->nevent = EVENT_SIZE_HINT;
     ctx->max_timeout = nci->stats_interval;
     ctx->timeout = ctx->max_timeout;
 
@@ -83,8 +69,8 @@ core_ctx_create(struct instance *nci)
     }
 
     /* initialize event handling for client, proxy and server */
-    status = event_init(ctx, EVENT_SIZE_HINT);
-    if (status != NC_OK) {
+    ctx->evb = evbase_create(NC_EVENT_SIZE, &core_core);
+    if (ctx->evb == NULL) {
         stats_destroy(ctx->stats);
         server_pool_deinit(&ctx->pool);
         conf_destroy(ctx->cf);
@@ -96,7 +82,7 @@ core_ctx_create(struct instance *nci)
     status = server_pool_preconnect(ctx);
     if (status != NC_OK) {
         server_pool_disconnect(ctx);
-        event_deinit(ctx);
+        evbase_destroy(ctx->evb);
         stats_destroy(ctx->stats);
         server_pool_deinit(&ctx->pool);
         conf_destroy(ctx->cf);
@@ -108,7 +94,7 @@ core_ctx_create(struct instance *nci)
     status = proxy_init(ctx);
     if (status != NC_OK) {
         server_pool_disconnect(ctx);
-        event_deinit(ctx);
+        evbase_destroy(ctx->evb);
         stats_destroy(ctx->stats);
         server_pool_deinit(&ctx->pool);
         conf_destroy(ctx->cf);
@@ -127,7 +113,7 @@ core_ctx_destroy(struct context *ctx)
     log_debug(LOG_VVERB, "destroy ctx %p id %"PRIu32"", ctx, ctx->id);
     proxy_deinit(ctx);
     server_pool_disconnect(ctx);
-    event_deinit(ctx);
+    evbase_destroy(ctx->evb);
     stats_destroy(ctx->stats);
     server_pool_deinit(&ctx->pool);
     conf_destroy(ctx->cf);
@@ -215,7 +201,7 @@ core_close(struct context *ctx, struct conn *conn)
               conn->eof, conn->done, conn->recv_bytes, conn->send_bytes,
               conn->err ? ':' : ' ', conn->err ? strerror(conn->err) : "");
 
-    status = event_del_conn(ctx, conn);
+    status = event_del_conn(ctx->evb, conn);
     if (status < 0) {
         log_warn("event del conn %c %d failed, ignored: %s",
                  type, conn->sd, strerror(errno));
@@ -285,25 +271,34 @@ core_timeout(struct context *ctx)
     }
 }
 
-#ifdef NC_HAVE_EPOLL
 static void
-core_core(struct context *ctx, struct conn *conn, uint32_t events)
+core_core(void *arg, uint32_t evflags)
 {
     rstatus_t status;
+    struct conn *conn = (struct conn *) arg;
+    struct context *ctx;
 
-    log_debug(LOG_VVERB, "event %04"PRIX32" on %c %d", events,
+    
+
+    if ((conn->proxy) || (conn->client)) {
+        ctx = ((struct server_pool *) (conn -> owner)) -> ctx;
+    } else { 
+        ctx = ((struct server_pool *) (((struct server *) (conn -> owner)) -> owner )) -> ctx;
+    }
+
+    log_debug(LOG_VVERB, "event %04"PRIX32" on %c %d", evflags,
               conn->client ? 'c' : (conn->proxy ? 'p' : 's'), conn->sd);
 
-    conn->events = events;
+    conn->events = evflags;
 
     /* error takes precedence over read | write */
-    if (events & EPOLLERR) {
+    if (evflags & EV_ERR) {
         core_error(ctx, conn);
         return;
     }
 
     /* read takes precedence over write */
-    if (events & (EPOLLIN | EPOLLHUP)) {
+    if (evflags & EV_READ) {
         status = core_recv(ctx, conn);
         if (status != NC_OK || conn->done || conn->err) {
             core_close(ctx, conn);
@@ -311,7 +306,7 @@ core_core(struct context *ctx, struct conn *conn, uint32_t events)
         }
     }
 
-    if (events & EPOLLOUT) {
+    if (evflags & EV_WRITE) {
         status = core_send(ctx, conn);
         if (status != NC_OK || conn->done || conn->err) {
             core_close(ctx, conn);
@@ -319,79 +314,15 @@ core_core(struct context *ctx, struct conn *conn, uint32_t events)
         }
     }
 }
-#endif
-#ifdef NC_HAVE_KQUEUE
-static void
-core_core(struct context *ctx, struct conn *conn, struct kevent *event)
-{
-    rstatus_t status;
-
-    log_debug(LOG_VVERB, "event %04"PRIX16" on %c %d", event->filter,
-              conn->client ? 'c' : (conn->proxy ? 'p' : 's'), conn->sd);
-   
-     conn->events = (uint32_t) event->filter;
-
-    /* error takes precedence over read | write */
-    if (event->flags & EV_ERROR){ 
-      /*
-      * Error messages that can happen, when a delete fails.
-      *   EBADF happens when the file descriptor has been
-      *   closed,
-      *   ENOENT when the file descriptor was closed and       
-      *   then reopened.
-      *   EINVAL for some reasons not understood; EINVAL
-      *   should not be returned ever; but FreeBSD does :-\
-      * An error is also indicated when a callback deletes
-      * an event we are still processing.  In that case
-      * the data field is set to ENOENT.
-      */
-        if (event->data == EBADF ||
-            event->data == EINVAL ||
-            event->data == ENOENT)
-            return;
-        errno = event->data;
-        core_error(ctx, conn);
-        return;
-    }
-
-    /* read takes precedence over write */
-    if (event->filter == EVFILT_READ) {
-        status = core_recv(ctx, conn);
-        if (status != NC_OK || conn->done || conn->err) {
-            core_close(ctx, conn);
-            return;
-        }
-    }
-
-    if (event->filter == EVFILT_WRITE) {
-        status = core_send(ctx, conn);
-        if (status != NC_OK || conn->done || conn->err) {
-            core_close(ctx, conn);
-            return;
-        }
-    }
-}
-#endif
 
 rstatus_t
 core_loop(struct context *ctx)
 {
     int i, nsd;
 
-    nsd = event_wait(ctx);
+    nsd = event_wait(ctx->evb, ctx->timeout);
     if (nsd < 0) {
         return nsd;
-    }
-
-    for (i = 0; i < nsd; i++) {
-#ifdef NC_HAVE_EPOLL
-        struct epoll_event *ev = &ctx->event[i];
-        core_core(ctx, ev->data.ptr, ev->events);
-#endif
-#ifdef NC_HAVE_KQUEUE
-        struct kevent *ev = &ctx->kevents[i];
-        core_core(ctx, (struct conn *) ev->udata, ev);
-#endif
     }
 
     core_timeout(ctx);

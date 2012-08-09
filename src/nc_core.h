@@ -107,20 +107,9 @@ struct context {
     struct stats       *stats;      /* stats */
 
     struct array       pool;        /* server_pool[] */
-
-#ifdef NC_HAVE_EPOLL
-    int                ep;          /* epoll device */
-    struct epoll_event *event;      /* epoll event */
-#endif
-#ifdef NC_HAVE_KQUEUE
-    int                kq;          /* kernel queue */
-    int                n_changes;
-    struct kevent      *changes;
-    struct kevent      *kevents;
-#endif
-    int                nevent;      /* # epoll event */
+    struct evbase      *evb;
     int                max_timeout; /* epoll wait max timeout in msec */
-    int                timeout;     /* epoll wait timeout in msec */
+    int                timeout;
 };
 
 
@@ -142,5 +131,7 @@ struct instance {
 struct context *core_start(struct instance *nci);
 void core_stop(struct context *ctx);
 rstatus_t core_loop(struct context *ctx);
+static void core_core(void *arg, uint32_t evflags);
+
 
 #endif

@@ -28,7 +28,7 @@ nutcracker_SOURCES =			\
 	nc_response.c			\
 	nc_mbuf.c nc_mbuf.h		\
 	nc_parse.c nc_parse.h		\
-	nc_event.c nc_event.h		\
+	nc_epoll.c nc_kqueue.c nc_event.h		\
 	nc_conf.c nc_conf.h		\
 	nc_stats.c nc_stats.h		\
 	nc_signal.c nc_signal.h		\

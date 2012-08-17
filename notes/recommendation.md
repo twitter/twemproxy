@@ -52,7 +52,16 @@ By default, nutcracker waits indefinitely for any request sent to the server. Ho
 
 ## Error response
 
-Whenever a request encounters failure on a server we usually send a response with a general form `SERVER_ERROR <errno description>\r\n` to the client. For example, when a server is down, this error response is usually `SERVER_ERROR Connection refused\r\n` or `SERVER_ERROR Connection reset by peer\r\n` and when the request timedout, the response is `SERVER_ERROR Connection timed out\r\n`.
+Whenever a request encounters failure on a server we usually send to the client a response with the general form `SERVER_ERROR <errno description>\r\n`
+
+For example, when a server is down, this error response is usually:
+
++ `SERVER_ERROR Connection refused\r\n` or,
++ `SERVER_ERROR Connection reset by peer\r\n`
+
+When the request timedout, the response is usually:
+
++ `SERVER_ERROR Connection timed out\r\n`
 
 Seeing a `SERVER_ERROR` response should be considered as a transient failure by a client which makes the original request an ideal candidate for a retry.
 

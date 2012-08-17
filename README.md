@@ -145,6 +145,15 @@ Nutcracker exposes stats at the granularity of server pool and servers per pool 
 
 Logging in nutcracker is only available when nutcracker is built with logging enabled. By default logs are written to stderr. Nutcracker can also be configured to write logs to a specific file through the -o or --output command-line argument. On a running nutcracker, we can turn log levels up and down by sending it SIGTTIN and SIGTTOU signals respectively and reopen log files by sending it SIGHUP signal.
 
+## Deployment
+
+If you are deploying nutcracker in production, you might consider reading through the [recommendation document](https://github.com/twitter/twemproxy/blob/master/notes/recommendation.md) to understand the parameters you could tune in nutcracker to run it efficiently in the production environment.
+
+## Users
++ [Pinterest](http://pinterest.com/)
++ [Tumblr](https://www.tumblr.com/)
++ [Twitter](https://twitter.com/)
+
 ## Issues and Support
 
 Have a bug or a question? Please create an issue here on GitHub!

@@ -45,6 +45,7 @@
 #define CONF_DEFAULT_DIST                    DIST_KETAMA
 #define CONF_DEFAULT_TIMEOUT                 -1
 #define CONF_DEFAULT_LISTEN_BACKLOG          512
+#define CONF_DEFAULT_ITEM_SIZE_MAX           1048576        /* in bytes */
 #define CONF_DEFAULT_CLIENT_CONNECTIONS      0
 #define CONF_DEFAULT_PRECONNECT              false
 #define CONF_DEFAULT_AUTO_EJECT_HOSTS        false
@@ -76,6 +77,7 @@ struct conf_pool {
     dist_type_t        distribution;          /* distribution: */
     int                timeout;               /* timeout: */
     int                backlog;               /* backlog: */
+    int                item_size_max;         /* item_size_max: */
     int                client_connections;    /* client_connections: */
     int                preconnect;            /* preconnect: */
     int                auto_eject_hosts;      /* auto_eject_hosts: */

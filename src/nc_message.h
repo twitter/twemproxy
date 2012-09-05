@@ -75,6 +75,7 @@ struct msg {
     uint8_t          *key_start;      /* key start */
     uint8_t          *key_end;        /* key end */
     uint32_t         vlen;            /* value length */
+    uint32_t         vlen_rem;        /* value length remaining for parse phase */
     uint8_t          *end;            /* end marker */
 
     uint64_t         frag_id;         /* id of fragmented message */

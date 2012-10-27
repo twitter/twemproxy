@@ -199,17 +199,11 @@ _log_hexdump(const char *file, int line, char *data, int datalen,
     struct logger *l = &logger;
     char buf[8 * LOG_MAX_LEN];
     int i, off, len, size, errno_save;
-    va_list args;
     ssize_t n;
 
     if (l->fd < 0) {
         return;
     }
-
-    /* log format */
-    va_start(args, fmt);
-    _log(file, line, 0, fmt);
-    va_end(args);
 
     /* log hexdump */
     errno_save = errno;

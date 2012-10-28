@@ -1,7 +1,9 @@
 MAINTAINERCLEANFILES = Makefile.in
 
 AM_CPPFLAGS = -D_GNU_SOURCE -D_XOPEN_SOURCE
-AM_CPPFLAGS += -I $(top_srcdir)/src/hashkit -I $(top_srcdir)/contrib/yaml-0.1.4/include
+AM_CPPFLAGS += -I $(top_srcdir)/src/hashkit
+AM_CPPFLAGS += -I $(top_srcdir)/src/proto
+AM_CPPFLAGS += -I $(top_srcdir)/contrib/yaml-0.1.4/include
 
 AM_CFLAGS = -Wall -Wshadow
 AM_CFLAGS += -Wpointer-arith
@@ -13,7 +15,7 @@ AM_CFLAGS += -Wstrict-prototypes -Wmissing-prototypes -Wredundant-decls -Wmissin
 
 AM_LDFLAGS = -lm -lpthread -rdynamic
 
-SUBDIRS = hashkit
+SUBDIRS = hashkit proto
 
 bin_PROGRAMS = nutcracker
 
@@ -27,7 +29,6 @@ nutcracker_SOURCES =			\
 	nc_request.c			\
 	nc_response.c			\
 	nc_mbuf.c nc_mbuf.h		\
-	nc_memcache.c nc_memcache.h	\
 	nc_event.c nc_event.h		\
 	nc_conf.c nc_conf.h		\
 	nc_stats.c nc_stats.h		\
@@ -41,4 +42,5 @@ nutcracker_SOURCES =			\
 	nc.c
 
 nutcracker_LDADD = $(top_builddir)/src/hashkit/libhashkit.a
+nutcracker_LDADD += $(top_builddir)/src/proto/libproto.a
 nutcracker_LDADD += $(top_builddir)/contrib/yaml-0.1.4/src/.libs/libyaml.a

@@ -148,7 +148,8 @@ AC_CONFIG_SUBDIRS([contrib/yaml-0.1.4])
 AC_CONFIG_FILES([Makefile
                  contrib/Makefile
                  src/Makefile
-                 src/hashkit/Makefile])
+                 src/hashkit/Makefile
+                 src/proto/Makefile])
 
 # Generate the "configure" script
 AC_OUTPUT

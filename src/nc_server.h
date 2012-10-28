@@ -109,6 +109,8 @@ struct server_pool {
     int                dist_type;            /* distribution type (dist_type_t) */
     int                key_hash_type;        /* key hash type (hash_type_t) */
     hash_t             key_hash;             /* key hasher */
+    msg_parse_t        parse_req;            /* request parsing handler */
+    msg_parse_t        parse_rsp;            /* response parsing handler */
     int                timeout;              /* timeout in msec */
     int                backlog;              /* listen backlog */
     uint32_t           client_connections;   /* maximum # client connection */

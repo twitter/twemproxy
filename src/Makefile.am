@@ -27,7 +27,7 @@ nutcracker_SOURCES =			\
 	nc_request.c			\
 	nc_response.c			\
 	nc_mbuf.c nc_mbuf.h		\
-	nc_parse.c nc_parse.h		\
+	nc_memcache.c nc_memcache.h	\
 	nc_event.c nc_event.h		\
 	nc_conf.c nc_conf.h		\
 	nc_stats.c nc_stats.h		\

@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 
-#ifndef _NC_PARSE_H_
-#define _NC_PARSE_H_
+#ifndef _NC_MEMCACHE_H_
+#define _NC_MEMCACHE_H_
 
 #include <nc_core.h>
 
@@ -30,17 +30,9 @@
  * clients wouldn't need to use such long keys); the key must not include
  * control characters or whitespace.
  */
-#define PARSE_MAX_KEY_LENGTH 250
+#define MEMCACHE_MAX_KEY_LENGTH 250
 
-typedef enum parse_result {
-    PARSE_OK,                 /* parsing ok */
-    PARSE_ERROR,              /* parsing error */
-    PARSE_REPAIR,             /* more to parse -> repair parsed & unparsed data */
-    PARSE_FRAGMENT,           /* multi-get request -> fragment */
-    PARSE_AGAIN,              /* incomplete -> parse again */
-} parse_result_t;
-
-void parse_request(struct msg *r);
-void parse_response(struct msg *r);
+void memcache_parse_req(struct msg *r);
+void memcache_parse_rsp(struct msg *r);
 
 #endif

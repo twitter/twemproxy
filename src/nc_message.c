@@ -21,7 +21,6 @@
 #include <sys/uio.h>
 
 #include <nc_core.h>
-#include <nc_parse.h>
 #include <nc_server.h>
 
 #if (IOV_MAX > 128)
@@ -183,6 +182,25 @@ msg_tmo_delete(struct msg *msg)
     log_debug(LOG_VERB, "delete msg %"PRIu64" from tmo rbt", msg->id);
 }
 
+static msg_parse_t
+msg_get_parser(struct conn *conn)
+{
+    ASSERT(!conn->proxy);
+
+    if (conn->client) {
+        /* client conn is owned by the server pool */
+        struct server_pool *pool = conn->owner;
+
+        return pool->parse_req;
+    } else {
+        /* server conn is owned by the server which is owned by server pool */
+        struct server *server = conn->owner;
+        struct server_pool *pool = server->owner;
+
+        return pool->parse_rsp;
+    }
+}
+
 static struct msg *
 _msg_get(void)
 {
@@ -217,8 +235,8 @@ done:
     msg->pos = NULL;
     msg->token = NULL;
 
-    msg->parse = NULL;
-    msg->result = PARSE_OK;
+    msg->parser = NULL;
+    msg->result = MSG_PARSE_OK;
 
     msg->type = MSG_UNKNOWN;
     msg->key_start = NULL;
@@ -258,7 +276,7 @@ msg_get(struct conn *conn, bool request)
 
     msg->owner = conn;
     msg->request = request ? 1 : 0;
-    msg->parse = request ? parse_request : parse_response;
+    msg->parser = msg_get_parser(conn);
 
     log_debug(LOG_VVERB, "get msg %p id %"PRIu64" request %d owner sd %d",
               msg, msg->id, msg->request, conn->sd);
@@ -492,22 +510,22 @@ msg_parse(struct context *ctx, struct conn *conn, struct msg *msg)
         return NC_OK;
     }
 
-    msg->parse(msg);
+    msg->parser(msg);
 
     switch (msg->result) {
-    case PARSE_OK:
+    case MSG_PARSE_OK:
         status = msg_parsed(ctx, conn, msg);
         break;
 
-    case PARSE_FRAGMENT:
+    case MSG_PARSE_FRAGMENT:
         status = msg_fragment(ctx, conn, msg);
         break;
 
-    case PARSE_REPAIR:
+    case MSG_PARSE_REPAIR:
         status = msg_repair(ctx, conn, msg);
         break;
 
-    case PARSE_AGAIN:
+    case MSG_PARSE_AGAIN:
         status = NC_OK;
         break;
 

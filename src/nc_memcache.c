@@ -16,7 +16,7 @@
  */
 
 #include <nc_core.h>
-#include <nc_parse.h>
+#include <nc_memcache.h>
 
 #ifdef NC_LITTLE_ENDIAN
 
@@ -83,7 +83,7 @@
 #endif
 
 void
-parse_request(struct msg *r)
+memcache_parse_req(struct msg *r)
 {
     struct mbuf *b;
     uint8_t *p, *m;
@@ -288,7 +288,7 @@ parse_request(struct msg *r)
 
         case SW_KEY:
             if (ch == ' ' || ch == CR) {
-                if ((p - r->key_start) > PARSE_MAX_KEY_LENGTH) {
+                if ((p - r->key_start) > MEMCACHE_MAX_KEY_LENGTH) {
                     log_error("req %"PRIu64" of type %d has key with prefix "
                               "'%.*s...' and length %d that exceeds maximum "
                               "key length", r->id, r->type, 16, r->key_start,
@@ -639,9 +639,9 @@ parse_request(struct msg *r)
     if (b->last == b->end && r->token != NULL) {
         r->pos = r->token;
         r->token = NULL;
-        r->result = PARSE_REPAIR;
+        r->result = MSG_PARSE_REPAIR;
     } else {
-        r->result = PARSE_AGAIN;
+        r->result = MSG_PARSE_AGAIN;
     }
 
     log_debug(LOG_VVERB, "parsed req %"PRIu64" res %d type %d state %d "
@@ -656,7 +656,7 @@ fragment:
     r->pos = r->token;
     r->token = NULL;
     r->state = state;
-    r->result = PARSE_FRAGMENT;
+    r->result = MSG_PARSE_FRAGMENT;
 
     log_debug(LOG_VVERB, "parsed req %"PRIu64" res %d type %d state %d "
               "rpos %d of %d", r->id, r->result, r->type, r->state,
@@ -669,7 +669,7 @@ done:
     r->pos = p + 1;
     ASSERT(r->pos <= b->last);
     r->state = SW_START;
-    r->result = PARSE_OK;
+    r->result = MSG_PARSE_OK;
 
     log_debug(LOG_VVERB, "parsed req %"PRIu64" res %d type %d state %d "
               "rpos %d of %d", r->id, r->result, r->type, r->state,
@@ -678,7 +678,7 @@ done:
     return;
 
 error:
-    r->result = PARSE_ERROR;
+    r->result = MSG_PARSE_ERROR;
     r->state = state;
     errno = EINVAL;
 
@@ -687,7 +687,7 @@ error:
 }
 
 void
-parse_response(struct msg *r)
+memcache_parse_rsp(struct msg *r)
 {
     struct mbuf *b;
     uint8_t *p, *m;
@@ -893,7 +893,7 @@ parse_response(struct msg *r)
 
         case SW_KEY:
             if (ch == ' ') {
-                if ((p - r->key_start) > PARSE_MAX_KEY_LENGTH) {
+                if ((p - r->key_start) > MEMCACHE_MAX_KEY_LENGTH) {
                     log_error("req %"PRIu64" of type %d has key with prefix "
                               "'%.*s...' and length %d that exceeds maximum "
                               "key length", r->id, r->type, 16, r->key_start,
@@ -1107,9 +1107,9 @@ parse_response(struct msg *r)
     if (b->last == b->end && r->token != NULL) {
         r->pos = r->token;
         r->token = NULL;
-        r->result = PARSE_REPAIR;
+        r->result = MSG_PARSE_REPAIR;
     } else {
-        r->result = PARSE_AGAIN;
+        r->result = MSG_PARSE_AGAIN;
     }
 
     log_debug(LOG_VVERB, "parsed rsp %"PRIu64" res %d type %d state %d "
@@ -1124,7 +1124,7 @@ done:
     ASSERT(r->pos <= b->last);
     r->state = SW_START;
     r->token = NULL;
-    r->result = PARSE_OK;
+    r->result = MSG_PARSE_OK;
 
     log_debug(LOG_VVERB, "parsed rsp %"PRIu64" res %d type %d state %d "
               "rpos %d of %d", r->id, r->result, r->type, r->state,
@@ -1133,7 +1133,7 @@ done:
     return;
 
 error:
-    r->result = PARSE_ERROR;
+    r->result = MSG_PARSE_ERROR;
     r->state = state;
     errno = EINVAL;
 

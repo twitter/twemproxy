@@ -1,7 +1,16 @@
+2012-10-27  Manju Rajashekhar  <manj@twitter.com>
+
+    * twemproxy: version 0.1.20 release
+      on msg_repair, msg->pos should point to nbuf->pos and not nbuf->last
+      refactor memcache parsing code into proto directory
+      add redis option to configuration file
+      fix macro definition strXcmp error for big endian
+      fix log_hexdump and loga_hexdump
+
 2012-07-31  Manju Rajashekhar  <manj@twitter.com>
 
     * twemproxy: version 0.1.19 release
-      close server connection on a stray reponse (yashh, bmatheny)
+      close server connection on a stray response (yashh, bmatheny)
 
 2012-06-19  Manju Rajashekhar  <manj@twitter.com>
 

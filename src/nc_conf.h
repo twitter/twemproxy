@@ -24,7 +24,7 @@
 #include <yaml.h>
 
 #include <nc_core.h>
-#include <hashkit/nc_hashkit.h>
+#include <nc_hashkit.h>
 
 #define CONF_OK             (void *) NULL
 #define CONF_ERROR          (void *) "has an invalid value"

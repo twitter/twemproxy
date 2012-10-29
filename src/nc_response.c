@@ -184,79 +184,12 @@ rsp_filter(struct context *ctx, struct conn *conn, struct msg *msg)
 }
 
 static void
-rsp_forward_stats(struct context *ctx, struct msg *msg, struct conn *s_conn,
-                  struct conn *c_conn)
+rsp_forward_stats(struct context *ctx, struct server *server, struct msg *msg)
 {
-    struct msg *pmsg;
-    struct server *server;
-
-    ASSERT(!s_conn->client && !s_conn->proxy);
-    ASSERT(c_conn->client && !c_conn->proxy);
-    ASSERT(!msg->request && msg->peer != NULL);
-
-    server = s_conn->owner;
-    pmsg = msg->peer;
+    ASSERT(!msg->request);
 
     stats_server_incr(ctx, server, responses);
     stats_server_incr_by(ctx, server, response_bytes, msg->mlen);
-
-    switch (msg->type) {
-    case MSG_RSP_NUM:
-        stats_server_incr(ctx, server, num);
-        break;
-
-    case MSG_RSP_STORED:
-        stats_server_incr(ctx, server, stored);
-        break;
-
-    case MSG_RSP_NOT_STORED:
-        stats_server_incr(ctx, server, not_stored);
-        break;
-
-    case MSG_RSP_EXISTS:
-        stats_server_incr(ctx, server, exists);
-        break;
-
-    case MSG_RSP_NOT_FOUND:
-        stats_server_incr(ctx, server, not_found);
-        break;
-
-    case MSG_RSP_END:
-        stats_server_incr(ctx, server, end);
-        break;
-
-    case MSG_RSP_VALUE:
-        stats_server_incr(ctx, server, value);
-        break;
-
-    case MSG_RSP_DELETED:
-        stats_server_incr(ctx, server, deleted);
-        break;
-
-    case MSG_RSP_ERROR:
-        log_debug(LOG_INFO, "rsp error type %d from s %d for req %"PRIu64" "
-                  "type %d from c %d", msg->type, s_conn->sd, pmsg->id,
-                  pmsg->type, c_conn->sd);
-        stats_server_incr(ctx, server, error);
-        break;
-
-    case MSG_RSP_CLIENT_ERROR:
-        log_debug(LOG_INFO, "rsp error type %d from s %d for req %"PRIu64" "
-                  "type %d from c %d", msg->type, s_conn->sd, pmsg->id,
-                  pmsg->type, c_conn->sd);
-        stats_server_incr(ctx, server, client_error);
-        break;
-
-    case MSG_RSP_SERVER_ERROR:
-        log_debug(LOG_INFO, "rsp error type %d from s %d for req %"PRIu64" "
-                  "type %d from c %d", msg->type, s_conn->sd, pmsg->id,
-                  pmsg->type, c_conn->sd);
-        stats_server_incr(ctx, server, server_error);
-        break;
-
-    default:
-        NOT_REACHED();
-    }
 }
 
 static void
@@ -335,7 +268,7 @@ rsp_forward(struct context *ctx, struct conn *s_conn, struct msg *msg)
         }
     }
 
-    rsp_forward_stats(ctx, msg, s_conn, c_conn);
+    rsp_forward_stats(ctx, s_conn->owner, msg);
 }
 
 void

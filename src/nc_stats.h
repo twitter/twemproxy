@@ -34,31 +34,6 @@
     ACTION( fragments,              STATS_COUNTER )     \
 
 #define STATS_SERVER_CODEC(ACTION)                      \
-    /* msg (request) type */                            \
-    ACTION( get,                    STATS_COUNTER )     \
-    ACTION( gets,                   STATS_COUNTER )     \
-    ACTION( delete,                 STATS_COUNTER )     \
-    ACTION( cas,                    STATS_COUNTER )     \
-    ACTION( set,                    STATS_COUNTER )     \
-    ACTION( add,                    STATS_COUNTER )     \
-    ACTION( replace,                STATS_COUNTER )     \
-    ACTION( append,                 STATS_COUNTER )     \
-    ACTION( prepend,                STATS_COUNTER )     \
-    ACTION( incr,                   STATS_COUNTER )     \
-    ACTION( decr,                   STATS_COUNTER )     \
-    ACTION( noreply,                STATS_COUNTER )     \
-    /* msg (response) type */                           \
-    ACTION( num,                    STATS_COUNTER )     \
-    ACTION( stored,                 STATS_COUNTER )     \
-    ACTION( not_stored,             STATS_COUNTER )     \
-    ACTION( exists,                 STATS_COUNTER )     \
-    ACTION( not_found,              STATS_COUNTER )     \
-    ACTION( value,                  STATS_COUNTER )     \
-    ACTION( end,                    STATS_COUNTER )     \
-    ACTION( deleted,                STATS_COUNTER )     \
-    ACTION( error,                  STATS_COUNTER )     \
-    ACTION( client_error,           STATS_COUNTER )     \
-    ACTION( server_error,           STATS_COUNTER )     \
     /* server behavior */                               \
     ACTION( server_eof,             STATS_COUNTER )     \
     ACTION( server_err,             STATS_COUNTER )     \

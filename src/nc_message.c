@@ -249,12 +249,7 @@ done:
     msg->error = 0;
     msg->ferror = 0;
     msg->request = 0;
-    msg->storage = 0;
-    msg->retrieval = 0;
-    msg->arithmetic = 0;
-    msg->delete = 0;
     msg->quit = 0;
-    msg->cas = 0;
     msg->noreply = 0;
     msg->done = 0;
     msg->fdone = 0;

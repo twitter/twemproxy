@@ -82,6 +82,95 @@
 
 #endif
 
+/*
+ * Return true, if the memcache command is a storage command, otherwise
+ * return false
+ */
+static bool
+memcache_storage(struct msg *r)
+{
+    switch (r->type) {
+    case MSG_REQ_SET:
+    case MSG_REQ_CAS:
+    case MSG_REQ_ADD:
+    case MSG_REQ_REPLACE:
+    case MSG_REQ_APPEND:
+    case MSG_REQ_PREPEND:
+        return true;
+
+    default:
+        break;
+    }
+
+    return false;
+}
+
+/*
+ * Return true, if the memcache command is a cas command, otherwise
+ * return false
+ */
+static bool
+memcache_cas(struct msg *r)
+{
+    if (r->type == MSG_REQ_CAS) {
+        return true;
+    }
+
+    return false;
+}
+
+/*
+ * Return true, if the memcache command is a retrieval command, otherwise
+ * return false
+ */
+static bool
+memcache_retrieval(struct msg *r)
+{
+    switch (r->type) {
+    case MSG_REQ_GET:
+    case MSG_REQ_GETS:
+        return true;
+
+    default:
+        break;
+    }
+
+    return false;
+}
+
+/*
+ * Return true, if the memcache command is a arithmetic command, otherwise
+ * return false
+ */
+static bool
+memcache_arithmetic(struct msg *r)
+{
+    switch (r->type) {
+    case MSG_REQ_INCR:
+    case MSG_REQ_DECR:
+        return true;
+
+    default:
+        break;
+    }
+
+    return false;
+}
+
+/*
+ * Return true, if the memcache command is a delete command, otherwise
+ * return false
+ */
+static bool
+memcache_delete(struct msg *r)
+{
+    if (r->type == MSG_REQ_DELETE) {
+        return true;
+    }
+
+    return false;
+}
+
 void
 memcache_parse_req(struct msg *r)
 {
@@ -158,26 +247,21 @@ memcache_parse_req(struct msg *r)
                 case 3:
                     if (str4cmp(m, 'g', 'e', 't', ' ')) {
                         r->type = MSG_REQ_GET;
-                        r->retrieval = 1;
                         break;
                     }
 
                     if (str4cmp(m, 's', 'e', 't', ' ')) {
                         r->type = MSG_REQ_SET;
-                        r->storage = 1;
                         break;
                     }
 
                     if (str4cmp(m, 'a', 'd', 'd', ' ')) {
                         r->type = MSG_REQ_ADD;
-                        r->storage = 1;
                         break;
                     }
 
                     if (str4cmp(m, 'c', 'a', 's', ' ')) {
                         r->type = MSG_REQ_CAS;
-                        r->cas = 1;
-                        r->storage = 1; /* cas is also a storage request */
                         break;
                     }
 
@@ -186,19 +270,16 @@ memcache_parse_req(struct msg *r)
                 case 4:
                     if (str4cmp(m, 'g', 'e', 't', 's')) {
                         r->type = MSG_REQ_GETS;
-                        r->retrieval = 1;
                         break;
                     }
 
                     if (str4cmp(m, 'i', 'n', 'c', 'r')) {
                         r->type = MSG_REQ_INCR;
-                        r->arithmetic = 1;
                         break;
                     }
 
                     if (str4cmp(m, 'd', 'e', 'c', 'r')) {
                         r->type = MSG_REQ_DECR;
-                        r->arithmetic = 1;
                         break;
                     }
 
@@ -213,13 +294,11 @@ memcache_parse_req(struct msg *r)
                 case 6:
                     if (str6cmp(m, 'a', 'p', 'p', 'e', 'n', 'd')) {
                         r->type = MSG_REQ_APPEND;
-                        r->storage = 1;
                         break;
                     }
 
                     if (str6cmp(m, 'd', 'e', 'l', 'e', 't', 'e')) {
                         r->type = MSG_REQ_DELETE;
-                        r->delete = 1;
                         break;
                     }
 
@@ -228,13 +307,11 @@ memcache_parse_req(struct msg *r)
                 case 7:
                     if (str7cmp(m, 'p', 'r', 'e', 'p', 'e', 'n', 'd')) {
                         r->type = MSG_REQ_PREPEND;
-                        r->storage = 1;
                         break;
                     }
 
                     if (str7cmp(m, 'r', 'e', 'p', 'l', 'a', 'c', 'e')) {
                         r->type = MSG_REQ_REPLACE;
-                        r->storage = 1;
                         break;
                     }
 
@@ -289,30 +366,30 @@ memcache_parse_req(struct msg *r)
         case SW_KEY:
             if (ch == ' ' || ch == CR) {
                 if ((p - r->key_start) > MEMCACHE_MAX_KEY_LENGTH) {
-                    log_error("req %"PRIu64" of type %d has key with prefix "
-                              "'%.*s...' and length %d that exceeds maximum "
-                              "key length", r->id, r->type, 16, r->key_start,
-                              p - r->key_start);
+                    log_error("parsed bad req %"PRIu64" of type %d with key "
+                              "prefix '%.*s...' and length %d that exceeds "
+                              "maximum key length", r->id, r->type, 16,
+                              r->key_start, p - r->key_start);
                     goto error;
                 }
                 r->key_end = p - 1;
                 r->token = NULL;
 
                 /* get next state */
-                if (r->storage) {
+                if (memcache_storage(r)) {
                     state = SW_SPACES_BEFORE_FLAGS;
-                } else if (r->arithmetic) {
+                } else if (memcache_arithmetic(r)) {
                     state = SW_SPACES_BEFORE_NUM;
-                } else if (r->delete) {
+                } else if (memcache_delete(r)) {
                     state = SW_RUNTO_CRLF;
-                } else if (r->retrieval) {
+                } else if (memcache_retrieval(r)) {
                     state = SW_SPACES_BEFORE_KEYS;
                 } else {
                     state = SW_RUNTO_CRLF;
                 }
 
                 if (ch == CR) {
-                    if (r->storage || r->arithmetic) {
+                    if (memcache_storage(r) || memcache_arithmetic(r)) {
                         goto error;
                     }
                     p = p - 1; /* go back by 1 byte */
@@ -322,7 +399,7 @@ memcache_parse_req(struct msg *r)
             break;
 
         case SW_SPACES_BEFORE_KEYS:
-            ASSERT(r->retrieval);
+            ASSERT(memcache_retrieval(r));
             switch (ch) {
             case ' ':
                 break;
@@ -406,7 +483,7 @@ memcache_parse_req(struct msg *r)
         case SW_VLEN:
             if (ch >= '0' && ch <= '9') {
                 r->vlen = r->vlen * 10 + (uint32_t)(ch - '0');
-            } else if (r->cas) {
+            } else if (memcache_cas(r)) {
                 if (ch != ' ') {
                     goto error;
                 }
@@ -521,7 +598,7 @@ memcache_parse_req(struct msg *r)
                 break;
 
             case 'n':
-                if (r->storage || r->arithmetic || r->delete) {
+                if (memcache_storage(r) || memcache_arithmetic(r) || memcache_delete(r)) {
                     /* noreply_start <- p */
                     r->token = p;
                     state = SW_NOREPLY;
@@ -532,7 +609,7 @@ memcache_parse_req(struct msg *r)
                 break;
 
             case CR:
-                if (r->storage) {
+                if (memcache_storage(r)) {
                     state = SW_RUNTO_VAL;
                 } else {
                     state = SW_ALMOST_DONE;
@@ -552,7 +629,7 @@ memcache_parse_req(struct msg *r)
             case CR:
                 m = r->token;
                 if (((p - m) == 7) && str7cmp(m, 'n', 'o', 'r', 'e', 'p', 'l', 'y')) {
-                    ASSERT(r->storage || r->arithmetic || r->delete);
+                    ASSERT(memcache_storage(r) || memcache_arithmetic(r) || memcache_delete(r));
                     r->token = NULL;
                     /* noreply_end <- p - 1 */
                     r->noreply = 1;
@@ -571,7 +648,7 @@ memcache_parse_req(struct msg *r)
                 break;
 
             case CR:
-                if (r->storage) {
+                if (memcache_storage(r)) {
                     state = SW_RUNTO_VAL;
                 } else {
                     state = SW_ALMOST_DONE;
@@ -644,10 +721,9 @@ memcache_parse_req(struct msg *r)
         r->result = MSG_PARSE_AGAIN;
     }
 
-    log_debug(LOG_VVERB, "parsed req %"PRIu64" res %d type %d state %d "
-              "rpos %d of %d", r->id, r->result, r->type, r->state,
-              r->pos - b->pos, b->last - b->pos);
-
+    log_hexdump(LOG_VERB, b->pos, mbuf_length(b), "parsed req %"PRIu64" res %d "
+                "type %d state %d rpos %d of %d", r->id, r->result, r->type,
+                r->state, r->pos - b->pos, b->last - b->pos);
     return;
 
 fragment:
@@ -658,10 +734,9 @@ fragment:
     r->state = state;
     r->result = MSG_PARSE_FRAGMENT;
 
-    log_debug(LOG_VVERB, "parsed req %"PRIu64" res %d type %d state %d "
-              "rpos %d of %d", r->id, r->result, r->type, r->state,
-              r->pos - b->pos, b->last - b->pos);
-
+    log_hexdump(LOG_VERB, b->pos, mbuf_length(b), "parsed req %"PRIu64" res %d "
+                "type %d state %d rpos %d of %d", r->id, r->result, r->type,
+                r->state, r->pos - b->pos, b->last - b->pos);
     return;
 
 done:
@@ -671,10 +746,9 @@ done:
     r->state = SW_START;
     r->result = MSG_PARSE_OK;
 
-    log_debug(LOG_VVERB, "parsed req %"PRIu64" res %d type %d state %d "
-              "rpos %d of %d", r->id, r->result, r->type, r->state,
-              r->pos - b->pos, b->last - b->pos);
-
+    log_hexdump(LOG_VERB, b->pos, mbuf_length(b), "parsed req %"PRIu64" res %d "
+                "type %d state %d rpos %d of %d", r->id, r->result, r->type,
+                r->state, r->pos - b->pos, b->last - b->pos);
     return;
 
 error:
@@ -682,8 +756,9 @@ error:
     r->state = state;
     errno = EINVAL;
 
-    log_debug(LOG_INFO, "parsed bad req %"PRIu64" res %d type %d state %d",
-              r->id, r->result, r->type, r->state);
+    log_hexdump(LOG_INFO, b->pos, mbuf_length(b), "parsed bad req %"PRIu64" "
+                "res %d type %d state %d", r->id, r->result, r->type,
+                r->state);
 }
 
 void
@@ -894,10 +969,10 @@ memcache_parse_rsp(struct msg *r)
         case SW_KEY:
             if (ch == ' ') {
                 if ((p - r->key_start) > MEMCACHE_MAX_KEY_LENGTH) {
-                    log_error("req %"PRIu64" of type %d has key with prefix "
-                              "'%.*s...' and length %d that exceeds maximum "
-                              "key length", r->id, r->type, 16, r->key_start,
-                              p - r->key_start);
+                    log_error("parsed bad req %"PRIu64" of type %d with key "
+                              "prefix '%.*s...' and length %d that exceeds "
+                              "maximum key length", r->id, r->type, 16,
+                              r->key_start, p - r->key_start);
                     goto error;
                 }
                 r->key_end = p - 1;
@@ -1112,10 +1187,9 @@ memcache_parse_rsp(struct msg *r)
         r->result = MSG_PARSE_AGAIN;
     }
 
-    log_debug(LOG_VVERB, "parsed rsp %"PRIu64" res %d type %d state %d "
-              "rpos %d of %d", r->id, r->result, r->type, r->state,
-              r->pos - b->pos, b->last - b->pos);
-
+    log_hexdump(LOG_VERB, b->pos, mbuf_length(b), "parsed rsp %"PRIu64" res %d "
+                "type %d state %d rpos %d of %d", r->id, r->result, r->type,
+                r->state, r->pos - b->pos, b->last - b->pos);
     return;
 
 done:
@@ -1126,10 +1200,9 @@ done:
     r->token = NULL;
     r->result = MSG_PARSE_OK;
 
-    log_debug(LOG_VVERB, "parsed rsp %"PRIu64" res %d type %d state %d "
-              "rpos %d of %d", r->id, r->result, r->type, r->state,
-              r->pos - b->pos, b->last - b->pos);
-
+    log_hexdump(LOG_VERB, b->pos, mbuf_length(b), "parsed rsp %"PRIu64" res %d "
+                "type %d state %d rpos %d of %d", r->id, r->result, r->type,
+                r->state, r->pos - b->pos, b->last - b->pos);
     return;
 
 error:
@@ -1137,6 +1210,7 @@ error:
     r->state = state;
     errno = EINVAL;
 
-    log_debug(LOG_INFO, "parsed bad rsp %"PRIu64" res %d type %d state %d",
-              r->id, r->result, r->type, r->state);
+    log_hexdump(LOG_INFO, b->pos, mbuf_length(b), "parsed bad rsp %"PRIu64" "
+                "res %d type %d state %d", r->id, r->result, r->type,
+                r->state);
 }

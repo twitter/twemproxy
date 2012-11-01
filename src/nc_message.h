@@ -35,7 +35,7 @@ typedef enum msg_type {
     MSG_REQ_GET,            /* retrieval requests */
     MSG_REQ_GETS,
     MSG_REQ_DELETE,         /* delete request */
-    MSG_REQ_CAS,            /* cas request */
+    MSG_REQ_CAS,            /* cas request and storage request */
     MSG_REQ_SET,            /* storage request */
     MSG_REQ_ADD,
     MSG_REQ_REPLACE,
@@ -90,12 +90,7 @@ struct msg {
     unsigned           error:1;         /* error? */
     unsigned           ferror:1;        /* one or more fragments are in error? */
     unsigned           request:1;       /* request? or response? */
-    unsigned           storage:1;       /* storage request? */
-    unsigned           retrieval:1;     /* retrieval request? */
-    unsigned           arithmetic:1;    /* arithmetic request? */
-    unsigned           delete:1;        /* delete request? */
     unsigned           quit:1;          /* quit request? */
-    unsigned           cas:1;           /* cas? */
     unsigned           noreply:1;       /* noreply? */
     unsigned           done:1;          /* done? */
     unsigned           fdone:1;         /* all fragments are done? */

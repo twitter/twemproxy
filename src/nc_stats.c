@@ -774,7 +774,7 @@ stats_listen(struct stats *st)
     rstatus_t status;
     struct sockinfo si;
 
-    status = nc_resolve(NULL, st->port, &si);
+    status = nc_resolve(&st->addr, st->port, &si);
     if (status < 0) {
         return status;
     }

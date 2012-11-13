@@ -18,7 +18,7 @@
 #include <nc_core.h>
 #include <nc_conf.h>
 #include <nc_server.h>
-#include <nc_memcache.h>
+#include <proto/nc_proto.h>
 
 #define DEFINE_ACTION(_hash, _name) string(#_name),
 static struct string hash_strings[] = {

@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 
+#include <ctype.h>
+
 #include <nc_core.h>
 #include <nc_memcache.h>
 
@@ -417,7 +419,7 @@ memcache_parse_req(struct msg *r)
 
         case SW_SPACES_BEFORE_FLAGS:
             if (ch != ' ') {
-                if (ch < '0' || ch > '9') {
+                if (!isdigit(ch)) {
                     goto error;
                 }
                 /* flags_start <- p; flags <- ch - '0' */
@@ -428,7 +430,7 @@ memcache_parse_req(struct msg *r)
             break;
 
         case SW_FLAGS:
-            if (ch >= '0' && ch <= '9') {
+            if (isdigit(ch)) {
                 /* flags <- flags * 10 + (ch - '0') */
                 ;
             } else if (ch == ' ') {
@@ -443,7 +445,7 @@ memcache_parse_req(struct msg *r)
 
         case SW_SPACES_BEFORE_EXPIRY:
             if (ch != ' ') {
-                if (ch < '0' || ch > '9') {
+                if (!isdigit(ch)) {
                     goto error;
                 }
                 /* expiry_start <- p; expiry <- ch - '0' */
@@ -454,7 +456,7 @@ memcache_parse_req(struct msg *r)
             break;
 
         case SW_EXPIRY:
-            if (ch >= '0' && ch <= '9') {
+            if (isdigit(ch)) {
                 /* expiry <- expiry * 10 + (ch - '0') */
                 ;
             } else if (ch == ' ') {
@@ -469,7 +471,7 @@ memcache_parse_req(struct msg *r)
 
         case SW_SPACES_BEFORE_VLEN:
             if (ch != ' ') {
-                if (ch < '0' || ch > '9') {
+                if (!isdigit(ch)) {
                     goto error;
                 }
                 /* vlen_start <- p */
@@ -481,7 +483,7 @@ memcache_parse_req(struct msg *r)
             break;
 
         case SW_VLEN:
-            if (ch >= '0' && ch <= '9') {
+            if (isdigit(ch)) {
                 r->vlen = r->vlen * 10 + (uint32_t)(ch - '0');
             } else if (memcache_cas(r)) {
                 if (ch != ' ') {
@@ -504,7 +506,7 @@ memcache_parse_req(struct msg *r)
 
         case SW_SPACES_BEFORE_CAS:
             if (ch != ' ') {
-                if (ch < '0' || ch > '9') {
+                if (!isdigit(ch)) {
                     goto error;
                 }
                 /* cas_start <- p; cas <- ch - '0' */
@@ -515,7 +517,7 @@ memcache_parse_req(struct msg *r)
             break;
 
         case SW_CAS:
-            if (ch >= '0' && ch <= '9') {
+            if (isdigit(ch)) {
                 /* cas <- cas * 10 + (ch - '0') */
                 ;
             } else if (ch == ' ' || ch == CR) {
@@ -567,7 +569,7 @@ memcache_parse_req(struct msg *r)
 
         case SW_SPACES_BEFORE_NUM:
             if (ch != ' ') {
-                if (ch < '0' || ch > '9') {
+                if (!isdigit(ch)) {
                     goto error;
                 }
                 /* num_start <- p; num <- ch - '0'  */
@@ -578,7 +580,7 @@ memcache_parse_req(struct msg *r)
             break;
 
         case SW_NUM:
-            if (ch >= '0' && ch <= '9') {
+            if (isdigit(ch)) {
                 /* num <- num * 10 + (ch - '0') */
                 ;
             } else if (ch == ' ' || ch == CR) {
@@ -779,9 +781,7 @@ memcache_parse_rsp(struct msg *r)
         SW_VLEN,
         SW_RUNTO_VAL,
         SW_VAL,
-        SW_RUNTO_END,
-        SW_E,
-        SW_EN,
+        SW_VAL_LF,
         SW_END,
         SW_RUNTO_CRLF,
         SW_CRLF,
@@ -806,19 +806,22 @@ memcache_parse_rsp(struct msg *r)
 
         switch (state) {
         case SW_START:
-            /* rsp_start <- p; type_start <- p */
-            r->token = p;
-            if (ch >= '0' && ch <= '9') {
-                /* num <- ch - '0' */
+            if (isdigit(ch)) {
                 state = SW_RSP_NUM;
             } else {
                 state = SW_RSP_STR;
             }
+            p = p - 1; /* go back by 1 byte */
 
             break;
 
         case SW_RSP_NUM:
-            if (ch >= '0' && ch <= '9') {
+            if (r->token == NULL) {
+                /* rsp_start <- p; type_start <- p */
+                r->token = p;
+            }
+
+            if (isdigit(ch)) {
                 /* num <- num * 10 + (ch - '0') */
                 ;
             } else if (ch == ' ' || ch == CR) {
@@ -834,6 +837,11 @@ memcache_parse_rsp(struct msg *r)
             break;
 
         case SW_RSP_STR:
+            if (r->token == NULL) {
+                /* rsp_start <- p; type_start <- p */
+                r->token = p;
+            }
+
             if (ch == ' ' || ch == CR) {
                 /* type_end <- p - 1 */
                 m = r->token;
@@ -959,14 +967,18 @@ memcache_parse_rsp(struct msg *r)
 
         case SW_SPACES_BEFORE_KEY:
             if (ch != ' ') {
-                r->token = p;
-                r->key_start = p;
                 state = SW_KEY;
+                p = p - 1; /* go back by 1 byte */
             }
 
             break;
 
         case SW_KEY:
+            if (r->token == NULL) {
+                r->token = p;
+                r->key_start = p;
+            }
+
             if (ch == ' ') {
                 if ((p - r->key_start) > MEMCACHE_MAX_KEY_LENGTH) {
                     log_error("parsed bad req %"PRIu64" of type %d with key "
@@ -984,18 +996,22 @@ memcache_parse_rsp(struct msg *r)
 
         case SW_SPACES_BEFORE_FLAGS:
             if (ch != ' ') {
-                if (ch < '0' || ch > '9') {
+                if (!isdigit(ch)) {
                     goto error;
                 }
-                /* flags_start <- p; flags <- ch - '0' */
-                r->token = p;
                 state = SW_FLAGS;
+                p = p - 1; /* go back by 1 byte */
             }
 
             break;
 
         case SW_FLAGS:
-            if (ch >= '0' && ch <= '9') {
+            if (r->token == NULL) {
+                /* flags_start <- p */
+                r->token = p;
+            }
+
+            if (isdigit(ch)) {
                 /* flags <- flags * 10 + (ch - '0') */
                 ;
             } else if (ch == ' ') {
@@ -1010,19 +1026,21 @@ memcache_parse_rsp(struct msg *r)
 
         case SW_SPACES_BEFORE_VLEN:
             if (ch != ' ') {
-                if (ch < '0' || ch > '9') {
+                if (!isdigit(ch)) {
                     goto error;
                 }
-                /* vlen_start <- p */
-                r->token = p;
-                r->vlen = (uint32_t)(ch - '0');
+                p = p - 1; /* go back by 1 byte */
                 state = SW_VLEN;
             }
 
             break;
 
         case SW_VLEN:
-            if (ch >= '0' && ch <= '9') {
+            if (r->token == NULL) {
+                /* vlen_start <- p */
+                r->token = p;
+                r->vlen = (uint32_t)(ch - '0');
+            } else if (isdigit(ch)) {
                 r->vlen = r->vlen * 10 + (uint32_t)(ch - '0');
             } else if (ch == ' ' || ch == CR) {
                 /* vlen_end <- p - 1 */
@@ -1061,7 +1079,7 @@ memcache_parse_rsp(struct msg *r)
             case CR:
                 /* val_end <- p - 1 */
                 p = m; /* move forward by vlen bytes */
-                state = SW_RUNTO_END;
+                state = SW_VAL_LF;
                 break;
 
             default:
@@ -1070,35 +1088,9 @@ memcache_parse_rsp(struct msg *r)
 
             break;
 
-        case SW_RUNTO_END:
+        case SW_VAL_LF:
             switch (ch) {
             case LF:
-                state = SW_E;
-                break;
-
-            default:
-                goto error;
-            }
-
-            break;
-
-        case SW_E:
-            switch (ch) {
-            case 'E':
-                /* end_start <- p */
-                r->token = p;
-                state = SW_EN;
-                break;
-
-            default:
-                goto error;
-            }
-
-            break;
-
-        case SW_EN:
-            switch (ch) {
-            case 'N':
                 state = SW_END;
                 break;
 
@@ -1109,16 +1101,28 @@ memcache_parse_rsp(struct msg *r)
             break;
 
         case SW_END:
-            switch (ch) {
-            case 'D':
+            if (r->token == NULL) {
+                if (ch != 'E') {
+                    goto error;
+                }
+                /* end_start <- p */
+                r->token = p;
+            } else if (ch == CR) {
                 /* end_end <- p */
+                m = r->token;
                 r->token = NULL;
-                r->end = p - 2; /* go back by 2 bytes to get to end marker */
-                state = SW_CRLF;
-                break;
 
-            default:
-                goto error;
+                switch (p - m) {
+                case 3:
+                    if (str4cmp(m, 'E', 'N', 'D', '\r')) {
+                        r->end = m;
+                        state = SW_ALMOST_DONE;
+                    }
+                    break;
+
+                default:
+                    goto error;
+                }
             }
 
             break;

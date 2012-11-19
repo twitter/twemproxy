@@ -80,13 +80,17 @@ struct msg {
     msg_parse_result_t result;          /* message parsing result */
 
     msg_type_t         type;            /* message type */
+
     uint8_t            *key_start;      /* key start */
     uint8_t            *key_end;        /* key end */
 
     uint32_t           vlen;            /* value length (memcache) */
     uint8_t            *end;            /* end marker (memcache) */
 
+    struct msg         *frag_owner;     /* owner of fragment message */
+    uint32_t           nfrag;           /* # fragment */
     uint64_t           frag_id;         /* id of fragmented message */
+
     err_t              err;             /* errno on error? */
     unsigned           error:1;         /* error? */
     unsigned           ferror:1;        /* one or more fragments are in error? */
@@ -95,7 +99,8 @@ struct msg {
     unsigned           noreply:1;       /* noreply? */
     unsigned           done:1;          /* done? */
     unsigned           fdone:1;         /* all fragments are done? */
-    unsigned           last_fragment:1; /* last fragment of retrieval request? */
+    unsigned           first_fragment:1;/* first fragment? */
+    unsigned           last_fragment:1; /* last fragment? */
     unsigned           swallow:1;       /* swallow response? */
     unsigned           redis:1;         /* redis? */
 };

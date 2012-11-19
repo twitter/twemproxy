@@ -22,6 +22,7 @@
 
 #include <nc_core.h>
 #include <nc_server.h>
+#include <proto/nc_proto.h>
 
 #if (IOV_MAX > 128)
 #define NC_IOV_MAX 128
@@ -182,25 +183,6 @@ msg_tmo_delete(struct msg *msg)
     log_debug(LOG_VERB, "delete msg %"PRIu64" from tmo rbt", msg->id);
 }
 
-static msg_parse_t
-msg_get_parser(struct conn *conn)
-{
-    ASSERT(!conn->proxy);
-
-    if (conn->client) {
-        /* client conn is owned by the server pool */
-        struct server_pool *pool = conn->owner;
-
-        return pool->parse_req;
-    } else {
-        /* server conn is owned by the server which is owned by server pool */
-        struct server *server = conn->owner;
-        struct server_pool *pool = server->owner;
-
-        return pool->parse_rsp;
-    }
-}
-
 static struct msg *
 _msg_get(void)
 {
@@ -255,12 +237,13 @@ done:
     msg->fdone = 0;
     msg->last_fragment = 0;
     msg->swallow = 0;
+    msg->redis = 0;
 
     return msg;
 }
 
 struct msg *
-msg_get(struct conn *conn, bool request)
+msg_get(struct conn *conn, bool request, bool redis)
 {
     struct msg *msg;
 
@@ -271,7 +254,17 @@ msg_get(struct conn *conn, bool request)
 
     msg->owner = conn;
     msg->request = request ? 1 : 0;
-    msg->parser = msg_get_parser(conn);
+    msg->redis = redis ? 1 : 0;
+
+    if (redis) {
+        NOT_REACHED();
+    } else {
+        if (request) {
+            msg->parser = memcache_parse_req;
+        } else {
+            msg->parser = memcache_parse_rsp;
+        }
+    }
 
     log_debug(LOG_VVERB, "get msg %p id %"PRIu64" request %d owner sd %d",
               msg, msg->id, msg->request, conn->sd);
@@ -293,7 +286,7 @@ msg_get_error(err_t err)
     }
 
     msg->state = 0;
-    msg->type = MSG_RSP_SERVER_ERROR;
+    msg->type = MSG_RSP_MC_SERVER_ERROR;
 
     mbuf = mbuf_get();
     if (mbuf == NULL) {
@@ -413,7 +406,7 @@ msg_parsed(struct context *ctx, struct conn *conn, struct msg *msg)
         return NC_ENOMEM;
     }
 
-    nmsg = msg_get(msg->owner, msg->request);
+    nmsg = msg_get(msg->owner, msg->request, conn->redis);
     if (nmsg == NULL) {
         mbuf_put(nbuf);
         return NC_ENOMEM;
@@ -439,9 +432,9 @@ msg_fragment(struct context *ctx, struct conn *conn, struct msg *msg)
 
     ASSERT(conn->client && !conn->proxy);
     ASSERT(msg->request);
-    ASSERT(msg->type == MSG_REQ_GET || msg->type == MSG_REQ_GETS);
+    ASSERT(msg->type == MSG_REQ_MC_GET || msg->type == MSG_REQ_MC_GETS);
 
-    headcopy = (msg->type == MSG_REQ_GET) ? MCOPY_GET : MCOPY_GETS;
+    headcopy = (msg->type == MSG_REQ_MC_GET) ? MCOPY_GET : MCOPY_GETS;
     tailcopy = MCOPY_CRLF;
 
     nbuf = mbuf_split(&msg->mhdr, msg->pos, headcopy, tailcopy);
@@ -449,7 +442,7 @@ msg_fragment(struct context *ctx, struct conn *conn, struct msg *msg)
         return NC_ENOMEM;
     }
 
-    nmsg = msg_get(msg->owner, msg->request);
+    nmsg = msg_get(msg->owner, msg->request, msg->redis);
     if (nmsg == NULL) {
         mbuf_put(nbuf);
         return NC_ENOMEM;

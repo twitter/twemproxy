@@ -26,7 +26,7 @@ req_get(struct conn *conn)
 
     ASSERT(conn->client && !conn->proxy);
 
-    msg = msg_get(conn, true);
+    msg = msg_get(conn, true, conn->redis);
     if (msg == NULL) {
         conn->err = errno;
     }

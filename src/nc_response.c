@@ -26,7 +26,7 @@ rsp_get(struct conn *conn)
 
     ASSERT(!conn->client && !conn->proxy);
 
-    msg = msg_get(conn, false);
+    msg = msg_get(conn, false, conn->redis);
     if (msg == NULL) {
         conn->err = errno;
     }
@@ -220,12 +220,12 @@ rsp_forward(struct context *ctx, struct conn *s_conn, struct msg *msg)
      * Readjust responses of fragmented messages by not including the end
      * marker for all but the last response
      *
-     * Valid responses for a fragmented requests are MSG_RSP_VALUE or,
-     * MSG_RSP_END. For an invalid response, we send out SERVER_ERRROR with
-     * EINVAL errno
+     * Valid responses for a fragmented requests are MSG_RSP_MC_VALUE or,
+     * MSG_RSP_MC_END. For an invalid response, we send out SERVER_ERRROR
+     * with EINVAL errno
      */
     if (pmsg->frag_id != 0) {
-        if (msg->type != MSG_RSP_VALUE && msg->type != MSG_RSP_END) {
+        if (msg->type != MSG_RSP_MC_VALUE && msg->type != MSG_RSP_MC_END) {
             pmsg->error = 1;
             pmsg->err = EINVAL;
         } else if (!pmsg->last_fragment) {

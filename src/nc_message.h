@@ -32,29 +32,29 @@ typedef enum msg_parse_result {
 
 typedef enum msg_type {
     MSG_UNKNOWN,
-    MSG_REQ_GET,            /* retrieval requests */
-    MSG_REQ_GETS,
-    MSG_REQ_DELETE,         /* delete request */
-    MSG_REQ_CAS,            /* cas request and storage request */
-    MSG_REQ_SET,            /* storage request */
-    MSG_REQ_ADD,
-    MSG_REQ_REPLACE,
-    MSG_REQ_APPEND,
-    MSG_REQ_PREPEND,
-    MSG_REQ_INCR,           /* arithmetic request */
-    MSG_REQ_DECR,
-    MSG_REQ_QUIT,           /* quit request */
-    MSG_RSP_NUM,
-    MSG_RSP_STORED,
-    MSG_RSP_NOT_STORED,
-    MSG_RSP_EXISTS,
-    MSG_RSP_NOT_FOUND,
-    MSG_RSP_END,
-    MSG_RSP_VALUE,
-    MSG_RSP_DELETED,
-    MSG_RSP_ERROR,          /* error responses */
-    MSG_RSP_CLIENT_ERROR,
-    MSG_RSP_SERVER_ERROR,
+    MSG_REQ_MC_GET,                     /* memcache retrieval requests */
+    MSG_REQ_MC_GETS,
+    MSG_REQ_MC_DELETE,                  /* memcache delete request */
+    MSG_REQ_MC_CAS,                     /* memcache cas request and storage request */
+    MSG_REQ_MC_SET,                     /* memcache storage request */
+    MSG_REQ_MC_ADD,
+    MSG_REQ_MC_REPLACE,
+    MSG_REQ_MC_APPEND,
+    MSG_REQ_MC_PREPEND,
+    MSG_REQ_MC_INCR,                    /* memcache arithmetic request */
+    MSG_REQ_MC_DECR,
+    MSG_REQ_MC_QUIT,                    /* memcache quit request */
+    MSG_RSP_MC_NUM,                     /* memcache arithmetic response */
+    MSG_RSP_MC_STORED,                  /* memcache cas and storage response */
+    MSG_RSP_MC_NOT_STORED,
+    MSG_RSP_MC_EXISTS,
+    MSG_RSP_MC_NOT_FOUND,
+    MSG_RSP_MC_END,
+    MSG_RSP_MC_VALUE,
+    MSG_RSP_MC_DELETED,                 /* memcache delete response */
+    MSG_RSP_MC_ERROR,                   /* memcache error responses */
+    MSG_RSP_MC_CLIENT_ERROR,
+    MSG_RSP_MC_SERVER_ERROR,
     MSG_SENTINEL
 } msg_type_t;
 
@@ -82,8 +82,9 @@ struct msg {
     msg_type_t         type;            /* message type */
     uint8_t            *key_start;      /* key start */
     uint8_t            *key_end;        /* key end */
-    uint32_t           vlen;            /* value length */
-    uint8_t            *end;            /* end marker */
+
+    uint32_t           vlen;            /* value length (memcache) */
+    uint8_t            *end;            /* end marker (memcache) */
 
     uint64_t           frag_id;         /* id of fragmented message */
     err_t              err;             /* errno on error? */
@@ -96,6 +97,7 @@ struct msg {
     unsigned           fdone:1;         /* all fragments are done? */
     unsigned           last_fragment:1; /* last fragment of retrieval request? */
     unsigned           swallow:1;       /* swallow response? */
+    unsigned           redis:1;         /* redis? */
 };
 
 TAILQ_HEAD(msg_tqh, msg);
@@ -106,7 +108,7 @@ void msg_tmo_delete(struct msg *msg);
 
 void msg_init(void);
 void msg_deinit(void);
-struct msg *msg_get(struct conn *conn, bool request);
+struct msg *msg_get(struct conn *conn, bool request, bool redis);
 void msg_put(struct msg *msg);
 struct msg *msg_get_error(err_t err);
 void msg_dump(struct msg *msg);

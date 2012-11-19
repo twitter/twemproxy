@@ -260,12 +260,7 @@ conf_pool_each_transform(void *elem, void *data)
 
     sp->key_hash_type = cp->hash;
     sp->key_hash = hash_algos[cp->hash];
-    if (cp->redis) {
-        NOT_REACHED();
-    } else {
-        sp->parse_req = memcache_parse_req;
-        sp->parse_rsp = memcache_parse_rsp;
-    }
+    sp->redis = cp->redis ? 1 : 0;
     sp->timeout = cp->timeout;
     sp->backlog = cp->backlog;
 

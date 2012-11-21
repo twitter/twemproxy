@@ -23,11 +23,11 @@
 typedef void (*msg_parse_t)(struct msg *);
 
 typedef enum msg_parse_result {
-    MSG_PARSE_OK,           /* parsing ok */
-    MSG_PARSE_ERROR,        /* parsing error */
-    MSG_PARSE_REPAIR,       /* more to parse -> repair parsed & unparsed data */
-    MSG_PARSE_FRAGMENT,     /* multi-get request -> fragment */
-    MSG_PARSE_AGAIN,        /* incomplete -> parse again */
+    MSG_PARSE_OK,                        /* parsing ok */
+    MSG_PARSE_ERROR,                     /* parsing error */
+    MSG_PARSE_REPAIR,                    /* more to parse -> repair parsed & unparsed data */
+    MSG_PARSE_FRAGMENT,                  /* multi-vector request -> fragment */
+    MSG_PARSE_AGAIN,                     /* incomplete -> parse again */
 } msg_parse_result_t;
 
 typedef enum msg_type {

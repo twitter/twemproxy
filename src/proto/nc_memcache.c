@@ -1169,3 +1169,139 @@ error:
                 "res %d type %d state %d", r->id, r->result, r->type,
                 r->state);
 }
+
+/*
+ * Pre-split copy handler invoked when the request is a multi vector -
+ * 'get' or 'gets' request and is about to be split into two requests
+ */
+void
+memcache_pre_splitcopy(struct mbuf *mbuf, void *arg)
+{
+    struct msg *r = arg;                  /* request vector */
+    struct string get = string("get ");   /* 'get ' string */
+    struct string gets = string("gets "); /* 'gets ' string */
+
+    ASSERT(r->request);
+    ASSERT(!r->redis);
+    ASSERT(mbuf_empty(mbuf));
+
+    switch (r->type) {
+    case MSG_REQ_MC_GET:
+        mbuf_copy(mbuf, get.data, get.len);
+        break;
+
+    case MSG_REQ_MC_GETS:
+        mbuf_copy(mbuf, gets.data, gets.len);
+        break;
+
+    default:
+        NOT_REACHED();
+    }
+}
+
+/*
+ * Post-split copy handler invoked when the request is a multi vector -
+ * 'get' or 'gets' request and has already been split into two requests
+ */
+rstatus_t
+memcache_post_splitcopy(struct msg *r)
+{
+    struct mbuf *mbuf;
+    struct string crlf = string(CRLF);
+
+    ASSERT(r->request);
+    ASSERT(!r->redis);
+    ASSERT(!STAILQ_EMPTY(&r->mhdr));
+
+    mbuf = STAILQ_LAST(&r->mhdr, mbuf, next);
+    mbuf_copy(mbuf, crlf.data, crlf.len);
+
+    return NC_OK;
+}
+
+/*
+ * Pre-coalesce handler is invoked when the message is a response to
+ * the fragmented multi vector request - 'get' or 'gets' and all the
+ * responses to the fragmented request vector hasn't been received
+ */
+void
+memcache_pre_coalesce(struct msg *r)
+{
+    struct msg *pr = r->peer; /* peer request */
+    struct mbuf *mbuf;
+
+    ASSERT(!r->request);
+    ASSERT(pr->request);
+
+    if (pr->frag_id == 0) {
+        /* do nothing, if not a response to a fragmented request */
+        return;
+    }
+
+    switch (r->type) {
+
+    case MSG_RSP_MC_VALUE:
+    case MSG_RSP_MC_END:
+
+        /*
+         * Readjust responses of the fragmented message vector by not
+         * including the end marker for all but the last response
+         */
+
+        if (pr->last_fragment) {
+            break;
+        }
+
+        ASSERT(r->end != NULL);
+
+        for (;;) {
+            mbuf = STAILQ_LAST(&r->mhdr, mbuf, next);
+            ASSERT(mbuf != NULL);
+
+            /*
+             * We cannot assert that end marker points to the last mbuf
+             * Consider a scenario where end marker points to the
+             * penultimate mbuf and the last mbuf only contains spaces
+             * and CRLF: mhdr -> [...END] -> [\r\n]
+             */
+
+            if (r->end >= mbuf->pos && r->end < mbuf->last) {
+                /* end marker is within this mbuf */
+                r->mlen -= (uint32_t)(mbuf->last - r->end);
+                mbuf->last = r->end;
+                break;
+            }
+
+            /* end marker is not in this mbuf */
+            r->mlen -= mbuf_length(mbuf);
+            mbuf_remove(&r->mhdr, mbuf);
+            mbuf_put(mbuf);
+        }
+
+        break;
+
+    default:
+        /*
+         * Valid responses for a fragmented requests are MSG_RSP_MC_VALUE or,
+         * MSG_RSP_MC_END. For an invalid response, we send out SERVER_ERRROR
+         * with EINVAL errno
+         */
+        mbuf = STAILQ_FIRST(&r->mhdr);
+        log_hexdump(LOG_ERR, mbuf->pos, mbuf_length(mbuf), "rsp fragment "
+                    "with unknown type %d", r->type);
+        pr->error = 1;
+        pr->err = EINVAL;
+        break;
+    }
+}
+
+/*
+ * Post-coalesce handler is invoked when the message is a response to
+ * the fragmented multi vector request - 'get' or 'gets' and all the
+ * responses to the fragmented request vector has been received and
+ * the the fragmented request is consider to be done
+ */
+void
+memcache_post_coalesce(struct msg *r)
+{
+}

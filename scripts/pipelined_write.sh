@@ -1,6 +1,6 @@
 #!/bin/sh
 
-socatopt="-t 1 -T 1 -b 16384 -d -d"
+socatopt="-t 1 -T 1 -b 16384"
 
 val=`echo 6^6^6 | bc`
 val=`printf "%s" "${val}"`
@@ -25,5 +25,5 @@ printf "%b" "$set_commands" > /tmp/socat.input
 
 # write
 for i in `seq 1 16`; do
-    cat /tmp/socat.input | socat ${socatopt} - TCP:localhost:22123,nodelay,shut-none,nonblock=1 &
+    cat /tmp/socat.input | socat ${socatopt} - TCP:localhost:22123,nodelay,shut-down,nonblock=1 &
 done

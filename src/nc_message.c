@@ -220,6 +220,11 @@ done:
     msg->parser = NULL;
     msg->result = MSG_PARSE_OK;
 
+    msg->pre_splitcopy = NULL;
+    msg->post_splitcopy = NULL;
+    msg->pre_coalesce = NULL;
+    msg->post_coalesce = NULL;
+
     msg->type = MSG_UNKNOWN;
 
     msg->key_start = NULL;
@@ -270,6 +275,10 @@ msg_get(struct conn *conn, bool request, bool redis)
         } else {
             msg->parser = memcache_parse_rsp;
         }
+        msg->pre_splitcopy = memcache_pre_splitcopy;
+        msg->post_splitcopy = memcache_post_splitcopy;
+        msg->pre_coalesce = memcache_pre_coalesce;
+        msg->post_coalesce = memcache_post_coalesce;
     }
 
     log_debug(LOG_VVERB, "get msg %p id %"PRIu64" request %d owner sd %d",
@@ -439,12 +448,12 @@ msg_fragment(struct context *ctx, struct conn *conn, struct msg *msg)
     ASSERT(conn->client && !conn->proxy);
     ASSERT(msg->request);
 
-    nbuf = mbuf_split(&msg->mhdr, msg->pos, memcache_pre_splitcopy, msg);
+    nbuf = mbuf_split(&msg->mhdr, msg->pos, msg->pre_splitcopy, msg);
     if (nbuf == NULL) {
         return NC_ENOMEM;
     }
 
-    status = memcache_post_splitcopy(msg);
+    status = msg->post_splitcopy(msg);
     if (status != NC_OK) {
         mbuf_put(nbuf);
         return status;

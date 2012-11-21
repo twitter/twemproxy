@@ -216,47 +216,7 @@ rsp_forward(struct context *ctx, struct conn *s_conn, struct msg *msg)
     pmsg->peer = msg;
     msg->peer = pmsg;
 
-    /*
-     * Readjust responses of fragmented messages by not including the end
-     * marker for all but the last response
-     *
-     * Valid responses for a fragmented requests are MSG_RSP_MC_VALUE or,
-     * MSG_RSP_MC_END. For an invalid response, we send out SERVER_ERRROR
-     * with EINVAL errno
-     */
-    if (pmsg->frag_id != 0) {
-        if (msg->type != MSG_RSP_MC_VALUE && msg->type != MSG_RSP_MC_END) {
-            pmsg->error = 1;
-            pmsg->err = EINVAL;
-        } else if (!pmsg->last_fragment) {
-            ASSERT(msg->end != NULL);
-            for (;;) {
-                struct mbuf *mbuf;
-
-                mbuf = STAILQ_LAST(&msg->mhdr, mbuf, next);
-                ASSERT(mbuf != NULL);
-
-                /*
-                 * We cannot assert that end marker points to the last mbuf
-                 * Consider a scenario where end marker points to the
-                 * penultimate mbuf and the last mbuf only contains spaces
-                 * and CRLF: mhdr -> [...END] -> [\r\n]
-                 */
-
-                if (msg->end >= mbuf->pos && msg->end < mbuf->last) {
-                    /* end marker is within this mbuf */
-                    msg->mlen -= (uint32_t)(mbuf->last - msg->end);
-                    mbuf->last = msg->end;
-                    break;
-                }
-
-                /* end marker is not in this mbuf */
-                msg->mlen -= mbuf_length(mbuf);
-                mbuf_remove(&msg->mhdr, mbuf);
-                mbuf_put(mbuf);
-            }
-        }
-    }
+    memcache_pre_coalesce(msg);
 
     c_conn = pmsg->owner;
     ASSERT(c_conn->client && !c_conn->proxy);

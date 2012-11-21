@@ -407,7 +407,7 @@ msg_parsed(struct context *ctx, struct conn *conn, struct msg *msg)
      * been parsed and nbuf is the portion of the message that is un-parsed.
      * Parse nbuf as a new message nmsg in the next iteration.
      */
-    nbuf = mbuf_split(&msg->mhdr, msg->pos, MCOPY_NIL, MCOPY_NIL);
+    nbuf = mbuf_split(&msg->mhdr, msg->pos, NULL, NULL);
     if (nbuf == NULL) {
         return NC_ENOMEM;
     }
@@ -432,20 +432,22 @@ msg_parsed(struct context *ctx, struct conn *conn, struct msg *msg)
 static rstatus_t
 msg_fragment(struct context *ctx, struct conn *conn, struct msg *msg)
 {
-    struct msg *nmsg;
-    struct mbuf *nbuf;
-    mcopy_type_t headcopy, tailcopy;
+    rstatus_t status;  /* return status */
+    struct msg *nmsg;  /* new message */
+    struct mbuf *nbuf; /* new mbuf */
 
     ASSERT(conn->client && !conn->proxy);
     ASSERT(msg->request);
-    ASSERT(msg->type == MSG_REQ_MC_GET || msg->type == MSG_REQ_MC_GETS);
 
-    headcopy = (msg->type == MSG_REQ_MC_GET) ? MCOPY_GET : MCOPY_GETS;
-    tailcopy = MCOPY_CRLF;
-
-    nbuf = mbuf_split(&msg->mhdr, msg->pos, headcopy, tailcopy);
+    nbuf = mbuf_split(&msg->mhdr, msg->pos, memcache_pre_splitcopy, msg);
     if (nbuf == NULL) {
         return NC_ENOMEM;
+    }
+
+    status = memcache_post_splitcopy(msg);
+    if (status != NC_OK) {
+        mbuf_put(nbuf);
+        return status;
     }
 
     nmsg = msg_get(msg->owner, msg->request, msg->redis);
@@ -527,7 +529,7 @@ msg_repair(struct context *ctx, struct conn *conn, struct msg *msg)
 {
     struct mbuf *nbuf;
 
-    nbuf = mbuf_split(&msg->mhdr, msg->pos, MCOPY_NIL, MCOPY_NIL);
+    nbuf = mbuf_split(&msg->mhdr, msg->pos, NULL, NULL);
     if (nbuf == NULL) {
         return NC_ENOMEM;
     }

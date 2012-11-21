@@ -20,18 +20,7 @@
 
 #include <nc_core.h>
 
-#define MCOPY_CODEC(ACTION)         \
-    ACTION( MCOPY_GET,  "get "  )   \
-    ACTION( MCOPY_GETS, "gets " )   \
-    ACTION( MCOPY_CRLF, "\r\n"  )   \
-    ACTION( MCOPY_NIL,  ""      )   \
-
-#define DEFINE_ACTION(_type, _str) _type,
-typedef enum mcopy_type {
-    MCOPY_CODEC( DEFINE_ACTION )
-    MCOPY_SENTINEL
-} mcopy_type_t;
-#undef DEFINE_ACTION
+typedef void (*mbuf_copy_t)(struct mbuf *, void *);
 
 struct mbuf {
     uint32_t           magic;   /* mbuf magic (const) */
@@ -66,11 +55,12 @@ void mbuf_init(struct instance *nci);
 void mbuf_deinit(void);
 struct mbuf *mbuf_get(void);
 void mbuf_put(struct mbuf *mbuf);
+void mbuf_rewind(struct mbuf *mbuf);
 uint32_t mbuf_length(struct mbuf *mbuf);
 uint32_t mbuf_size(struct mbuf *mbuf);
 void mbuf_insert(struct mhdr *mhdr, struct mbuf *mbuf);
 void mbuf_remove(struct mhdr *mhdr, struct mbuf *mbuf);
 void mbuf_copy(struct mbuf *mbuf, uint8_t *pos, size_t n);
-struct mbuf *mbuf_split(struct mhdr *h, uint8_t *pos, mcopy_type_t headcopy, mcopy_type_t tailcopy);
+struct mbuf *mbuf_split(struct mhdr *h, uint8_t *pos, mbuf_copy_t cb, void *cbarg);
 
 #endif

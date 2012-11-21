@@ -136,7 +136,7 @@ req_done(struct conn *conn, struct msg *msg)
 
     ASSERT(msg->frag_owner->nfrag == nfragment);
 
-    memcache_post_coalesce(msg->frag_owner);
+    msg->post_coalesce(msg->frag_owner);
 
     log_debug(LOG_DEBUG, "req from c %d with fid %"PRIu64" and %"PRIu32" "
               "fragments is done", conn->sd, id, nfragment);

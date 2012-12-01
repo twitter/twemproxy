@@ -57,6 +57,87 @@ typedef enum msg_type {
     MSG_RSP_MC_ERROR,                     /* memcache error responses */
     MSG_RSP_MC_CLIENT_ERROR,
     MSG_RSP_MC_SERVER_ERROR,
+    MSG_REQ_REDIS_DEL,                    /* redis commands - keys */
+    MSG_REQ_REDIS_EXISTS,
+    MSG_REQ_REDIS_EXPIRE,
+    MSG_REQ_REDIS_EXPIREAT,
+    MSG_REQ_REDIS_PEXPIRE,
+    MSG_REQ_REDIS_PEXPIREAT,
+    MSG_REQ_REDIS_PERSIST,
+    MSG_REQ_REDIS_PTTL,
+    MSG_REQ_REDIS_TTL,
+    MSG_REQ_REDIS_TYPE,
+    MSG_REQ_REDIS_APPEND,                 /* redis requests - string */
+    MSG_REQ_REDIS_BITCOUNT,
+    MSG_REQ_REDIS_DECR,
+    MSG_REQ_REDIS_DECRBY,
+    MSG_REQ_REDIS_GET,
+    MSG_REQ_REDIS_GETBIT,
+    MSG_REQ_REDIS_GETRANGE,
+    MSG_REQ_REDIS_GETSET,
+    MSG_REQ_REDIS_INCR,
+    MSG_REQ_REDIS_INCRBY,
+    MSG_REQ_REDIS_INCRBYFLOAT,
+    MSG_REQ_REDIS_MGET,
+    MSG_REQ_REDIS_PSETEX,
+    MSG_REQ_REDIS_SET,
+    MSG_REQ_REDIS_SETBIT,
+    MSG_REQ_REDIS_SETEX,
+    MSG_REQ_REDIS_SETNX,
+    MSG_REQ_REDIS_SETRANGE,
+    MSG_REQ_REDIS_STRLEN,
+    MSG_REQ_REDIS_HDEL,                   /* redis requests - hashes */
+    MSG_REQ_REDIS_HEXISTS,
+    MSG_REQ_REDIS_HGET,
+    MSG_REQ_REDIS_HGETALL,
+    MSG_REQ_REDIS_HINCRBY,
+    MSG_REQ_REDIS_HINCRBYFLOAT,
+    MSG_REQ_REDIS_HKEYS,
+    MSG_REQ_REDIS_HLEN,
+    MSG_REQ_REDIS_HMGET,
+    MSG_REQ_REDIS_HMSET,
+    MSG_REQ_REDIS_HSET,
+    MSG_REQ_REDIS_HSETNX,
+    MSG_REQ_REDIS_HVALS,
+    MSG_REQ_REDIS_LINDEX,                 /* redis requests - lists */
+    MSG_REQ_REDIS_LINSERT,
+    MSG_REQ_REDIS_LLEN,
+    MSG_REQ_REDIS_LPOP,
+    MSG_REQ_REDIS_LPUSH,
+    MSG_REQ_REDIS_LPUSHX,
+    MSG_REQ_REDIS_LRANGE,
+    MSG_REQ_REDIS_LREM,
+    MSG_REQ_REDIS_LSET,
+    MSG_REQ_REDIS_LTRIM,
+    MSG_REQ_REDIS_RPOP,
+    MSG_REQ_REDIS_RPUSH,
+    MSG_REQ_REDIS_RPUSHX,
+    MSG_REQ_REDIS_SADD,                   /* redis requests - sets */
+    MSG_REQ_REDIS_SCARD,
+    MSG_REQ_REDIS_SISMEMBER,
+    MSG_REQ_REDIS_SMEMBERS,
+    MSG_REQ_REDIS_SPOP,
+    MSG_REQ_REDIS_SRANDMEMBER,
+    MSG_REQ_REDIS_SREM,
+    MSG_REQ_REDIS_ZADD,                   /* redis requests - sorted sets */
+    MSG_REQ_REDIS_ZCARD,
+    MSG_REQ_REDIS_ZCOUNT,
+    MSG_REQ_REDIS_ZINCRBY,
+    MSG_REQ_REDIS_ZRANGE,
+    MSG_REQ_REDIS_ZRANGEBYSCORE,
+    MSG_REQ_REDIS_ZRANK,
+    MSG_REQ_REDIS_ZREM,
+    MSG_REQ_REDIS_ZREMRANGEBYRANK,
+    MSG_REQ_REDIS_ZREMRANGEBYSCORE,
+    MSG_REQ_REDIS_ZREVRANGE,
+    MSG_REQ_REDIS_ZREVRANGEBYSCORE,
+    MSG_REQ_REDIS_ZREVRANK,
+    MSG_REQ_REDIS_ZSCORE,
+    MSG_RSP_REDIS_STATUS,                 /* redis response */
+    MSG_RSP_REDIS_ERROR,
+    MSG_RSP_REDIS_INTEGER,
+    MSG_RSP_REDIS_BULK,
+    MSG_RSP_REDIS_MULTIBULK,
     MSG_SENTINEL
 } msg_type_t;
 
@@ -94,6 +175,13 @@ struct msg {
     uint32_t             vlen;            /* value length (memcache) */
     uint8_t              *end;            /* end marker (memcache) */
 
+    uint8_t              *narg_start;     /* narg start (redis) */
+    uint8_t              *narg_end;       /* narg end (redis) */
+    uint32_t             narg;            /* # arguments (redis) */
+    uint32_t             rnarg;           /* running # arg used by parsing fsa (redis) */
+    uint32_t             rlen;            /* running length in parsing fsa (redis) */
+    uint32_t             integer;         /* integer reply value (redis) */
+
     struct msg           *frag_owner;     /* owner of fragment message */
     uint32_t             nfrag;           /* # fragment */
     uint64_t             frag_id;         /* id of fragmented message */
@@ -122,7 +210,7 @@ void msg_init(void);
 void msg_deinit(void);
 struct msg *msg_get(struct conn *conn, bool request, bool redis);
 void msg_put(struct msg *msg);
-struct msg *msg_get_error(err_t err);
+struct msg *msg_get_error(bool redis, err_t err);
 void msg_dump(struct msg *msg);
 bool msg_empty(struct msg *msg);
 rstatus_t msg_recv(struct context *ctx, struct conn *conn);

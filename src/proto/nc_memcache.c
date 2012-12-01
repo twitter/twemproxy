@@ -32,7 +32,6 @@
  */
 #define MEMCACHE_MAX_KEY_LENGTH 250
 
-
 /*
  * Return true, if the memcache command is a storage command, otherwise
  * return false
@@ -1299,7 +1298,7 @@ memcache_pre_coalesce(struct msg *r)
  * Post-coalesce handler is invoked when the message is a response to
  * the fragmented multi vector request - 'get' or 'gets' and all the
  * responses to the fragmented request vector has been received and
- * the the fragmented request is consider to be done
+ * the fragmented request is consider to be done
  */
 void
 memcache_post_coalesce(struct msg *r)

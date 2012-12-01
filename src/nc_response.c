@@ -81,7 +81,7 @@ rsp_make_error(struct context *ctx, struct conn *conn, struct msg *msg)
         rsp_put(pmsg);
     }
 
-    return msg_get_error(err);
+    return msg_get_error(conn->redis, err);
 }
 
 struct msg *

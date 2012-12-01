@@ -58,6 +58,7 @@ void mbuf_put(struct mbuf *mbuf);
 void mbuf_rewind(struct mbuf *mbuf);
 uint32_t mbuf_length(struct mbuf *mbuf);
 uint32_t mbuf_size(struct mbuf *mbuf);
+size_t mbuf_data_size(void);
 void mbuf_insert(struct mhdr *mhdr, struct mbuf *mbuf);
 void mbuf_remove(struct mhdr *mhdr, struct mbuf *mbuf);
 void mbuf_copy(struct mbuf *mbuf, uint8_t *pos, size_t n);

@@ -47,12 +47,14 @@ static int show_help;
 static int show_version;
 static int test_conf;
 static int daemonize;
+static int describe_stats;
 
 static struct option long_options[] = {
     { "help",           no_argument,        NULL,   'h' },
     { "version",        no_argument,        NULL,   'V' },
     { "test-conf",      no_argument,        NULL,   't' },
     { "daemonize",      no_argument,        NULL,   'd' },
+    { "describe-stats", no_argument,        NULL,   'D' },
     { "verbose",        required_argument,  NULL,   'v' },
     { "output",         required_argument,  NULL,   'o' },
     { "conf-file",      required_argument,  NULL,   'c' },
@@ -63,7 +65,7 @@ static struct option long_options[] = {
     { NULL,             0,                  NULL,    0  }
 };
 
-static char short_options[] = "hVtdv:o:c:s:i:p:m:";
+static char short_options[] = "hVtdDv:o:c:s:i:p:m:";
 
 static rstatus_t
 nc_daemonize(int dump_core)
@@ -187,7 +189,7 @@ static void
 nc_show_usage(void)
 {
     log_stderr(
-        "Usage: nutcracker [-?hVdt] [-v verbosity level] [-o output file]" CRLF
+        "Usage: nutcracker [-?hVdDt] [-v verbosity level] [-o output file]" CRLF
         "                  [-c conf file] [-s stats port] [-i stats interval]" CRLF
         "                  [-p pid file] [-m mbuf size]" CRLF
         "" CRLF
@@ -196,6 +198,7 @@ nc_show_usage(void)
         "  -V, --version          : show version and exit" CRLF
         "  -t, --test-conf        : test configuration for syntax errors and exit" CRLF
         "  -d, --daemonize        : run as a daemon" CRLF
+        "  -D, --describe-stats   : print stats description and exit" CRLF
         "  -v, --verbosity=N      : set logging level (default: %d, min: %d, max: %d)" CRLF
         "  -o, --output=S         : set logging file (default: %s)" CRLF
         "  -c, --conf-file=S      : set configuration file (default: %s)" CRLF
@@ -311,6 +314,11 @@ nc_get_options(int argc, char **argv, struct instance *nci)
 
         case 'd':
             daemonize = 1;
+            break;
+
+        case 'D':
+            describe_stats = 1;
+            show_version = 1;
             break;
 
         case 'v':
@@ -516,6 +524,11 @@ main(int argc, char **argv)
         if (show_help) {
             nc_show_usage();
         }
+
+        if (describe_stats) {
+            stats_describe();
+        }
+
         exit(0);
     }
 

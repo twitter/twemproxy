@@ -143,7 +143,31 @@ Finally, to make writing syntactically correct configuration file easier, nutcra
 
 Observability in nutcracker is through logs and stats.
 
-Nutcracker exposes stats at the granularity of server pool and servers per pool through the stats monitoring port. The stats are essentially JSON formatted key-value pairs, with the keys corresponding to counter names. By default stats are exposed on port 22222 and aggregated every 30 seconds. Both these values can be configured on program start using the -c or --conf-file and -i or --stats-interval command-line arguments respectively.
+Nutcracker exposes stats at the granularity of server pool and servers per pool through the stats monitoring port. The stats are essentially JSON formatted key-value pairs, with the keys corresponding to counter names. By default stats are exposed on port 22222 and aggregated every 30 seconds. Both these values can be configured on program start using the -c or --conf-file and -i or --stats-interval command-line arguments respectively. You can print the description of all stats exported by nutcracker using the -D or --describe-stats command-line argument.
+
+    $ nutcracker --describe-stats
+
+    pool stats:
+      client_eof          "# eof on client connections"
+      client_err          "# errors on client connections"
+      client_connections  "# active client connections"
+      server_ejects       "# times backend server was ejected"
+      forward_error       "# times we encountered a forwarding error"
+      fragments           "# fragments created from a multi-vector request"
+
+    server stats:
+      server_eof          "# eof on server connections"
+      server_err          "# errors on server connections"
+      server_timedout     "# timeouts on server connections"
+      server_connections  "# active server connections"
+      requests            "# requests"
+      request_bytes       "total request bytes"
+      responses           "# respones"
+      response_bytes      "total response bytes"
+      in_queue            "# requests in incoming queue"
+      in_queue_bytes      "current request bytes in incoming queue"
+      out_queue           "# requests in outgoing queue"
+      out_queue_bytes     "current request bytes in outgoing queue"
 
 Logging in nutcracker is only available when nutcracker is built with logging enabled. By default logs are written to stderr. Nutcracker can also be configured to write logs to a specific file through the -o or --output command-line argument. On a running nutcracker, we can turn log levels up and down by sending it SIGTTIN and SIGTTOU signals respectively and reopen log files by sending it SIGHUP signal.
 

@@ -36,8 +36,8 @@
  *            +        +            .
  *            |        |            .
  *            /        \            .
- *         Request    Response      ...../ nc_mbuf.[ch]  (mesage buffers)
- *      nc_request.c  nc_response.c ...../ nc_parse.[ch] (message parser)
+ *         Request    Response      .../ nc_mbuf.[ch]  (mesage buffers)
+ *      nc_request.c  nc_response.c .../ nc_memcache.c; nc_redis.c (message parser)
  *
  * Messages in nutcracker are manipulated by a chain of processing handlers,
  * where each handler is responsible for taking the input and producing an
@@ -237,6 +237,13 @@ done:
     msg->nfrag = 0;
     msg->frag_id = 0;
 
+    msg->narg_start = NULL;
+    msg->narg_end = NULL;
+    msg->narg = 0;
+    msg->rnarg = 0;
+    msg->rlen = 0;
+    msg->integer = 0;
+
     msg->err = 0;
     msg->error = 0;
     msg->ferror = 0;
@@ -268,7 +275,15 @@ msg_get(struct conn *conn, bool request, bool redis)
     msg->redis = redis ? 1 : 0;
 
     if (redis) {
-        NOT_REACHED();
+        if (request) {
+            msg->parser = redis_parse_req;
+        } else {
+            msg->parser = redis_parse_rsp;
+        }
+        msg->pre_splitcopy = redis_pre_splitcopy;
+        msg->post_splitcopy = redis_post_splitcopy;
+        msg->pre_coalesce = redis_pre_coalesce;
+        msg->post_coalesce = redis_post_coalesce;
     } else {
         if (request) {
             msg->parser = memcache_parse_req;
@@ -288,12 +303,13 @@ msg_get(struct conn *conn, bool request, bool redis)
 }
 
 struct msg *
-msg_get_error(err_t err)
+msg_get_error(bool redis, err_t err)
 {
     struct msg *msg;
     struct mbuf *mbuf;
     int n;
     char *errstr = err ? strerror(err) : "unknown";
+    char *protstr = redis ? "-ERR" : "SERVER_ERROR";
 
     msg = _msg_get();
     if (msg == NULL) {
@@ -310,8 +326,7 @@ msg_get_error(err_t err)
     }
     mbuf_insert(&msg->mhdr, mbuf);
 
-    n = nc_scnprintf(mbuf->last, mbuf->end - mbuf->last, "SERVER_ERROR %s"CRLF,
-                     errstr);
+    n = nc_scnprintf(mbuf->last, mbuf_size(mbuf), "%s %s"CRLF, protstr, errstr);
     mbuf->last += n;
     msg->mlen = (uint32_t)n;
 
@@ -743,6 +758,9 @@ msg_send_chain(struct context *ctx, struct conn *conn, struct msg *msg)
         TAILQ_REMOVE(&send_msgq, msg, m_tqe);
 
         if (nsent == 0) {
+            if (msg->mlen == 0) {
+                conn->send_done(ctx, conn, msg);
+            }
             continue;
         }
 

@@ -163,6 +163,16 @@ mbuf_size(struct mbuf *mbuf)
 }
 
 /*
+ * Return the maximum available space size for data in any mbuf. Mbuf cannot
+ * contain more than 2^32 bytes (4G).
+ */
+size_t
+mbuf_data_size(void)
+{
+    return mbuf_offset;
+}
+
+/*
  * Insert mbuf at the tail of the mhdr Q
  */
 void

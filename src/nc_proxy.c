@@ -200,9 +200,10 @@ proxy_each_init(void *elem, void *data)
         return status;
     }
 
-    log_debug(LOG_NOTICE, "p %d listening on '%.*s' in pool %"PRIu32" '%.*s' "
-              "with %"PRIu32" servers", p->sd, pool->addrstr.len,
-              pool->addrstr.data, pool->idx, pool->name.len, pool->name.data,
+    log_debug(LOG_NOTICE, "p %d listening on '%.*s' in %s pool %"PRIu32" '%.*s'"
+              " with %"PRIu32" servers", p->sd, pool->addrstr.len,
+              pool->addrstr.data, pool->redis ? "redis" : "memcache",
+              pool->idx, pool->name.len, pool->name.data,
               array_n(&pool->server));
 
     return NC_OK;

@@ -23,6 +23,7 @@
 #define LF                  (uint8_t) 10
 #define CR                  (uint8_t) 13
 #define CRLF                "\x0d\x0a"
+#define CRLF_LEN            (sizeof("\x0d\x0a") - 1)
 
 #define NELEMS(a)           ((sizeof(a)) / sizeof((a)[0]))
 

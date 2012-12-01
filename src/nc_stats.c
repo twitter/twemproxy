@@ -27,17 +27,50 @@
 #include <nc_core.h>
 #include <nc_server.h>
 
-#define DEFINE_ACTION(_name, _type) {.type = _type, .name = string(#_name) },
+struct stats_desc {
+    char *name; /* stats name */
+    char *desc; /* stats description */
+};
+
+#define DEFINE_ACTION(_name, _type, _desc) { .type = _type, .name = string(#_name) },
 static struct stats_metric stats_pool_codec[] = {
     STATS_POOL_CODEC( DEFINE_ACTION )
 };
-#undef DEFINE_ACTION
 
-#define DEFINE_ACTION(_name, _type) {.type = _type, .name = string(#_name) },
 static struct stats_metric stats_server_codec[] = {
     STATS_SERVER_CODEC( DEFINE_ACTION )
 };
 #undef DEFINE_ACTION
+
+#define DEFINE_ACTION(_name, _type, _desc) { .name = #_name, .desc = _desc },
+static struct stats_desc stats_pool_desc[] = {
+    STATS_POOL_CODEC( DEFINE_ACTION )
+};
+
+static struct stats_desc stats_server_desc[] = {
+    STATS_SERVER_CODEC( DEFINE_ACTION )
+};
+#undef DEFINE_ACTION
+
+void
+stats_describe(void)
+{
+    uint32_t i;
+
+    log_stderr("pool stats:");
+    for (i = 0; i < NELEMS(stats_pool_desc); i++) {
+        log_stderr("  %-20s\"%s\"", stats_pool_desc[i].name,
+                   stats_pool_desc[i].desc);
+    }
+
+    log_stderr("");
+
+    log_stderr("server stats:");
+    for (i = 0; i < NELEMS(stats_server_desc); i++) {
+        log_stderr("  %-20s\"%s\"", stats_server_desc[i].name,
+                   stats_server_desc[i].desc);
+    }
+}
 
 static void
 stats_metric_init(struct stats_metric *stm)

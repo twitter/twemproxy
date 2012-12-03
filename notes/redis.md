@@ -1,3 +1,5 @@
+## Redis Commands Supported
+
 ### Keys Command
 
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
@@ -352,7 +354,49 @@
     |      TIME         |    No      | TIME                                                                                                                |
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
 
-### Note
+## Note
 
 - redis commands are not case sensitive
 - only vectored commands 'MGET key [key ...]' and 'DEL key [key ...]' needs to be fragmented
+
+## Performance
+
+### Setup
+
++ redis-server running on machine A.
++ nutcracker running on machine A as a local proxy to redis-server.
++ redis-benchmark running on machine B.
++ machine A != machine B.
+
+### redis-benchmark against redis-server
+
+    $ redis-benchmark -h <machine-A> -q -t set,get,incr,lpush,lpop,sadd,spop,lpush,lrange -c 100 -p 6379 
+    SET: 89285.71 requests per second
+    GET: 92592.59 requests per second
+    INCR: 89285.71 requests per second
+    LPUSH: 90090.09 requests per second
+    LPOP: 90090.09 requests per second
+    SADD: 90090.09 requests per second
+    SPOP: 93457.95 requests per second
+    LPUSH (needed to benchmark LRANGE): 89285.71 requests per second
+    LRANGE_100 (first 100 elements): 36496.35 requests per second
+    LRANGE_300 (first 300 elements): 15748.03 requests per second
+    LRANGE_500 (first 450 elements): 11135.86 requests per second
+    LRANGE_600 (first 600 elements): 8650.52 requests per second
+
+### redis-benchmark against nutcracker proxing redis-server
+
+    $ redis-benchmark -h <machine-A> -q -t set,get,incr,lpush,lpop,sadd,spop,lpush,lrange -c 100 -p 22121
+    SET: 85470.09 requests per second
+    GET: 86956.52 requests per second
+    INCR: 85470.09 requests per second
+    LPUSH: 84745.77 requests per second
+    LPOP: 86206.90 requests per second
+    SADD: 84745.77 requests per second
+    SPOP: 86956.52 requests per second
+    LPUSH (needed to benchmark LRANGE): 84745.77 requests per second
+    LRANGE_100 (first 100 elements): 29761.90 requests per second
+    LRANGE_300 (first 300 elements): 12376.24 requests per second
+    LRANGE_500 (first 450 elements): 8605.85 requests per second
+    LRANGE_600 (first 600 elements): 6587.62 requests per second
+    

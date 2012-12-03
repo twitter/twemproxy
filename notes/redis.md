@@ -367,6 +367,9 @@
 + nutcracker running on machine A as a local proxy to redis-server.
 + redis-benchmark running on machine B.
 + machine A != machine B.
++ nutcracker built with --enable-debug=no
++ nutcracker running with mbuf-size of 512 (-m 512)
++ redis-server built from redis 2.6 branch
 
 ### redis-benchmark against redis-server
 

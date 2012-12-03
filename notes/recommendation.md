@@ -50,7 +50,7 @@ Relying only on client-side timeouts has the adverse effect of the original requ
 
 By default, nutcracker waits indefinitely for any request sent to the server. However, when `timeout:` key is configured, a requests for which no response is received from the server in `timeout:` msec is timedout and an error response `SERVER_ERROR Connection timed out\r\n` is sent back to the client.
 
-## Error response
+## Error Response
 
 Whenever a request encounters failure on a server we usually send to the client a response with the general form `SERVER_ERROR <errno description>\r\n`
 
@@ -70,3 +70,6 @@ Seeing a `SERVER_ERROR` response should be considered as a transient failure by 
 All memory for incoming requests and outgoing responses is allocated in mbuf. Mbuf enables zero copy for requests and responses flowing through the proxy. By default an mbuf is 16K bytes in size and this value can be tuned between 512 and 65K bytes using -m or --mbuf-size=N argument. Every connection has at least one mbuf allocated to it. This means that the number of concurrent connections nutcracker can support is dependent on the mbuf size. A small mbuf allows us to handle more connections, while a large mbuf allows us to read and write more data to and from kernel socket buffers.
 
 If nutcracker is meant to handle a large number of concurrent client connections, you should set the mbuf size to 512 or 1K bytes.
+
+## Maximum Key Length
+The memcache ascii protocol [specification](https://github.com/twitter/twemproxy/blob/master/notes/memcache.txt) limits the maximum length of the key to 250 characters. The key should not include whitespace, or '\r' or '\n' character. For redis, we have no such limitation. However, nutcracker requires the key to be stored in a contiguous memory region. Since all requests and responses in nutcracker are stored in mbuf, the maximum length of the redis key is limited by the size of the maximum available space for data in mbuf (mbuf_data_size()). This means that if you want your redis instances to handle large keys, you might want to choose large mbuf size set using -m or --mbuf-size=N command-line argument.

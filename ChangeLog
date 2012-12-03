@@ -1,3 +1,16 @@
+2012-12-03  Manju Rajashekhar  <manj@twitter.com>
+
+    * twemproxy: version 0.2.0 release
+      add -D or --describe-stats command-line argument to print stats description
+      redis support in twemproxy
+      setup pre/post splitcopy and pre/post coalesce handlers in msg struct
+      memcache pre_splitcopy, post_splitcopy, pre_coalesce and post_coalesce handlers
+      every fragment of a msg vector keeps track of the first/last fragment, number of fragments and fragment owner
+      set up msg parser handler for memcache connections
+      refactor parsing code and create header file nc_proto.h
+      stats_listen should use st->addr as the listening address string
+      delete stats tracking memcache requests and responses; stats module no longer tracks protocol related stats
+
 2012-10-27  Manju Rajashekhar  <manj@twitter.com>
 
     * twemproxy: version 0.1.20 release

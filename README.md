@@ -41,15 +41,16 @@ To build nutcracker from source with _debug logs enabled_ and _assertions disabl
 
 ## Help
 
-    Usage: nutcracker [-?hVdt] [-v verbosity level] [-o output file]
+    Usage: nutcracker [-?hVdDt] [-v verbosity level] [-o output file]
                       [-c conf file] [-s stats port] [-i stats interval]
                       [-p pid file] [-m mbuf size]
-
+    
     Options:
       -h, --help             : this help
       -V, --version          : show version and exit
       -t, --test-conf        : test configuration for syntax errors and exit
       -d, --daemonize        : run as a daemon
+      -D, --describe-stats   : print stats description and exit
       -v, --verbosity=N      : set logging level (default: 5, min: 0, max: 11)
       -o, --output=S         : set logging file (default: stderr)
       -c, --conf-file=S      : set configuration file (default: conf/nutcracker.yml)
@@ -69,8 +70,21 @@ Furthermore, memory for mbufs is managed using a reuse pool. This means that onc
 nutcracker can be configured through a YAML file specified by the -c or --conf-file command-line argument on process start. The configuration file is used to specify the server pools and the servers within each pool that nutcracker manages. The configuration files parses and understands the following keys:
 
 + **listen**: The listening address and port (name:port or ip:port) for this server pool.
-+ **hash**: The name of the hash function. Possible values are: one_at_a_time, md5, crc32, fnv1_64, fnv1a_64, fnv1_32, fnv1a_32, hsieh, murmur, and jenkins.
-+ **distribution**: The key distribution mode. Possible values are: ketama, modula and random.
++ **hash**: The name of the hash function. Possible values are:
+ + one_at_a_time
+ + md5
+ + crc32
+ + fnv1_64
+ + fnv1a_64
+ + fnv1_32
+ + fnv1a_32
+ + hsieh
+ + murmur
+ + jenkins
++ **distribution**: The key distribution mode. Possible values are:
+ + ketama
+ + modula
+ + random
 + **timeout**: The timeout value in msec that we wait for to establish a connection to the server or receive a response from a server. By default, we wait indefinitely.
 + **backlog**: The TCP backlog argument. Defaults to 512.
 + **preconnect**: A boolean value that controls if nutcracker should preconnect to all the servers in this pool on process start. Defaults to false.

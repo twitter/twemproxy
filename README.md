@@ -185,6 +185,15 @@ Nutcracker exposes stats at the granularity of server pool and servers per pool 
 
 Logging in nutcracker is only available when nutcracker is built with logging enabled. By default logs are written to stderr. Nutcracker can also be configured to write logs to a specific file through the -o or --output command-line argument. On a running nutcracker, we can turn log levels up and down by sending it SIGTTIN and SIGTTOU signals respectively and reopen log files by sending it SIGHUP signal.
 
+## Pipelining
+
+
+Nutcracker enables proxying multiple client connections onto one or few server connections. This architectural setup makes it ideal for pipelining requests and responses and hence saving on the round trip time. 
+
+For example, if nutcracker is proxing three client connections onto a single server and we get requests - 'get key\r\n', 'set key 0 0 3\r\nval\r\n' and 'delete key\r\n' on these three connections respectively, nutcracker would try to batch these requests and send them as a single message onto the server connection as 'get key\r\nset key 0 0 3\r\nval\r\ndelete key\r\n'.
+
+Pipelining is the reason why nutcracker ends up doing better in terms of throughput even though it introduces an extra hop between the client and server.
+
 ## Deployment
 
 If you are deploying nutcracker in production, you might consider reading through the [recommendation document](https://github.com/twitter/twemproxy/blob/master/notes/recommendation.md) to understand the parameters you could tune in nutcracker to run it efficiently in the production environment.

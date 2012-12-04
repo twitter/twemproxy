@@ -34,7 +34,10 @@
 #define NC_LOG_MAX          LOG_PVERB
 #define NC_LOG_PATH         NULL
 
-#define NC_STATS_PORT       STATS_PORT
+#define NC_STATS_DEFAULT_PORT       STATS_DEFAULT_PORT
+#define NC_STATS_DEFAULT_ADDR       STATS_DEFAULT_ADDR
+#define NC_STATS_ANY_ADDR           STATS_ANY_ADDR
+
 #define NC_STATS_INTERVAL   STATS_INTERVAL
 
 #define NC_PID_FILE         NULL
@@ -60,12 +63,13 @@ static struct option long_options[] = {
     { "conf-file",      required_argument,  NULL,   'c' },
     { "stats-port",     required_argument,  NULL,   's' },
     { "stats-interval", required_argument,  NULL,   'i' },
+    { "stats-bind-any", no_argument,        NULL,   'a' },
     { "pid-file",       required_argument,  NULL,   'p' },
     { "mbuf-size",      required_argument,  NULL,   'm' },
     { NULL,             0,                  NULL,    0  }
 };
 
-static char short_options[] = "hVtdDv:o:c:s:i:p:m:";
+static char short_options[] = "hVtdDv:o:c:s:i:ap:m:";
 
 static rstatus_t
 nc_daemonize(int dump_core)
@@ -204,12 +208,13 @@ nc_show_usage(void)
         "  -c, --conf-file=S      : set configuration file (default: %s)" CRLF
         "  -s, --stats-port=N     : set stats monitoring port (default: %d)" CRLF
         "  -i, --stats-interval=N : set stats aggregation interval in msec (default: %d msec)" CRLF
+        "  -a, --stats-bind-any   : set stats monitoring ip to INADDR_ANY (default: %s)" CRLF
         "  -p, --pid-file=S       : set pid file (default: %s)" CRLF
         "  -m, --mbuf-size=N      : set size of mbuf chunk in bytes (default: %d bytes)" CRLF
         "",
         NC_LOG_DEFAULT, NC_LOG_MIN, NC_LOG_MAX,
         NC_LOG_PATH != NULL ? NC_LOG_PATH : "stderr",
-        NC_CONF_PATH, NC_STATS_PORT, NC_STATS_INTERVAL,
+        NC_CONF_PATH, NC_STATS_DEFAULT_PORT, NC_STATS_INTERVAL, NC_STATS_DEFAULT_ADDR,
         NC_PID_FILE != NULL ? NC_PID_FILE : "off",
         NC_MBUF_SIZE);
 }
@@ -267,7 +272,8 @@ nc_set_default_options(struct instance *nci)
 
     nci->conf_filename = NC_CONF_PATH;
 
-    nci->stats_port = NC_STATS_PORT;
+    nci->stats_port = NC_STATS_DEFAULT_PORT;
+    nci->stats_addr = NC_STATS_DEFAULT_ADDR;
     nci->stats_interval = NC_STATS_INTERVAL;
 
     status = nc_gethostname(nci->hostname, NC_MAXHOSTNAMELEN);
@@ -361,6 +367,10 @@ nc_get_options(int argc, char **argv, struct instance *nci)
             }
 
             nci->stats_interval = value;
+            break;
+
+        case 'a':
+            nci->stats_addr = NC_STATS_ANY_ADDR;
             break;
 
         case 'p':

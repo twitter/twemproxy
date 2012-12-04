@@ -49,8 +49,9 @@
     ACTION( out_queue,              STATS_GAUGE,        "# requests in outgoing queue")                     \
     ACTION( out_queue_bytes,        STATS_GAUGE,        "current request bytes in outgoing queue")          \
 
-#define STATS_ADDR      "localhost"
-#define STATS_PORT      22222
+#define STATS_DEFAULT_ADDR      "localhost"
+#define STATS_ANY_ADDR          "0.0.0.0"
+#define STATS_DEFAULT_PORT      22222
 #define STATS_INTERVAL  (30 * 1000) /* in msec */
 
 typedef enum stats_type {
@@ -199,7 +200,7 @@ void _stats_server_decr(struct context *ctx, struct server *server, stats_server
 void _stats_server_incr_by(struct context *ctx, struct server *server, stats_server_field_t fidx, int64_t val);
 void _stats_server_decr_by(struct context *ctx, struct server *server, stats_server_field_t fidx, int64_t val);
 
-struct stats *stats_create(uint16_t stats_port, int stats_interval, char *source, struct array *server_pool);
+struct stats *stats_create(uint16_t stats_port, char *stats_ip, int stats_interval, char *source, struct array *server_pool);
 void stats_destroy(struct stats *stats);
 void stats_swap(struct stats *stats);
 

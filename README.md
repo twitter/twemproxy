@@ -42,9 +42,9 @@ To build nutcracker from source with _debug logs enabled_ and _assertions disabl
 ## Help
 
     Usage: nutcracker [-?hVdDt] [-v verbosity level] [-o output file]
-                      [-c conf file] [-s stats port] [-i stats interval]
-                      [-p pid file] [-m mbuf size]
-    
+                      [-c conf file] [-s stats port] [-a stats addr]
+                      [-i stats interval] [-p pid file] [-m mbuf size]
+
     Options:
       -h, --help             : this help
       -V, --version          : show version and exit
@@ -55,6 +55,7 @@ To build nutcracker from source with _debug logs enabled_ and _assertions disabl
       -o, --output=S         : set logging file (default: stderr)
       -c, --conf-file=S      : set configuration file (default: conf/nutcracker.yml)
       -s, --stats-port=N     : set stats monitoring port (default: 22222)
+      -a, --stats-addr=S     : set stats monitoring ip (default: 0.0.0.0)
       -i, --stats-interval=N : set stats aggregation interval in msec (default: 30000 msec)
       -p, --pid-file=S       : set pid file (default: off)
       -m, --mbuf-size=N      : set size of mbuf chunk in bytes (default: 16384 bytes)

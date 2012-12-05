@@ -192,8 +192,8 @@ nc_show_usage(void)
 {
     log_stderr(
         "Usage: nutcracker [-?hVdDt] [-v verbosity level] [-o output file]" CRLF
-        "                  [-c conf file] [-s stats port] [-i stats interval]" CRLF
-        "                  [-p pid file] [-m mbuf size]" CRLF
+        "                  [-c conf file] [-s stats port] [-a stats addr]" CRLF
+        "                  [-i stats interval] [-p pid file] [-m mbuf size]" CRLF
         "");
     log_stderr(
         "Options:" CRLF

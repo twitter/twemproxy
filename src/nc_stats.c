@@ -826,8 +826,8 @@ stats_listen(struct stats *st)
 
     status = bind(st->sd, (struct sockaddr *)&si.addr, si.addrlen);
     if (status < 0) {
-        log_error("bind on m %d to addr '%s:%u' failed: %s", st->sd,
-                  STATS_ADDR, st->port, strerror(errno));
+        log_error("bind on m %d to addr '%.*s:%u' failed: %s", st->sd,
+                  st->addr.len, st->addr.data, st->port, strerror(errno));
         return NC_ERROR;
     }
 
@@ -837,8 +837,8 @@ stats_listen(struct stats *st)
         return NC_ERROR;
     }
 
-    log_debug(LOG_NOTICE, "m %d listening on '%s:%u'", st->sd, STATS_ADDR,
-              st->port);
+    log_debug(LOG_NOTICE, "m %d listening on '%.*s:%u'", st->sd, 
+                st->addr.len, st->addr.data, st->port);
 
     return NC_OK;
 }
@@ -895,7 +895,7 @@ stats_stop_aggregator(struct stats *st)
 }
 
 struct stats *
-stats_create(uint16_t stats_port, int stats_interval, char *source,
+stats_create(uint16_t stats_port, char *stats_ip, int stats_interval, char *source,
              struct array *server_pool)
 {
     rstatus_t status;
@@ -908,7 +908,7 @@ stats_create(uint16_t stats_port, int stats_interval, char *source,
 
     st->port = stats_port;
     st->interval = stats_interval;
-    string_set_text(&st->addr, STATS_ADDR);
+    string_set_raw(&st->addr, stats_ip);
 
     st->start_ts = (int64_t)time(NULL);
 

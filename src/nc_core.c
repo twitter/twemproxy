@@ -64,7 +64,7 @@ core_ctx_create(struct instance *nci)
     }
 
     /* create stats per server pool */
-    ctx->stats = stats_create(nci->stats_port, nci->stats_interval,
+    ctx->stats = stats_create(nci->stats_port, nci->stats_addr, nci->stats_interval,
                               nci->hostname, &ctx->pool);
     if (ctx->stats == NULL) {
         server_pool_deinit(&ctx->pool);

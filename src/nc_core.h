@@ -116,7 +116,7 @@ struct instance {
     char            *conf_filename;              /* configuration filename */
     uint16_t        stats_port;                  /* stats monitoring port */
     int             stats_interval;              /* stats aggregation interval */
-    char            *stats_addr;                 /* stats moritoring addr*/
+    char            *stats_addr;                 /* stats monitoring addr */
     char            hostname[NC_MAXHOSTNAMELEN]; /* hostname */
     size_t          mbuf_chunk_size;             /* mbuf chunk size */
     pid_t           pid;                         /* process id */

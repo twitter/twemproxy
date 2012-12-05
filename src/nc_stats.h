@@ -49,9 +49,8 @@
     ACTION( out_queue,              STATS_GAUGE,        "# requests in outgoing queue")                     \
     ACTION( out_queue_bytes,        STATS_GAUGE,        "current request bytes in outgoing queue")          \
 
-#define STATS_DEFAULT_ADDR      "localhost"
-#define STATS_ANY_ADDR          "0.0.0.0"
-#define STATS_DEFAULT_PORT      22222
+#define STATS_ADDR      "0.0.0.0"
+#define STATS_PORT      22222
 #define STATS_INTERVAL  (30 * 1000) /* in msec */
 
 typedef enum stats_type {

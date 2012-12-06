@@ -41,6 +41,8 @@ static struct string dist_strings[] = {
 };
 #undef DEFINE_ACTION
 
+#define KETAMA_DEFAULT_PORT         11211
+
 static struct command conf_commands[] = {
     { string("listen"),
       conf_set_listen,
@@ -102,6 +104,7 @@ conf_server_init(struct conf_server *cs)
 {
     string_init(&cs->pname);
     string_init(&cs->name);
+    string_init(&cs->nick);
     cs->port = 0;
     cs->weight = 0;
 
@@ -117,6 +120,7 @@ conf_server_deinit(struct conf_server *cs)
 {
     string_deinit(&cs->pname);
     string_deinit(&cs->name);
+    string_deinit(&cs->nick);
     cs->valid = 0;
     log_debug(LOG_VVERB, "deinit conf server %p", cs);
 }
@@ -138,6 +142,7 @@ conf_server_each_transform(void *elem, void *data)
 
     s->pname = cs->pname;
     s->name = cs->name;
+    s->nick = cs->nick;
     s->port = (uint16_t)cs->port;
     s->weight = (uint32_t)cs->weight;
 
@@ -1117,6 +1122,14 @@ conf_pool_name_cmp(const void *t1, const void *t2)
 }
 
 static int
+conf_server_nick_cmp(const void *t1, const void *t2)
+{
+    const struct conf_server *s1 = t1, *s2 = t2;
+
+    return string_compare(&s1->nick, &s2->nick);
+}
+
+static int
 conf_pool_listen_cmp(const void *t1, const void *t2)
 {
     const struct conf_pool *p1 = t1, *p2 = t2;
@@ -1137,6 +1150,27 @@ conf_validate_server(struct conf *cf, struct conf_pool *cp)
         return NC_ERROR;
     }
 
+    for (i = 0; i < nserver; i++ ) {
+        struct conf_server *cs;
+        cs = array_get(&cp->server, i);
+
+        if (cp->redis == 1 && cp->auto_eject_hosts == 0 && cs->weight != 1) {
+            cs->weight = 1;
+            log_debug(LOG_NOTICE, "conf: change ('%'*s')'s weight to 1",
+                      cs->pname.len, cs->pname.data);
+        } else if (cp->redis == 0 && cs->port == KETAMA_DEFAULT_PORT) {
+            rstatus_t status;
+            string_deinit(&cs->nick);
+            string_init(&cs->nick);
+            status = string_duplicate(&cs->nick, &cs->name);
+            if (status != NC_OK) {
+                log_error("conf: nick converting error('%.*s')", cs->name.len,
+                           cs->name.data);
+                return NC_ERROR;
+            }
+        }
+    }
+
     /*
      * Disallow duplicate servers - servers with identical host:port:weight
      * combination are considered as duplicates
@@ -1150,8 +1184,27 @@ conf_validate_server(struct conf *cf, struct conf_pool *cp)
 
         if (string_compare(&cs1->pname, &cs2->pname) == 0) {
             log_error("conf: pool '%.*s' has servers with same name '%.*s'",
-                      cp->name.len, cp->name.data, cs1->pname.len,
-                      cs1->pname.data);
+                    cp->name.len, cp->name.data, cs1->pname.len,
+                    cs1->pname.data);
+            valid = false;
+            break;
+        }
+    }
+    if (!valid) {
+        return NC_ERROR;
+    }
+
+    array_sort(&cp->server, conf_server_nick_cmp);
+    for (valid = true, i = 0; i < nserver - 1; i++) {
+        struct conf_server *cs1, *cs2;
+
+        cs1 = array_get(&cp->server, i);
+        cs2 = array_get(&cp->server, i + 1);
+
+        if (string_compare(&cs1->nick, &cs2->nick) == 0) {
+            log_error("conf: pool '%.*s' has servers with same nick '%.*s'",
+                      cp->name.len, cp->name.data, cs1->nick.len, 
+                      cs1->nick.data);
             valid = false;
             break;
         }
@@ -1452,6 +1505,32 @@ conf_set_listen(struct conf *cf, struct command *cmd, void *conf)
     return CONF_OK;
 }
 
+static int 
+is_white(uint8_t ch)
+{
+    int ret = 0;
+    if(ch == ' ' || ch == '\t'){
+        ret = 1;
+    }
+
+    return ret;
+}
+
+static uint8_t *
+find_white(uint8_t *end, uint8_t *start)
+{
+    uint8_t *ret = NULL;
+    while(end > start && is_white(*end) == 0) {
+        end--;
+    }     
+
+    if (is_white(*end) == 1) {
+        ret = end;
+    }
+
+    return ret;
+}
+
 char *
 conf_add_server(struct conf *cf, struct command *cmd, void *conf)
 {
@@ -1460,8 +1539,9 @@ conf_add_server(struct conf *cf, struct command *cmd, void *conf)
     struct string *value;
     struct conf_server *field;
     uint8_t *p, *q, *start;
-    uint8_t *name, *port, *weight;
-    uint32_t k, namelen, portlen, weightlen;
+    uint8_t *name, *port, *weight, *nick;
+    uint32_t k, namelen, portlen, weightlen, nicklen;
+    uint8_t nickbuf[128];
 
     p = conf;
     a = (struct array *)(p + cmd->offset);
@@ -1490,6 +1570,22 @@ conf_add_server(struct conf *cf, struct command *cmd, void *conf)
     weightlen = 0;
     port = NULL;
     portlen = 0;
+    nick = NULL;
+    nicklen = 0;
+
+    q = find_white(p, start);
+    if (q) {
+        nick = q + 1;
+        nicklen = (uint32_t)(p - nick + 1);
+        while( is_white(*q) && q != start){
+            q--;
+        }
+        if(q == start) {
+            return "has an invalid \"hostname:port:weight [nickname]\" format string";
+        }
+
+        p = q;
+    }
 
     for (k = 0; k < 2; k++) {
         q = nc_strrchr(p, start, ':');
@@ -1516,7 +1612,7 @@ conf_add_server(struct conf *cf, struct command *cmd, void *conf)
     }
 
     if (k != 2) {
-        return "has an invalid \"hostname:port:weight\" format string";
+        return "has an invalid \"hostname:port:weight [nickname]\" format string";
     }
 
     name = start;
@@ -1524,15 +1620,26 @@ conf_add_server(struct conf *cf, struct command *cmd, void *conf)
 
     field->weight = nc_atoi(weight, weightlen);
     if (field->weight < 0) {
-        return "has an invalid weight in \"hostname:port:weight\" format string";
+        return "has an invalid weight in \"hostname:port:weight [nickname]\" format string";
     }
 
     field->port = nc_atoi(port, portlen);
     if (field->port < 0 || !nc_valid_port(field->port)) {
-        return "has an invalid port in \"hostname:port:weight\" format string";
+        return "has an invalid port in \"hostname:port:weight [nickname]\" format string";
     }
 
     status = string_copy(&field->name, name, namelen);
+    if (status != NC_OK) {
+        return CONF_ERROR;
+    }
+
+    if(nick == NULL) {
+        nick = nickbuf;
+        nicklen = (uint32_t)nc_snprintf(nickbuf, sizeof(nickbuf), "%s:%d", 
+                                        field->name.data, field->port );
+    }
+
+    status = string_copy(&field->nick, nick, nicklen);
     if (status != NC_OK) {
         return CONF_ERROR;
     }

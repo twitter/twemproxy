@@ -26,7 +26,6 @@
 #define KETAMA_CONTINUUM_ADDITION   10  /* # extra slots to build into continuum */
 #define KETAMA_POINTS_PER_SERVER    160 /* 40 points per hash */
 #define KETAMA_MAX_HOSTLEN          86
-#define KETAMA_DEFAULT_PORT         11211
 
 static uint32_t
 ketama_hash(const char *key, size_t key_length, uint32_t alignment)
@@ -176,15 +175,9 @@ ketama_update(struct server_pool *pool)
             size_t hostlen;
             uint32_t x;
 
-            if (server->port == KETAMA_DEFAULT_PORT) {
-                hostlen = snprintf(host, KETAMA_MAX_HOSTLEN, "%.*s-%u",
-                                   server->name.len, server->name.data,
-                                   pointer_index - 1);
-            } else {
-                hostlen = snprintf(host, KETAMA_MAX_HOSTLEN, "%.*s:%u-%u",
-                                   server->name.len, server->name.data,
-                                   server->port, pointer_index - 1);
-            }
+            hostlen = snprintf(host, KETAMA_MAX_HOSTLEN, "%.*s-%u",
+                               server->nick.len, server->nick.data,
+                               pointer_index - 1);
 
             for (x = 0; x < pointer_per_hash; x++) {
                 value = ketama_hash(host, hostlen, x);

@@ -176,7 +176,7 @@ ketama_update(struct server_pool *pool)
             uint32_t x;
 
             hostlen = snprintf(host, KETAMA_MAX_HOSTLEN, "%.*s-%u",
-                               server->nick.len, server->nick.data,
+                               server->name.len, server->name.data,
                                pointer_index - 1);
 
             for (x = 0; x < pointer_per_hash; x++) {

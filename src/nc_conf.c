@@ -41,8 +41,6 @@ static struct string dist_strings[] = {
 };
 #undef DEFINE_ACTION
 
-#define KETAMA_DEFAULT_PORT         11211
-
 static struct command conf_commands[] = {
     { string("listen"),
       conf_set_listen,
@@ -1493,6 +1491,7 @@ conf_add_server(struct conf *cf, struct command *cmd, void *conf)
     uint32_t k, addrlen, portlen, weightlen, namelen;
     struct string address;
     uint8_t buf[128];
+    uint32_t difflen;
 
     string_init(&address);
     p = conf;
@@ -1506,12 +1505,6 @@ conf_add_server(struct conf *cf, struct command *cmd, void *conf)
     conf_server_init(field);
 
     value = array_top(&cf->arg);
-
-    status = string_duplicate(&field->pname, value);
-    if (status != NC_OK) {
-        array_pop(a);
-        return CONF_ERROR;
-    }
 
     /* parse "hostname:port:weight" from the end */
     p = value->data + value->len - 1;
@@ -1563,6 +1556,17 @@ conf_add_server(struct conf *cf, struct command *cmd, void *conf)
         return "has an invalid \"hostname:port:weight [nickname]\" format string";
     }
 
+    difflen = value->len;
+    if (namelen > 0) {
+        difflen -= (namelen + 1);
+    }
+
+    status = string_copy(&field->pname, value->data, difflen);
+    if (status != NC_OK) {
+        array_pop(a);
+        return CONF_ERROR;
+    }
+
     addr = start;
     addrlen = (uint32_t)(p - start + 1);
 
@@ -1582,8 +1586,8 @@ conf_add_server(struct conf *cf, struct command *cmd, void *conf)
             namelen = addrlen;
         } else {
             name = buf;
-            namelen = nc_snprintf(buf, sizeof(buf), "%.*s:%d",
-                                  addrlen, addr, field->port);  
+            namelen = (uint32_t)nc_snprintf(buf, sizeof(buf), "%.*s:%d",
+                                            addrlen, addr, field->port);  
         }
     }
 

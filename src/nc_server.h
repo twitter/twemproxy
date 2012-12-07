@@ -72,7 +72,6 @@ struct server {
 
     struct string      pname;         /* name:port:weight (ref in conf_server) */
     struct string      name;          /* name (ref in conf_server) */
-    struct string      nick;          /* nick for consistent hashing */
     uint16_t           port;          /* port */
     uint32_t           weight;        /* weight */
     int                family;        /* socket family */

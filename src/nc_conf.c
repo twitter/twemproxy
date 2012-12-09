@@ -1518,11 +1518,11 @@ conf_add_server(struct conf *cf, struct command *cmd, void *conf)
     name = NULL;
     namelen = 0;
 
-    char delim[3] = " ::";
-    for (k = 0; k < 3; k++) {
+    char delim[] = " ::";
+    for (k = 0; k < sizeof(delim); k++) {
         q = nc_strrchr(p, start, delim[k]);
         if (q == NULL) {
-            if( k == 0 ) {
+            if (k == 0) {
                 continue;
             } else {
                 break;
@@ -1553,7 +1553,7 @@ conf_add_server(struct conf *cf, struct command *cmd, void *conf)
     }
 
     if (k != 3) {
-        return "has an invalid \"hostname:port:weight [nickname]\" format string";
+        return "has an invalid \"hostname:port:weight [name]\" format string";
     }
 
     difflen = value->len;
@@ -1572,16 +1572,16 @@ conf_add_server(struct conf *cf, struct command *cmd, void *conf)
 
     field->weight = nc_atoi(weight, weightlen);
     if (field->weight < 0) {
-        return "has an invalid weight in \"hostname:port:weight [nickname]\" format string";
+        return "has an invalid weight in \"hostname:port:weight [name]\" format string";
     }
 
     field->port = nc_atoi(port, portlen);
     if (field->port < 0 || !nc_valid_port(field->port)) {
-        return "has an invalid port in \"hostname:port:weight [nickname]\" format string";
+        return "has an invalid port in \"hostname:port:weight [name]\" format string";
     }
 
-    if(name == NULL) {
-        if(field->port == CONF_DEFAULT_KETAMA_PORT) {
+    if (name == NULL) {
+        if (field->port == CONF_DEFAULT_KETAMA_PORT) {
             name = addr;
             namelen = addrlen;
         } else {

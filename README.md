@@ -96,7 +96,8 @@ nutcracker can be configured through a YAML file specified by the -c or --conf-f
 + **server_failure_limit**: The number of conseutive failures on a server that would leads to it being temporarily ejected when auto_eject_host is set to true. Defaults to 2.
 + **servers**: A list of server address, port and weight (name:port:weight or ip:port:weight) for this server pool.
 
-For example, the configuration file in [conf/nutcracker.yml](https://github.com/twitter/twemproxy/blob/master/conf/nutcracker.yml), also shown below, configures 4 server pools with names - _alpha_, _beta_, _gamma_ and _delta_. Clients that intend to send requests to one of the 10 servers in pool gamma connect to port 22123 on 127.0.0.1. Clients that intend to send request to one of 2 servers in pool delta connect to unix path /tmp/gamma. Requests sent to pool alpha and delta have no timeout and might require timeout functionality to be implemented on the client side. On the other hand, requests sent to pool beta and gamma timeout after 400 msec and 100 msec respectively when no response is received from the server. Of the 4 server pools, only pools alpha, beta and gamma are configured to use server ejection and hence are resilient to server failures. All the 4 server pools use ketama consistent hashing for key distribution with the key hasher for pools alpha, beta and gamma set to fnv1a_64 while that for pool delta set to hsieh. Finally, only pool alpha can speak redis protocol, while pool beta, gamma and delta speak memcached protocol.
+
+For example, the configuration file in [conf/nutcracker.yml](https://github.com/twitter/twemproxy/blob/master/conf/nutcracker.yml), also shown below, configures 5 server pools with names - _alpha_, _beta_, _gamma_, _delta_ and omega. Clients that intend to send requests to one of the 10 servers in pool delta connect to port 22124 on 127.0.0.1. Clients that intend to send request to one of 2 servers in pool omega connect to unix path /tmp/gamma. Requests sent to pool alpha and omega have no timeout and might require timeout functionality to be implemented on the client side. On the other hand, requests sent to pool beta, gamma and delta timeout after 400 msec, 400 msec and 100 msec respectively when no response is received from the server. Of the 5 server pools, only pools alpha, gamma and deleta are configured to use server ejection and hence are resilient to server failures. All the 5 server pools use ketama consistent hashing for key distribution with the key hasher for pools alpha, beta, gamma and delta set to fnv1a_64 while that for pool omega set to hsieh. Also only pool beta uses [nodes names](https://github.com/twitter/twemproxy/blob/master/notes/recommendation.md#node-names-for-consistent-hashing) for consistent hashing, while pool alpha, gamma, delta and omega use 'host:port:weight' for consistent hashing. Finally, only pool alpha and beta can speak redis protocol, while pool gamma, deta and omega speak memcached protocol.
 
     alpha:
       listen: 127.0.0.1:22121
@@ -108,9 +109,22 @@ For example, the configuration file in [conf/nutcracker.yml](https://github.com/
       server_failure_limit: 1
       servers:
        - 127.0.0.1:6379:1
-
+    
     beta:
       listen: 127.0.0.1:22122
+      hash: fnv1a_64
+      distribution: ketama
+      auto_eject_hosts: false
+      timeout: 400
+      redis: true
+      servers:
+       - 127.0.0.1:6380:1 server1
+       - 127.0.0.1:6381:1 server2
+       - 127.0.0.1:6382:1 server3
+       - 127.0.0.1:6383:1 server4
+    
+    gamma:
+      listen: 127.0.0.1:22123
       hash: fnv1a_64
       distribution: ketama
       timeout: 400
@@ -122,9 +136,9 @@ For example, the configuration file in [conf/nutcracker.yml](https://github.com/
       servers:
        - 127.0.0.1:11212:1
        - 127.0.0.1:11213:1
-
-    gamma:
-      listen: 127.0.0.1:22123
+    
+    delta:
+      listen: 127.0.0.1:22124
       hash: fnv1a_64
       distribution: ketama
       timeout: 100
@@ -142,8 +156,8 @@ For example, the configuration file in [conf/nutcracker.yml](https://github.com/
        - 127.0.0.1:11221:1
        - 127.0.0.1:11222:1
        - 127.0.0.1:11223:1
-
-    delta:
+    
+    omega:
       listen: /tmp/gamma
       hash: hsieh
       distribution: ketama
@@ -151,7 +165,7 @@ For example, the configuration file in [conf/nutcracker.yml](https://github.com/
       servers:
        - 127.0.0.1:11214:100000
        - 127.0.0.1:11215:1
-
+       
 Finally, to make writing syntactically correct configuration file easier, nutcracker provides a command-line argument -t or --test-conf that can be used to test the YAML configuration file for any syntax error.
 
 ## Observability

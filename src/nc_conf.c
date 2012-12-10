@@ -1146,8 +1146,8 @@ conf_validate_server(struct conf *cf, struct conf_pool *cp)
     }
 
     /*
-     * Disallow duplicate servers - servers with identical host:port:weight
-     * combination are considered as duplicates
+     * Disallow duplicate servers - servers with identical "host:port:weight"
+     * or "name" combination are considered as duplicates
      */
     array_sort(&cp->server, conf_server_pname_cmp);
     for (valid = true, i = 0; i < nserver - 1; i++) {
@@ -1487,11 +1487,10 @@ conf_add_server(struct conf *cf, struct command *cmd, void *conf)
     struct string *value;
     struct conf_server *field;
     uint8_t *p, *q, *start;
-    uint8_t *addr, *port, *weight, *name;
-    uint32_t k, addrlen, portlen, weightlen, namelen;
+    uint8_t *pname, *addr, *port, *weight, *name;
+    uint32_t k, pnamelen, addrlen, portlen, weightlen, namelen;
     struct string address;
-    uint8_t buf[128];
-    uint32_t difflen;
+    char delim[] = " ::";
 
     string_init(&address);
     p = conf;
@@ -1506,7 +1505,7 @@ conf_add_server(struct conf *cf, struct command *cmd, void *conf)
 
     value = array_top(&cf->arg);
 
-    /* parse "hostname:port:weight" from the end */
+    /* parse "hostname:port:weight [name]" from the end */
     p = value->data + value->len - 1;
     start = value->data;
     addr = NULL;
@@ -1518,16 +1517,18 @@ conf_add_server(struct conf *cf, struct command *cmd, void *conf)
     name = NULL;
     namelen = 0;
 
-    char delim[] = " ::";
     for (k = 0; k < sizeof(delim); k++) {
         q = nc_strrchr(p, start, delim[k]);
         if (q == NULL) {
             if (k == 0) {
+                /*
+                 * name in "hostname:port:weight [name]" format string is
+                 * optional
+                 */
                 continue;
-            } else {
-                break;
             }
-        } 
+            break;
+        }
 
         switch (k) {
         case 0:
@@ -1556,12 +1557,9 @@ conf_add_server(struct conf *cf, struct command *cmd, void *conf)
         return "has an invalid \"hostname:port:weight [name]\" format string";
     }
 
-    difflen = value->len;
-    if (namelen > 0) {
-        difflen -= (namelen + 1);
-    }
-
-    status = string_copy(&field->pname, value->data, difflen);
+    pname = value->data;
+    pnamelen = namelen > 0 ? value->len - (namelen + 1) : value->len;
+    status = string_copy(&field->pname, pname, pnamelen);
     if (status != NC_OK) {
         array_pop(a);
         return CONF_ERROR;
@@ -1581,13 +1579,17 @@ conf_add_server(struct conf *cf, struct command *cmd, void *conf)
     }
 
     if (name == NULL) {
+        /*
+         * To maintain backward compatibility with libmemcached, we don't
+         * include the port as the part of the input string to the consistent
+         * hashing algorithm, when it is equal to 11211.
+         */
         if (field->port == CONF_DEFAULT_KETAMA_PORT) {
             name = addr;
             namelen = addrlen;
         } else {
-            name = buf;
-            namelen = (uint32_t)nc_snprintf(buf, sizeof(buf), "%.*s:%d",
-                                            addrlen, addr, field->port);  
+            name = addr;
+            namelen = addrlen + 1 + portlen;
         }
     }
 

@@ -13,6 +13,20 @@ beta:
   listen: 127.0.0.1:22122
   hash: fnv1a_64
   distribution: ketama
+  auto_eject_hosts: false
+  redis: true
+  server_retry_timeout: 2000
+  server_failure_limit: 1
+  servers:
+   - 127.0.0.1:6380:1 server1
+   - 127.0.0.1:6381:1 server2
+   - 127.0.0.1:6382:1 server3
+   - 127.0.0.1:6383:1 server4
+
+gamma:
+  listen: 127.0.0.1:22123
+  hash: fnv1a_64
+  distribution: ketama
   timeout: 400
   backlog: 1024
   preconnect: true
@@ -23,8 +37,8 @@ beta:
    - 127.0.0.1:11212:1
    - 127.0.0.1:11213:1
 
-gamma:
-  listen: 127.0.0.1:22123
+delta:
+  listen: 127.0.0.1:22124
   hash: fnv1a_64
   distribution: ketama
   timeout: 100
@@ -43,7 +57,7 @@ gamma:
    - 127.0.0.1:11222:1
    - 127.0.0.1:11223:1
 
-delta:
+omega:
   listen: /tmp/gamma
   hash: hsieh
   distribution: ketama

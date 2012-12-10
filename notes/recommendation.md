@@ -73,3 +73,26 @@ If nutcracker is meant to handle a large number of concurrent client connections
 
 ## Maximum Key Length
 The memcache ascii protocol [specification](https://github.com/twitter/twemproxy/blob/master/notes/memcache.txt) limits the maximum length of the key to 250 characters. The key should not include whitespace, or '\r' or '\n' character. For redis, we have no such limitation. However, nutcracker requires the key to be stored in a contiguous memory region. Since all requests and responses in nutcracker are stored in mbuf, the maximum length of the redis key is limited by the size of the maximum available space for data in mbuf (mbuf_data_size()). This means that if you want your redis instances to handle large keys, you might want to choose large mbuf size set using -m or --mbuf-size=N command-line argument.
+
+## Node Names for Consistent Hashing
+
+The server cluster in twemproxy can either be specified as list strings in format 'host:port:weight' or 'host:port:weight name'. 
+
+    servers:
+     - 127.0.0.1:6379:1
+     - 127.0.0.1:6380:1
+     - 127.0.0.1:6381:1
+     - 127.0.0.1:6382:1
+
+Or,
+
+    servers:
+     - 127.0.0.1:6379:1 server1
+     - 127.0.0.1:6380:1 server2
+     - 127.0.0.1:6381:1 server3
+     - 127.0.0.1:6382:1 server4
+
+
+In the former configuration, keys are mapped **directly** to **'host:port:weight'** triplet and in the latter they are mapped to **node names** which are then mapped to nodes i.e. host:port pair. The latter configuration gives us the freedom to relocate nodes to a different server without disturbing the hash ring and hence makes this configuration ideal when auto_eject_hosts is set to false. See [issue 25](https://github.com/twitter/twemproxy/issues/25) for details.
+
+Note that when using node names for consistent hashing, twemproxy ignores the weight value in the 'host:port:weight name' format string.

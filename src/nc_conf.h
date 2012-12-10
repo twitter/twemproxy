@@ -52,6 +52,7 @@
 #define CONF_DEFAULT_SERVER_RETRY_TIMEOUT    30 * 1000      /* in msec */
 #define CONF_DEFAULT_SERVER_FAILURE_LIMIT    2
 #define CONF_DEFAULT_SERVER_CONNECTIONS      1
+#define CONF_DEFAULT_KETAMA_PORT             11211
 
 struct conf_listen {
     struct string   pname;   /* listen: as "name:port" */
@@ -62,12 +63,12 @@ struct conf_listen {
 };
 
 struct conf_server {
-    struct string   pname;   /* server: as "name:port:weight" */
-    struct string   name;    /* name */
-    int             port;    /* port */
-    int             weight;  /* weight */
-    struct sockinfo info;    /* connect socket info */
-    unsigned        valid:1; /* valid? */
+    struct string   pname;      /* server: as "name:port:weight" */
+    struct string   name;       /* name */
+    int             port;       /* port */
+    int             weight;     /* weight */
+    struct sockinfo info;       /* connect socket info */
+    unsigned        valid:1;    /* valid? */
 };
 
 struct conf_pool {

@@ -1,3 +1,8 @@
+2012-18-10  Manju Rajashekhar  <manj@twitter.com>
+
+    * twemproxy: version 0.2.2 release
+      fix the off-by-one error when calculating redis key length
+
 2012-12-10  Manju Rajashekhar  <manj@twitter.com>
 
     * twemproxy: version 0.2.1 release

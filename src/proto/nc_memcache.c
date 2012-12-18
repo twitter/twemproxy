@@ -323,7 +323,7 @@ memcache_parse_req(struct msg *r)
                               r->key_start, p - r->key_start);
                     goto error;
                 }
-                r->key_end = p - 1;
+                r->key_end = p;
                 r->token = NULL;
 
                 /* get next state */
@@ -937,7 +937,7 @@ memcache_parse_rsp(struct msg *r)
                               r->key_start, p - r->key_start);
                     goto error;
                 }
-                r->key_end = p - 1;
+                r->key_end = p;
                 r->token = NULL;
                 state = SW_SPACES_BEFORE_FLAGS;
             }

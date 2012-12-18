@@ -445,7 +445,7 @@ req_forward(struct context *ctx, struct conn *c_conn, struct msg *msg)
     }
 
     key = msg->key_start;
-    keylen = (uint32_t)(msg->key_end - msg->key_start + 1);
+    keylen = (uint32_t)(msg->key_end - msg->key_start);
 
     s_conn = server_pool_conn(ctx, c_conn->owner, key, keylen);
     if (s_conn == NULL) {

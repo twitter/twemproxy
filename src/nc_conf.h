@@ -75,6 +75,7 @@ struct conf_pool {
     struct string      name;                  /* pool name (root node) */
     struct conf_listen listen;                /* listen: */
     hash_type_t        hash;                  /* hash: */
+    struct string      hash_tag;              /* hash_tag: */
     dist_type_t        distribution;          /* distribution: */
     int                timeout;               /* timeout: */
     int                backlog;               /* backlog: */
@@ -122,6 +123,7 @@ char *conf_set_num(struct conf *cf, struct command *cmd, void *conf);
 char * conf_set_bool(struct conf *cf, struct command *cmd, void *conf);
 char *conf_set_hash(struct conf *cf, struct command *cmd, void *conf);
 char *conf_set_distribution(struct conf *cf, struct command *cmd, void *conf);
+char *conf_set_hashtag(struct conf *cf, struct command *cmd, void *conf);
 
 rstatus_t conf_server_each_transform(void *elem, void *data);
 rstatus_t conf_pool_each_transform(void *elem, void *data);

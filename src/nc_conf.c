@@ -50,6 +50,10 @@ static struct command conf_commands[] = {
       conf_set_hash,
       offsetof(struct conf_pool, hash) },
 
+    { string("hash_tag"),
+      conf_set_hashtag,
+      offsetof(struct conf_pool, hash_tag) },
+
     { string("distribution"),
       conf_set_distribution,
       offsetof(struct conf_pool, distribution) },
@@ -171,7 +175,9 @@ conf_pool_init(struct conf_pool *cp, struct string *name)
     cp->listen.valid = 0;
 
     cp->hash = CONF_UNSET_HASH;
+    string_init(&cp->hash_tag);
     cp->distribution = CONF_UNSET_DIST;
+
     cp->timeout = CONF_UNSET_NUM;
     cp->backlog = CONF_UNSET_NUM;
 
@@ -256,10 +262,11 @@ conf_pool_each_transform(void *elem, void *data)
     sp->addrlen = cp->listen.info.addrlen;
     sp->addr = (struct sockaddr *)&cp->listen.info.addr;
 
-    sp->dist_type = cp->distribution;
-
     sp->key_hash_type = cp->hash;
     sp->key_hash = hash_algos[cp->hash];
+    sp->dist_type = cp->distribution;
+    sp->hash_tag = cp->hash_tag;
+
     sp->redis = cp->redis ? 1 : 0;
     sp->timeout = cp->timeout;
     sp->backlog = cp->backlog;
@@ -304,9 +311,11 @@ conf_dump(struct conf *cf)
         log_debug(LOG_VVERB, "%.*s", cp->name.len, cp->name.data);
         log_debug(LOG_VVERB, "  listen: %.*s",
                   cp->listen.pname.len, cp->listen.pname.data);
-        log_debug(LOG_VVERB, "  hash: %d", cp->hash);
         log_debug(LOG_VVERB, "  timeout: %d", cp->timeout);
         log_debug(LOG_VVERB, "  backlog: %d", cp->backlog);
+        log_debug(LOG_VVERB, "  hash: %d", cp->hash);
+        log_debug(LOG_VVERB, "  hash_tag: \"%.*s\"", cp->hash_tag.len,
+                  cp->hash_tag.data);
         log_debug(LOG_VVERB, "  distribution: %d", cp->distribution);
         log_debug(LOG_VVERB, "  client_connections: %d",
                   cp->client_connections);
@@ -1726,4 +1735,32 @@ conf_set_distribution(struct conf *cf, struct command *cmd, void *conf)
     }
 
     return "is not a valid distribution";
+}
+
+char *
+conf_set_hashtag(struct conf *cf, struct command *cmd, void *conf)
+{
+    rstatus_t status;
+    uint8_t *p;
+    struct string *field, *value;
+
+    p = conf;
+    field = (struct string *)(p + cmd->offset);
+
+    if (field->data != CONF_UNSET_PTR) {
+        return "is a duplicate";
+    }
+
+    value = array_top(&cf->arg);
+
+    if (value->len != 2) {
+        return "is not a valid hash tag string with two characters";
+    }
+
+    status = string_duplicate(field, value);
+    if (status != NC_OK) {
+        return CONF_ERROR;
+    }
+
+    return CONF_OK;
 }

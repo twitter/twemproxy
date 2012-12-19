@@ -76,7 +76,7 @@ The memcache ascii protocol [specification](https://github.com/twitter/twemproxy
 
 ## Node Names for Consistent Hashing
 
-The server cluster in twemproxy can either be specified as list strings in format 'host:port:weight' or 'host:port:weight name'. 
+The server cluster in twemproxy can either be specified as list strings in format 'host:port:weight' or 'host:port:weight name'.
 
     servers:
      - 127.0.0.1:6379:1
@@ -96,3 +96,23 @@ Or,
 In the former configuration, keys are mapped **directly** to **'host:port:weight'** triplet and in the latter they are mapped to **node names** which are then mapped to nodes i.e. host:port pair. The latter configuration gives us the freedom to relocate nodes to a different server without disturbing the hash ring and hence makes this configuration ideal when auto_eject_hosts is set to false. See [issue 25](https://github.com/twitter/twemproxy/issues/25) for details.
 
 Note that when using node names for consistent hashing, twemproxy ignores the weight value in the 'host:port:weight name' format string.
+
+## Hash Tags
+
+[Hash Tags](http://antirez.com/post/redis-presharding.html) enables you to use part of the key for calculating the hash. When the hash tag is present, we use part of the key within the tag as the key to be used for consistent hashing. Otherwise, we use the full key as is. Hash tags enable you to map different keys to the same server as long as the part of the key within the tag is the same.
+
+For example, the configuration of server pool _beta_, aslo shown below, specifies a two character hash_tag string - "{}". This means that keys "user:{user1}:ids" and "user:{user1}:tweets" map to the same server because we compute the hash on "user1". For a key like "user:user1:ids", we use the entire string "user:user1:ids" to compute the hash and it may map to a different server.
+
+    beta:
+      listen: 127.0.0.1:22122
+      hash: fnv1a_64
+      hash_tag: "{}"
+      distribution: ketama
+      auto_eject_hosts: false
+      timeout: 400
+      redis: true
+      servers:
+       - 127.0.0.1:6380:1 server1
+       - 127.0.0.1:6381:1 server2
+       - 127.0.0.1:6382:1 server3
+       - 127.0.0.1:6383:1 server4

@@ -12,6 +12,7 @@ alpha:
 beta:
   listen: 127.0.0.1:22122
   hash: fnv1a_64
+  hash_tag: "{}"
   distribution: ketama
   auto_eject_hosts: false
   timeout: 400

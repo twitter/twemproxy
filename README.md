@@ -82,6 +82,7 @@ nutcracker can be configured through a YAML file specified by the -c or --conf-f
  + hsieh
  + murmur
  + jenkins
++ **hash_tag**: A two character string that specifies the part of the key used for hashing. Eg "{}" or "$$". [Hash tag](https://github.com/twitter/twemproxy/blob/master/notes/recommendation.md#hash-tags)  enable mapping different keys to the same server as long as the part of the key within the tag is the same. 
 + **distribution**: The key distribution mode. Possible values are:
  + ketama
  + modula
@@ -113,6 +114,7 @@ For example, the configuration file in [conf/nutcracker.yml](https://github.com/
     beta:
       listen: 127.0.0.1:22122
       hash: fnv1a_64
+      hash_tag: "{}"
       distribution: ketama
       auto_eject_hosts: false
       timeout: 400

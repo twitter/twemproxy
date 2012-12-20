@@ -96,17 +96,20 @@ struct instance;
 #include <nc_connection.h>
 
 struct context {
-    uint32_t           id;          /* unique context id */
-    struct conf        *cf;         /* configuration */
-    struct stats       *stats;      /* stats */
+    uint32_t           id;                  /* unique context id */
+    struct conf        *cf;                 /* configuration */
+    struct stats       *stats;              /* stats */
 
-    struct array       pool;        /* server_pool[] */
+    struct array       pool;                /* server_pool[] */
+    struct array       failed_servers[2];   /* failed servers */
+    struct array       *fails;              /* ref of current fails server */
 
-    int                ep;          /* epoll device */
-    int                nevent;      /* # epoll event */
-    int                max_timeout; /* epoll wait max timeout in msec */
-    int                timeout;     /* epoll wait timeout in msec */
-    struct epoll_event *event;      /* epoll event */
+    int                failed_idx;           /* current idx for failed servers */
+    int                ep;                  /* epoll device */
+    int                nevent;              /* # epoll event */
+    int                max_timeout;         /* epoll wait max timeout in msec */
+    int                timeout;             /* epoll wait timeout in msec */
+    struct epoll_event *event;              /* epoll event */
 };
 
 struct instance {

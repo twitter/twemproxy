@@ -51,12 +51,8 @@ random_update(struct server_pool *pool)
         struct server *server = array_get(&pool->server, server_index);
 
         if (pool->auto_eject_hosts) {
-            if (server->next_retry <= now) {
-                server->next_retry = 0LL;
+            if (server->fail == 0) {
                 nlive_server++;
-            } else if (pool->next_rebuild == 0LL ||
-                       server->next_retry < pool->next_rebuild) {
-                pool->next_rebuild = server->next_retry;
             }
         } else {
             nlive_server++;

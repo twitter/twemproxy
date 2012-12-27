@@ -458,7 +458,7 @@ nc_resolve_inet(struct string *name, int port, struct sockinfo *si)
     hints.ai_canonname = NULL;
 
     if (name != NULL) {
-    	node = strdup(name->data);
+    	node = name->data;
     } else {
         /*
          * If AI_PASSIVE flag is specified in hints.ai_flags, and node is
@@ -499,7 +499,6 @@ nc_resolve_inet(struct string *name, int port, struct sockinfo *si)
     }
 
     freeaddrinfo(ai);
-    free(node);
 
     return !found ? -1 : 0;
 }

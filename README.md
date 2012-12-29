@@ -34,9 +34,11 @@ To build nutcracker from source with _debug logs enabled_ and _assertions disabl
 + Enables pipelining of requests and responses.
 + Supports proxying to multiple servers.
 + Supports multiple server pools simultaneously.
++ Shard data automatically across multiple servers.
 + Implements the complete [memcached ascii](https://github.com/twitter/twemproxy/blob/master/notes/memcache.txt) and [redis](https://github.com/twitter/twemproxy/blob/master/notes/redis.md) protocol.
 + Easy configuration of server pools through a YAML file.
 + Supports multiple hashing modes including consistent hashing and distribution.
++ Can be configured to disable nodes on failures.
 + Observability through stats exposed on stats monitoring port.
 
 ## Help

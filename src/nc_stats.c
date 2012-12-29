@@ -173,7 +173,7 @@ stats_server_init(struct stats_server *sts, struct server *s)
 {
     rstatus_t status;
 
-    sts->name = s->pname;
+    sts->name = s->name;
     array_null(&sts->metric);
 
     status = stats_server_metric_init(sts);

@@ -4,13 +4,13 @@
 
 ## Build
 
-To build nutcracker from distribution tarball:
+To build nutcracker from [distribution tarball](http://code.google.com/p/twemproxy/downloads/list):
 
     $ ./configure
     $ make
     $ sudo make install
 
-To build nutcracker from distribution tarball in _debug mode_:
+To build nutcracker from [distribution tarball](http://code.google.com/p/twemproxy/downloads/list) in _debug mode_:
 
     $ CFLAGS="-ggdb3 -O0" ./configure --enable-debug=full
     $ make

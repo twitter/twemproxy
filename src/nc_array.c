@@ -169,7 +169,6 @@ array_swap(struct array *a, struct array *b)
 /*
  * Sort nelem elements of the array in ascending order based on the
  * compare comparator.
- *
  */
 void
 array_sort(struct array *a, array_compare_t compare)

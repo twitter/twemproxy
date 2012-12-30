@@ -443,7 +443,7 @@ nc_resolve_inet(struct string *name, int port, struct sockinfo *si)
     int status;
     struct addrinfo *ai, *cai; /* head and current addrinfo */
     struct addrinfo hints;
-    char *node, nodestr[NC_INET_ADDRSTRLEN], service[NC_UINTMAX_MAXLEN];
+    char *node, service[NC_UINTMAX_MAXLEN];
     bool found;
 
     ASSERT(nc_valid_port(port));
@@ -458,10 +458,7 @@ nc_resolve_inet(struct string *name, int port, struct sockinfo *si)
     hints.ai_canonname = NULL;
 
     if (name != NULL) {
-        size_t nodelen = MIN(NC_INET_ADDRSTRLEN - 1, name->len);
-        nc_memcpy(nodestr, name->data, nodelen);
-        nodestr[nodelen] = '\0';
-        node = nodestr;
+        node = name->data;
     } else {
         /*
          * If AI_PASSIVE flag is specified in hints.ai_flags, and node is

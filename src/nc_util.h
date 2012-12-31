@@ -34,6 +34,10 @@
 #define VAR(s, s2, n)       (((n) < 2) ? 0.0 : ((s2) - SQUARE(s)/(n)) / ((n) - 1))
 #define STDDEV(s, s2, n)    (((n) < 2) ? 0.0 : sqrt(VAR((s), (s2), (n))))
 
+#define NC_INET4_ADDRSTRLEN (sizeof("255.255.255.255") - 1)
+#define NC_INET6_ADDRSTRLEN \
+    (sizeof("ffff:ffff:ffff:ffff:ffff:ffff:255.255.255.255") - 1)
+#define NC_INET_ADDRSTRLEN  MAX(NC_INET4_ADDRSTRLEN, NC_INET6_ADDRSTRLEN)
 #define NC_UNIX_ADDRSTRLEN  \
     (sizeof(struct sockaddr_un) - offsetof(struct sockaddr_un, sun_path))
 

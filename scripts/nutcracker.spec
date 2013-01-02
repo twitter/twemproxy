@@ -30,7 +30,7 @@ It was primarily built to reduce the connection count on the backend caching ser
 %{__install} -p -D -m 0755 scripts/%{name}.init %{buildroot}%{_initrddir}/%{name}
 
 #Install example confog file
-%{__install} -p -D -m 0644 conf/%{name} %{buildroot}%{_sysconfdir}/%{name}/%{name}.yml
+%{__install} -p -D -m 0644 conf/%{name}.yml %{buildroot}%{_sysconfdir}/%{name}/%{name}.yml
 
 %post
 /sbin/chkconfig --add %{name}

@@ -8,8 +8,6 @@ License: Apache License 2.0
 Group: System Environment/Libraries
 Packager:  Tom Parrott <tomp@tomp.co.uk>
 BuildRoot: %{_tmppath}/%{name}-root
-Source1: %{name}.init
-Source2: %{name}.yml
 
 %description
 twemproxy (pronounced "two-em-proxy"), aka nutcracker is a fast and lightweight proxy for memcached and redis protocol.
@@ -29,10 +27,10 @@ It was primarily built to reduce the connection count on the backend caching ser
 %makeinstall PREFIX=%{buildroot}
 
 #Install init script
-%{__install} -p -D -m 0755 %{SOURCE1} %{buildroot}%{_initrddir}/%{name}
+%{__install} -p -D -m 0755 scripts/%{name}.init %{buildroot}%{_initrddir}/%{name}
 
 #Install example confog file
-%{__install} -p -D -m 0644 %{SOURCE2} %{buildroot}%{_sysconfdir}/%{name}/%{name}.yml
+%{__install} -p -D -m 0644 conf/%{name} %{buildroot}%{_sysconfdir}/%{name}/%{name}.yml
 
 %post
 /sbin/chkconfig --add %{name}
@@ -51,4 +49,3 @@ fi
 /usr/bin/nutcracker
 %{_initrddir}/%{name}
 %config(noreplace)%{_sysconfdir}/%{name}/%{name}.yml
-

@@ -562,5 +562,5 @@ main(int argc, char **argv)
 
     nc_post_run(&nci);
 
-    return 0;
+    exit(1);
 }

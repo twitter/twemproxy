@@ -458,7 +458,7 @@ nc_resolve_inet(struct string *name, int port, struct sockinfo *si)
     hints.ai_canonname = NULL;
 
     if (name != NULL) {
-        node = name->data;
+        node = (char *)name->data;
     } else {
         /*
          * If AI_PASSIVE flag is specified in hints.ai_flags, and node is

@@ -131,7 +131,6 @@ struct instance {
 struct context *core_start(struct instance *nci);
 void core_stop(struct context *ctx);
 rstatus_t core_loop(struct context *ctx);
-static void core_core(void *arg, uint32_t evflags);
 
 
 #endif

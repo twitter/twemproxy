@@ -25,6 +25,10 @@
 
 static uint32_t ctx_id; /* context generation */
 
+/* function prototype for use in core_ctx_create() */
+static void
+core_core(void *arg, uint32_t evflags);
+
 static struct context *
 core_ctx_create(struct instance *nci)
 {

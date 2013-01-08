@@ -101,7 +101,8 @@ main(int argc, char **argv)
     exit(0);
 }
   ], [ac_cv_epoll_works=yes], [ac_cv_epoll_works=no]))
-AS_IF([test "x$ac_cv_epoll_works" = "xyes"], [AC_DEFINE([HAVE_EPOLL], [1], [Define to 1 if epoll support])], [])
+AS_IF([test "x$ac_cv_epoll_works" = "xyes"],
+  [AC_DEFINE([HAVE_EPOLL], [1], [Define to 1 if epoll is supported])], [])
 
 AC_CACHE_CHECK([if kqueue works], [ac_cv_kqueue_works],
   AC_TRY_RUN([
@@ -121,7 +122,8 @@ main(int argc, char **argv)
     exit(0);
 }
   ], [ac_cv_kqueue_works=yes], [ac_cv_kqueue_works=no]))
-AS_IF([test "x$ac_cv_kqueue_works" = "xyes"], [AC_DEFINE([HAVE_KQUEUE], [1], [Define to 1 if kqueue support])], [])
+AS_IF([test "x$ac_cv_kqueue_works" = "xyes"],
+  [AC_DEFINE([HAVE_KQUEUE], [1], [Define to 1 if kqueue is supported])], [])
 
 
 # Package options

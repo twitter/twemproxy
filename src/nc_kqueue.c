@@ -119,12 +119,7 @@ event_add_out(struct evbase *evb, struct conn *c)
     }
 
     event = &evb->changes[(evb->n_changes)++];
-    memset(event, 0, sizeof(*event));
-
-    event->ident = c->sd;
-    event->filter = EVFILT_WRITE;
-    event->flags = EV_ADD | EV_CLEAR;
-    event->udata = (void *) c;
+    EV_SET(event, c->sd, EVFILT_WRITE, EV_ADD | EV_CLEAR, 0, 0, (void *)c);
 
     c->send_active = 1;
 
@@ -148,12 +143,7 @@ event_del_out(struct evbase *evb, struct conn *c)
     }
     
     event = &evb->changes[(evb->n_changes)++];
-    memset(event, 0, sizeof(*event));
-
-    event->ident = c->sd;
-    event->filter = EVFILT_WRITE;
-    event->flags = EV_DELETE;
-    event->udata = (void *) c;
+    EV_SET(event, c->sd, EVFILT_WRITE, EV_DELETE, 0, 0, (void *)c);
 
     c->send_active = 0;
 
@@ -172,12 +162,7 @@ event_add_conn(struct evbase *evb, struct conn *c)
     ASSERT(evb->n_changes < evb->nevent);
 
     event = &evb->changes[(evb->n_changes)++];
-    memset(event, 0, sizeof(*event));
-
-    event->ident = c->sd;
-    event->filter = EVFILT_READ;
-    event->flags = EV_ADD | EV_CLEAR;
-    event->udata = (void *) c;
+    EV_SET(event, c->sd, EVFILT_READ, EV_ADD | EV_CLEAR, 0, 0, (void *)c);
 
     c->recv_active = 1;
 
@@ -199,13 +184,7 @@ event_del_conn(struct evbase *evb, struct conn *c)
     ASSERT(evb->n_changes < evb->nevent);
 
     event = &evb->changes[(evb->n_changes)++];
-    memset(event, 0, sizeof(*event));
-
-    event->ident = c->sd;
-    event->filter = EVFILT_READ;
-    event->flags = EV_DELETE;
-    event->udata = (void *) c;
-
+    EV_SET(event, c->sd, EVFILT_READ, EV_DELETE, 0, 0, (void *)c);
 
     event_del_out(evb, c);
 
@@ -296,13 +275,7 @@ int
 event_add_st(struct evbase *evb, int fd)
 {
     struct kevent *ev = &evb->changes[(evb->n_changes)++]; 
-
-    memset(ev, 0, sizeof(*ev));
-
-    ev->ident = fd;
-    ev->filter = EVFILT_READ;
-    ev->flags = EV_ADD | EV_CLEAR;
-    ev->udata = NULL;
+    EV_SET(ev, fd, EVFILT_READ, EV_ADD | EV_CLEAR, 0, 0, NULL);
 
     return 0;
 }

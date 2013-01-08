@@ -26,7 +26,7 @@ rsp_get(struct conn *conn)
 
     ASSERT(!conn->client && !conn->proxy);
 
-    msg = msg_get(conn, false);
+    msg = msg_get(conn, false, conn->redis);
     if (msg == NULL) {
         conn->err = errno;
     }
@@ -81,7 +81,7 @@ rsp_make_error(struct context *ctx, struct conn *conn, struct msg *msg)
         rsp_put(pmsg);
     }
 
-    return msg_get_error(err);
+    return msg_get_error(conn->redis, err);
 }
 
 struct msg *
@@ -182,79 +182,12 @@ rsp_filter(struct context *ctx, struct conn *conn, struct msg *msg)
 }
 
 static void
-rsp_forward_stats(struct context *ctx, struct msg *msg, struct conn *s_conn,
-                  struct conn *c_conn)
+rsp_forward_stats(struct context *ctx, struct server *server, struct msg *msg)
 {
-    struct msg *pmsg;
-    struct server *server;
-
-    ASSERT(!s_conn->client && !s_conn->proxy);
-    ASSERT(c_conn->client && !c_conn->proxy);
-    ASSERT(!msg->request && msg->peer != NULL);
-
-    server = s_conn->owner;
-    pmsg = msg->peer;
+    ASSERT(!msg->request);
 
     stats_server_incr(ctx, server, responses);
     stats_server_incr_by(ctx, server, response_bytes, msg->mlen);
-
-    switch (msg->type) {
-    case MSG_RSP_NUM:
-        stats_server_incr(ctx, server, num);
-        break;
-
-    case MSG_RSP_STORED:
-        stats_server_incr(ctx, server, stored);
-        break;
-
-    case MSG_RSP_NOT_STORED:
-        stats_server_incr(ctx, server, not_stored);
-        break;
-
-    case MSG_RSP_EXISTS:
-        stats_server_incr(ctx, server, exists);
-        break;
-
-    case MSG_RSP_NOT_FOUND:
-        stats_server_incr(ctx, server, not_found);
-        break;
-
-    case MSG_RSP_END:
-        stats_server_incr(ctx, server, end);
-        break;
-
-    case MSG_RSP_VALUE:
-        stats_server_incr(ctx, server, value);
-        break;
-
-    case MSG_RSP_DELETED:
-        stats_server_incr(ctx, server, deleted);
-        break;
-
-    case MSG_RSP_ERROR:
-        log_debug(LOG_INFO, "rsp error type %d from s %d for req %"PRIu64" "
-                  "type %d from c %d", msg->type, s_conn->sd, pmsg->id,
-                  pmsg->type, c_conn->sd);
-        stats_server_incr(ctx, server, error);
-        break;
-
-    case MSG_RSP_CLIENT_ERROR:
-        log_debug(LOG_INFO, "rsp error type %d from s %d for req %"PRIu64" "
-                  "type %d from c %d", msg->type, s_conn->sd, pmsg->id,
-                  pmsg->type, c_conn->sd);
-        stats_server_incr(ctx, server, client_error);
-        break;
-
-    case MSG_RSP_SERVER_ERROR:
-        log_debug(LOG_INFO, "rsp error type %d from s %d for req %"PRIu64" "
-                  "type %d from c %d", msg->type, s_conn->sd, pmsg->id,
-                  pmsg->type, c_conn->sd);
-        stats_server_incr(ctx, server, server_error);
-        break;
-
-    default:
-        NOT_REACHED();
-    }
 }
 
 static void
@@ -281,47 +214,7 @@ rsp_forward(struct context *ctx, struct conn *s_conn, struct msg *msg)
     pmsg->peer = msg;
     msg->peer = pmsg;
 
-    /*
-     * Readjust responses of fragmented messages by not including the end
-     * marker for all but the last response
-     *
-     * Valid responses for a fragmented requests are MSG_RSP_VALUE or,
-     * MSG_RSP_END. For an invalid response, we send out SERVER_ERRROR with
-     * EINVAL errno
-     */
-    if (pmsg->frag_id != 0) {
-        if (msg->type != MSG_RSP_VALUE && msg->type != MSG_RSP_END) {
-            pmsg->error = 1;
-            pmsg->err = EINVAL;
-        } else if (!pmsg->last_fragment) {
-            ASSERT(msg->end != NULL);
-            for (;;) {
-                struct mbuf *mbuf;
-
-                mbuf = STAILQ_LAST(&msg->mhdr, mbuf, next);
-                ASSERT(mbuf != NULL);
-
-                /*
-                 * We cannot assert that end marker points to the last mbuf
-                 * Consider a scenario where end marker points to the
-                 * penultimate mbuf and the last mbuf only contains spaces
-                 * and CRLF: mhdr -> [...END] -> [\r\n]
-                 */
-
-                if (msg->end >= mbuf->pos && msg->end < mbuf->last) {
-                    /* end marker is within this mbuf */
-                    msg->mlen -= (uint32_t)(mbuf->last - msg->end);
-                    mbuf->last = msg->end;
-                    break;
-                }
-
-                /* end marker is not in this mbuf */
-                msg->mlen -= mbuf_length(mbuf);
-                mbuf_remove(&msg->mhdr, mbuf);
-                mbuf_put(mbuf);
-            }
-        }
-    }
+    msg->pre_coalesce(msg);
 
     c_conn = pmsg->owner;
     ASSERT(c_conn->client && !c_conn->proxy);
@@ -333,7 +226,7 @@ rsp_forward(struct context *ctx, struct conn *s_conn, struct msg *msg)
         }
     }
 
-    rsp_forward_stats(ctx, msg, s_conn, c_conn);
+    rsp_forward_stats(ctx, s_conn->owner, msg);
 }
 
 void

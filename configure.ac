@@ -1,7 +1,7 @@
 # Define the package version numbers and the bug reporting address
 m4_define([NC_MAJOR], 0)
-m4_define([NC_MINOR], 1)
-m4_define([NC_PATCH], 18)
+m4_define([NC_MINOR], 2)
+m4_define([NC_PATCH], 2)
 m4_define([NC_BUGS], [manj@twitter.com])
 
 # Initialize autoconf
@@ -170,7 +170,8 @@ AC_CONFIG_SUBDIRS([contrib/yaml-0.1.4])
 AC_CONFIG_FILES([Makefile
                  contrib/Makefile
                  src/Makefile
-                 src/hashkit/Makefile])
+                 src/hashkit/Makefile
+                 src/proto/Makefile])
 
 # Generate the "configure" script
 AC_OUTPUT

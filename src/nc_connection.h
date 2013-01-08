@@ -83,11 +83,12 @@ struct conn {
     unsigned           connected:1;   /* connected? */
     unsigned           eof:1;         /* eof? aka passive close? */
     unsigned           done:1;        /* done? aka close? */
+    unsigned           redis:1;       /* redis? */
 };
 
 TAILQ_HEAD(conn_tqh, conn);
 
-struct conn *conn_get(void *owner, bool client);
+struct conn *conn_get(void *owner, bool client, bool redis);
 struct conn *conn_get_proxy(void *owner);
 void conn_put(struct conn *conn);
 ssize_t conn_recv(struct conn *conn, void *buf, size_t size);

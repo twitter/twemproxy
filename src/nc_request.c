@@ -26,7 +26,7 @@ req_get(struct conn *conn)
 
     ASSERT(conn->client && !conn->proxy);
 
-    msg = msg_get(conn, true);
+    msg = msg_get(conn, true, conn->redis);
     if (msg == NULL) {
         conn->err = errno;
     }
@@ -58,15 +58,15 @@ req_put(struct msg *msg)
  * Return true if request is done, false otherwise
  *
  * A request is done, if we received response for the given request.
- * A multiget request is done if we received responses for all its
+ * A request vector is done if we received responses for all its
  * fragments.
  */
 bool
 req_done(struct conn *conn, struct msg *msg)
 {
     struct msg *cmsg, *pmsg; /* current and previous message */
-    uint64_t id;
-    uint32_t nfragment;
+    uint64_t id;             /* fragment id */
+    uint32_t nfragment;      /* # fragment */
 
     ASSERT(conn->client && !conn->proxy);
     ASSERT(msg->request);
@@ -85,7 +85,7 @@ req_done(struct conn *conn, struct msg *msg)
         return true;
     }
 
-    /* check all fragments of the given request are done */
+    /* check all fragments of the given request vector are done */
 
     for (pmsg = msg, cmsg = TAILQ_PREV(msg, msg_tqh, c_tqe);
          cmsg != NULL && cmsg->frag_id == id;
@@ -110,7 +110,10 @@ req_done(struct conn *conn, struct msg *msg)
     }
 
     /*
-     * Mark all fragments of the given request to be done to speed up
+     * At this point, all the fragments including the last fragment have
+     * been received.
+     *
+     * Mark all fragments of the given request vector to be done to speed up
      * future req_done calls for any of fragments of this request
      */
 
@@ -130,6 +133,10 @@ req_done(struct conn *conn, struct msg *msg)
         cmsg->fdone = 1;
         nfragment++;
     }
+
+    ASSERT(msg->frag_owner->nfrag == nfragment);
+
+    msg->post_coalesce(msg->frag_owner);
 
     log_debug(LOG_DEBUG, "req from c %d with fid %"PRIu64" and %"PRIu32" "
               "fragments is done", conn->sd, id, nfragment);
@@ -420,59 +427,6 @@ req_forward_stats(struct context *ctx, struct server *server, struct msg *msg)
 
     stats_server_incr(ctx, server, requests);
     stats_server_incr_by(ctx, server, request_bytes, msg->mlen);
-
-    switch (msg->type) {
-    case MSG_REQ_GET:
-        stats_server_incr(ctx, server, get);
-        break;
-
-    case MSG_REQ_GETS:
-        stats_server_incr(ctx, server, gets);
-        break;
-
-    case MSG_REQ_DELETE:
-        stats_server_incr(ctx, server, delete);
-        break;
-
-    case MSG_REQ_CAS:
-        stats_server_incr(ctx, server, cas);
-        break;
-
-    case MSG_REQ_SET:
-        stats_server_incr(ctx, server, set);
-        break;
-
-    case MSG_REQ_ADD:
-        stats_server_incr(ctx, server, add);
-        break;
-
-    case MSG_REQ_REPLACE:
-        stats_server_incr(ctx, server, replace);
-        break;
-
-    case MSG_REQ_APPEND:
-        stats_server_incr(ctx, server, append);
-        break;
-
-    case MSG_REQ_PREPEND:
-        stats_server_incr(ctx, server, prepend);
-        break;
-
-    case MSG_REQ_INCR:
-        stats_server_incr(ctx, server, incr);
-        break;
-
-    case MSG_REQ_DECR:
-        stats_server_incr(ctx, server, decr);
-        break;
-
-    default:
-        NOT_REACHED();
-    }
-
-    if (msg->noreply) {
-        stats_server_incr(ctx, server, noreply);
-    }
 }
 
 static void
@@ -480,6 +434,7 @@ req_forward(struct context *ctx, struct conn *c_conn, struct msg *msg)
 {
     rstatus_t status;
     struct conn *s_conn;
+    struct server_pool *pool;
     uint8_t *key;
     uint32_t keylen;
 
@@ -490,8 +445,33 @@ req_forward(struct context *ctx, struct conn *c_conn, struct msg *msg)
         c_conn->enqueue_outq(ctx, c_conn, msg);
     }
 
-    key = msg->key_start;
-    keylen = (uint32_t)(msg->key_end - msg->key_start + 1);
+    pool = c_conn->owner;
+    key = NULL;
+    keylen = 0;
+
+    /*
+     * If hash_tag: is configured for this server pool, we use the part of
+     * the key within the hash tag as an input to the distributor. Otherwise
+     * we use the full key
+     */
+    if (!string_empty(&pool->hash_tag)) {
+        struct string *tag = &pool->hash_tag;
+        uint8_t *tag_start, *tag_end;
+
+        tag_start = nc_strchr(msg->key_start, msg->key_end, tag->data[0]);
+        if (tag_start != NULL) {
+            tag_end = nc_strchr(tag_start + 1, msg->key_end, tag->data[1]);
+            if (tag_end != NULL) {
+                key = tag_start + 1;
+                keylen = (uint32_t)(tag_end - key);
+            }
+        }
+    }
+
+    if (keylen == 0) {
+        key = msg->key_start;
+        keylen = (uint32_t)(msg->key_end - msg->key_start);
+    }
 
     s_conn = server_pool_conn(ctx, c_conn->owner, key, keylen);
     if (s_conn == NULL) {

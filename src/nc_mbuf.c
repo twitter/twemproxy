@@ -20,13 +20,6 @@
 
 #include <nc_core.h>
 
-#define DEFINE_ACTION(_type, _str) string(_str),
-static struct string mcopy_strings[] = {
-    MCOPY_CODEC( DEFINE_ACTION )
-    null_string
-};
-#undef DEFINE_ACTION
-
 static uint32_t nfree_mbufq;   /* # free mbuf */
 static struct mhdr free_mbufq; /* free mbuf q */
 
@@ -135,6 +128,17 @@ mbuf_put(struct mbuf *mbuf)
 }
 
 /*
+ * Rewind the mbuf by discarding any of the read or unread data that it
+ * might hold.
+ */
+void
+mbuf_rewind(struct mbuf *mbuf)
+{
+    mbuf->pos = mbuf->start;
+    mbuf->last = mbuf->start;
+}
+
+/*
  * Return the length of data in mbuf. Mbuf cannot contain more than
  * 2^32 bytes (4G).
  */
@@ -156,6 +160,16 @@ mbuf_size(struct mbuf *mbuf)
     ASSERT(mbuf->end >= mbuf->last);
 
     return (uint32_t)(mbuf->end - mbuf->last);
+}
+
+/*
+ * Return the maximum available space size for data in any mbuf. Mbuf cannot
+ * contain more than 2^32 bytes (4G).
+ */
+size_t
+mbuf_data_size(void)
+{
+    return mbuf_offset;
 }
 
 /*
@@ -204,34 +218,14 @@ mbuf_copy(struct mbuf *mbuf, uint8_t *pos, size_t n)
 }
 
 /*
- * Copy a well-known string literal from a predefined table
- * to mbuf.
- */
-static void
-mbuf_mcopy(struct mbuf *mbuf, mcopy_type_t copy)
-{
-    uint8_t *pos;
-    size_t n;
-
-    ASSERT(copy >= MCOPY_GET && copy < MCOPY_SENTINEL);
-
-    pos = mcopy_strings[copy].data;
-    n = mcopy_strings[copy].len;
-
-    mbuf_copy(mbuf, pos, n);
-}
-
-/*
  * Split mbuf h into h and t by copying data from h to t. Before
- * the copy, we copy a predefined mcopy string (headcopy) to the head
- * of t. After the copy, we copy a predefined mcopy string (tailcopy)
- * to the tail of h.
+ * the copy, we invoke a precopy handler cb that will copy a predefined
+ * string to the head of t.
  *
  * Return new mbuf t, if the split was successful.
  */
 struct mbuf *
-mbuf_split(struct mhdr *h, uint8_t *pos, mcopy_type_t headcopy,
-           mcopy_type_t tailcopy)
+mbuf_split(struct mhdr *h, uint8_t *pos, mbuf_copy_t cb, void *cbarg)
 {
     struct mbuf *mbuf, *nbuf;
     size_t size;
@@ -246,17 +240,17 @@ mbuf_split(struct mhdr *h, uint8_t *pos, mcopy_type_t headcopy,
         return NULL;
     }
 
-    /* headcopy - copy data from mbuf to nbuf */
-    mbuf_mcopy(nbuf, headcopy);
+    if (cb != NULL) {
+        /* precopy nbuf */
+        cb(nbuf, cbarg);
+    }
 
+    /* copy data from mbuf to nbuf */
     size = (size_t)(mbuf->last - pos);
     mbuf_copy(nbuf, pos, size);
 
     /* adjust mbuf */
     mbuf->last = pos;
-
-    /* tailcopy - copy data to mbuf */
-    mbuf_mcopy(mbuf, tailcopy);
 
     log_debug(LOG_VVERB, "split into mbuf %p len %"PRIu32" and nbuf %p len "
               "%"PRIu32" copied %zu bytes", mbuf, mbuf_length(mbuf), nbuf,

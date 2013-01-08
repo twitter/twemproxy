@@ -15,75 +15,114 @@
  * limitations under the License.
  */
 
+#include <ctype.h>
+
 #include <nc_core.h>
-#include <nc_parse.h>
+#include <nc_proto.h>
 
-#ifdef NC_LITTLE_ENDIAN
+/*
+ * From memcache protocol specification:
+ *
+ * Data stored by memcached is identified with the help of a key. A key
+ * is a text string which should uniquely identify the data for clients
+ * that are interested in storing and retrieving it.  Currently the
+ * length limit of a key is set at 250 characters (of course, normally
+ * clients wouldn't need to use such long keys); the key must not include
+ * control characters or whitespace.
+ */
+#define MEMCACHE_MAX_KEY_LENGTH 250
 
-#define str4cmp(m, c0, c1, c2, c3)                                          \
-    (*(uint32_t *) m == ((c3 << 24) | (c2 << 16) | (c1 << 8) | c0))
+/*
+ * Return true, if the memcache command is a storage command, otherwise
+ * return false
+ */
+static bool
+memcache_storage(struct msg *r)
+{
+    switch (r->type) {
+    case MSG_REQ_MC_SET:
+    case MSG_REQ_MC_CAS:
+    case MSG_REQ_MC_ADD:
+    case MSG_REQ_MC_REPLACE:
+    case MSG_REQ_MC_APPEND:
+    case MSG_REQ_MC_PREPEND:
+        return true;
 
-#define str5cmp(m, c0, c1, c2, c3, c4)                                      \
-    (str4cmp(m, c0, c1, c2, c3) && (m[4] == c4))
+    default:
+        break;
+    }
 
-#define str6cmp(m, c0, c1, c2, c3, c4, c5)                                  \
-    (str4cmp(m, c0, c1, c2, c3) &&                                          \
-        (((uint32_t *) m)[1] & 0xffff) == ((c5 << 8) | c4))
+    return false;
+}
 
-#define str7cmp(m, c0, c1, c2, c3, c4, c5, c6)                              \
-    (str6cmp(m, c0, c1, c2, c3, c4, c5) && (m[6] == c6))
+/*
+ * Return true, if the memcache command is a cas command, otherwise
+ * return false
+ */
+static bool
+memcache_cas(struct msg *r)
+{
+    if (r->type == MSG_REQ_MC_CAS) {
+        return true;
+    }
 
-#define str8cmp(m, c0, c1, c2, c3, c4, c5, c6, c7)                          \
-    (str4cmp(m, c0, c1, c2, c3) &&                                          \
-        (((uint32_t *) m)[1] == ((c7 << 24) | (c6 << 16) | (c5 << 8) | c4)))
+    return false;
+}
 
-#define str9cmp(m, c0, c1, c2, c3, c4, c5, c6, c7, c8)                      \
-    (str8cmp(m, c0, c1, c2, c3, c4, c5, c6, c7) && m[8] == c8)
+/*
+ * Return true, if the memcache command is a retrieval command, otherwise
+ * return false
+ */
+static bool
+memcache_retrieval(struct msg *r)
+{
+    switch (r->type) {
+    case MSG_REQ_MC_GET:
+    case MSG_REQ_MC_GETS:
+        return true;
 
-#define str10cmp(m, c0, c1, c2, c3, c4, c5, c6, c7, c8, c9)                 \
-    (str8cmp(m, c0, c1, c2, c3, c4, c5, c6, c7) &&                          \
-        (((uint32_t *) m)[2] & 0xffff) == ((c9 << 8) | c8))
+    default:
+        break;
+    }
 
-#define str11cmp(m, c0, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10)            \
-    (str10cmp(m, c0, c1, c2, c3, c4, c5, c6, c7, c8, c9) && (m[10] == c10))
+    return false;
+}
 
-#define str12cmp(m, c0, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11)       \
-    (str8cmp(m, c0, c1, c2, c3, c4, c5, c6, c7) &&                          \
-        (((uint32_t *) m)[2] == ((c11 << 24) | (c10 << 16) | (c9 << 8) | c8)))
+/*
+ * Return true, if the memcache command is a arithmetic command, otherwise
+ * return false
+ */
+static bool
+memcache_arithmetic(struct msg *r)
+{
+    switch (r->type) {
+    case MSG_REQ_MC_INCR:
+    case MSG_REQ_MC_DECR:
+        return true;
 
-#else
+    default:
+        break;
+    }
 
-#define str4cmp(m, c0, c1, c2, c3)                                          \
-    (m[0] == c0 && m[1] == c1 && m[2] == c2 && m[3] == c3)
+    return false;
+}
 
-#define str5cmp(m, c0, c1, c2, c3, c4)                                      \
-    (str4cmp(m, c0, c1, c2, c3) && (m[4] == c4))
+/*
+ * Return true, if the memcache command is a delete command, otherwise
+ * return false
+ */
+static bool
+memcache_delete(struct msg *r)
+{
+    if (r->type == MSG_REQ_MC_DELETE) {
+        return true;
+    }
 
-#define str6cmp(m, c0, c1, c2, c3, c4, c5)                                  \
-    (str5cmp(m, c0, c1, c2, c3) && m[5] == c5)
-
-#define str7cmp(m, c0, c1, c2, c3, c4, c5, c6)                              \
-    (str6cmp(m, c0, c1, c2, c3) && m[6] == c6)
-
-#define str8cmp(m, c0, c1, c2, c3, c4, c5, c6, c7)                          \
-    (str7cmp(m, c0, c1, c2, c3) && m[7] == c7)
-
-#define str9cmp(m, c0, c1, c2, c3, c4, c5, c6, c7, c8)                      \
-    (str8cmp(m, c0, c1, c2, c3) && m[8] == c8)
-
-#define str10cmp(m, c0, c1, c2, c3, c4, c5, c6, c7, c8, c9)                 \
-    (str9cmp(m, c0, c1, c2, c3) && m[9] == c9)
-
-#define str11cmp(m, c0, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10)            \
-    (str10cmp(m, c0, c1, c2, c3) && m[10] == c10)
-
-#define str12cmp(m, c0, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11)       \
-    (str10cmp(m, c0, c1, c2, c3) && m[11] == c11)
-
-#endif
+    return false;
+}
 
 void
-parse_request(struct msg *r)
+memcache_parse_req(struct msg *r)
 {
     struct mbuf *b;
     uint8_t *p, *m;
@@ -118,6 +157,7 @@ parse_request(struct msg *r)
     b = STAILQ_LAST(&r->mhdr, mbuf, next);
 
     ASSERT(r->request);
+    ASSERT(!r->redis);
     ASSERT(state >= SW_START && state < SW_SENTINEL);
     ASSERT(b != NULL);
     ASSERT(b->pos <= b->last);
@@ -136,7 +176,7 @@ parse_request(struct msg *r)
                 break;
             }
 
-            if (ch < 'a' || ch > 'z') {
+            if (!islower(ch)) {
                 goto error;
             }
 
@@ -157,27 +197,22 @@ parse_request(struct msg *r)
 
                 case 3:
                     if (str4cmp(m, 'g', 'e', 't', ' ')) {
-                        r->type = MSG_REQ_GET;
-                        r->retrieval = 1;
+                        r->type = MSG_REQ_MC_GET;
                         break;
                     }
 
                     if (str4cmp(m, 's', 'e', 't', ' ')) {
-                        r->type = MSG_REQ_SET;
-                        r->storage = 1;
+                        r->type = MSG_REQ_MC_SET;
                         break;
                     }
 
                     if (str4cmp(m, 'a', 'd', 'd', ' ')) {
-                        r->type = MSG_REQ_ADD;
-                        r->storage = 1;
+                        r->type = MSG_REQ_MC_ADD;
                         break;
                     }
 
                     if (str4cmp(m, 'c', 'a', 's', ' ')) {
-                        r->type = MSG_REQ_CAS;
-                        r->cas = 1;
-                        r->storage = 1; /* cas is also a storage request */
+                        r->type = MSG_REQ_MC_CAS;
                         break;
                     }
 
@@ -185,25 +220,22 @@ parse_request(struct msg *r)
 
                 case 4:
                     if (str4cmp(m, 'g', 'e', 't', 's')) {
-                        r->type = MSG_REQ_GETS;
-                        r->retrieval = 1;
+                        r->type = MSG_REQ_MC_GETS;
                         break;
                     }
 
                     if (str4cmp(m, 'i', 'n', 'c', 'r')) {
-                        r->type = MSG_REQ_INCR;
-                        r->arithmetic = 1;
+                        r->type = MSG_REQ_MC_INCR;
                         break;
                     }
 
                     if (str4cmp(m, 'd', 'e', 'c', 'r')) {
-                        r->type = MSG_REQ_DECR;
-                        r->arithmetic = 1;
+                        r->type = MSG_REQ_MC_DECR;
                         break;
                     }
 
                     if (str4cmp(m, 'q', 'u', 'i', 't')) {
-                        r->type = MSG_REQ_QUIT;
+                        r->type = MSG_REQ_MC_QUIT;
                         r->quit = 1;
                         break;
                     }
@@ -212,14 +244,12 @@ parse_request(struct msg *r)
 
                 case 6:
                     if (str6cmp(m, 'a', 'p', 'p', 'e', 'n', 'd')) {
-                        r->type = MSG_REQ_APPEND;
-                        r->storage = 1;
+                        r->type = MSG_REQ_MC_APPEND;
                         break;
                     }
 
                     if (str6cmp(m, 'd', 'e', 'l', 'e', 't', 'e')) {
-                        r->type = MSG_REQ_DELETE;
-                        r->delete = 1;
+                        r->type = MSG_REQ_MC_DELETE;
                         break;
                     }
 
@@ -227,14 +257,12 @@ parse_request(struct msg *r)
 
                 case 7:
                     if (str7cmp(m, 'p', 'r', 'e', 'p', 'e', 'n', 'd')) {
-                        r->type = MSG_REQ_PREPEND;
-                        r->storage = 1;
+                        r->type = MSG_REQ_MC_PREPEND;
                         break;
                     }
 
                     if (str7cmp(m, 'r', 'e', 'p', 'l', 'a', 'c', 'e')) {
-                        r->type = MSG_REQ_REPLACE;
-                        r->storage = 1;
+                        r->type = MSG_REQ_MC_REPLACE;
                         break;
                     }
 
@@ -242,24 +270,24 @@ parse_request(struct msg *r)
                 }
 
                 switch (r->type) {
-                case MSG_REQ_GET:
-                case MSG_REQ_GETS:
-                case MSG_REQ_DELETE:
-                case MSG_REQ_CAS:
-                case MSG_REQ_SET:
-                case MSG_REQ_ADD:
-                case MSG_REQ_REPLACE:
-                case MSG_REQ_APPEND:
-                case MSG_REQ_PREPEND:
-                case MSG_REQ_INCR:
-                case MSG_REQ_DECR:
+                case MSG_REQ_MC_GET:
+                case MSG_REQ_MC_GETS:
+                case MSG_REQ_MC_DELETE:
+                case MSG_REQ_MC_CAS:
+                case MSG_REQ_MC_SET:
+                case MSG_REQ_MC_ADD:
+                case MSG_REQ_MC_REPLACE:
+                case MSG_REQ_MC_APPEND:
+                case MSG_REQ_MC_PREPEND:
+                case MSG_REQ_MC_INCR:
+                case MSG_REQ_MC_DECR:
                     if (ch == CR) {
                         goto error;
                     }
                     state = SW_SPACES_BEFORE_KEY;
                     break;
 
-                case MSG_REQ_QUIT:
+                case MSG_REQ_MC_QUIT:
                     p = p - 1; /* go back by 1 byte */
                     state = SW_CRLF;
                     break;
@@ -271,7 +299,7 @@ parse_request(struct msg *r)
                     NOT_REACHED();
                 }
 
-            } else if (ch < 'a' || ch > 'z') {
+            } else if (!islower(ch)) {
                 goto error;
             }
 
@@ -288,32 +316,31 @@ parse_request(struct msg *r)
 
         case SW_KEY:
             if (ch == ' ' || ch == CR) {
-                if ((p - r->key_start) > PARSE_MAX_KEY_LENGTH) {
-                    log_error("req %"PRIu64" of type %d has key with prefix "
-                              "'%.*s...' and length %d that exceeds maximum "
-                              "key length", r->id, r->type, 16, r->key_start,
-                              p - r->key_start);
-
+                if ((p - r->key_start) > MEMCACHE_MAX_KEY_LENGTH) {
+                    log_error("parsed bad req %"PRIu64" of type %d with key "
+                              "prefix '%.*s...' and length %d that exceeds "
+                              "maximum key length", r->id, r->type, 16,
+                              r->key_start, p - r->key_start);
                     goto error;
                 }
-                r->key_end = p - 1;
+                r->key_end = p;
                 r->token = NULL;
 
                 /* get next state */
-                if (r->storage) {
+                if (memcache_storage(r)) {
                     state = SW_SPACES_BEFORE_FLAGS;
-                } else if (r->arithmetic) {
+                } else if (memcache_arithmetic(r)) {
                     state = SW_SPACES_BEFORE_NUM;
-                } else if (r->delete) {
+                } else if (memcache_delete(r)) {
                     state = SW_RUNTO_CRLF;
-                } else if (r->retrieval) {
+                } else if (memcache_retrieval(r)) {
                     state = SW_SPACES_BEFORE_KEYS;
                 } else {
                     state = SW_RUNTO_CRLF;
                 }
 
                 if (ch == CR) {
-                    if (r->storage || r->arithmetic) {
+                    if (memcache_storage(r) || memcache_arithmetic(r)) {
                         goto error;
                     }
                     p = p - 1; /* go back by 1 byte */
@@ -323,7 +350,7 @@ parse_request(struct msg *r)
             break;
 
         case SW_SPACES_BEFORE_KEYS:
-            ASSERT(r->retrieval);
+            ASSERT(memcache_retrieval(r));
             switch (ch) {
             case ' ':
                 break;
@@ -341,7 +368,7 @@ parse_request(struct msg *r)
 
         case SW_SPACES_BEFORE_FLAGS:
             if (ch != ' ') {
-                if (ch < '0' || ch > '9') {
+                if (!isdigit(ch)) {
                     goto error;
                 }
                 /* flags_start <- p; flags <- ch - '0' */
@@ -352,7 +379,7 @@ parse_request(struct msg *r)
             break;
 
         case SW_FLAGS:
-            if (ch >= '0' && ch <= '9') {
+            if (isdigit(ch)) {
                 /* flags <- flags * 10 + (ch - '0') */
                 ;
             } else if (ch == ' ') {
@@ -367,7 +394,7 @@ parse_request(struct msg *r)
 
         case SW_SPACES_BEFORE_EXPIRY:
             if (ch != ' ') {
-                if (ch < '0' || ch > '9') {
+                if (!isdigit(ch)) {
                     goto error;
                 }
                 /* expiry_start <- p; expiry <- ch - '0' */
@@ -378,7 +405,7 @@ parse_request(struct msg *r)
             break;
 
         case SW_EXPIRY:
-            if (ch >= '0' && ch <= '9') {
+            if (isdigit(ch)) {
                 /* expiry <- expiry * 10 + (ch - '0') */
                 ;
             } else if (ch == ' ') {
@@ -393,7 +420,7 @@ parse_request(struct msg *r)
 
         case SW_SPACES_BEFORE_VLEN:
             if (ch != ' ') {
-                if (ch < '0' || ch > '9') {
+                if (!isdigit(ch)) {
                     goto error;
                 }
                 /* vlen_start <- p */
@@ -405,9 +432,9 @@ parse_request(struct msg *r)
             break;
 
         case SW_VLEN:
-            if (ch >= '0' && ch <= '9') {
+            if (isdigit(ch)) {
                 r->vlen = r->vlen * 10 + (uint32_t)(ch - '0');
-            } else if (r->cas) {
+            } else if (memcache_cas(r)) {
                 if (ch != ' ') {
                     goto error;
                 }
@@ -428,7 +455,7 @@ parse_request(struct msg *r)
 
         case SW_SPACES_BEFORE_CAS:
             if (ch != ' ') {
-                if (ch < '0' || ch > '9') {
+                if (!isdigit(ch)) {
                     goto error;
                 }
                 /* cas_start <- p; cas <- ch - '0' */
@@ -439,7 +466,7 @@ parse_request(struct msg *r)
             break;
 
         case SW_CAS:
-            if (ch >= '0' && ch <= '9') {
+            if (isdigit(ch)) {
                 /* cas <- cas * 10 + (ch - '0') */
                 ;
             } else if (ch == ' ' || ch == CR) {
@@ -491,7 +518,7 @@ parse_request(struct msg *r)
 
         case SW_SPACES_BEFORE_NUM:
             if (ch != ' ') {
-                if (ch < '0' || ch > '9') {
+                if (!isdigit(ch)) {
                     goto error;
                 }
                 /* num_start <- p; num <- ch - '0'  */
@@ -502,7 +529,7 @@ parse_request(struct msg *r)
             break;
 
         case SW_NUM:
-            if (ch >= '0' && ch <= '9') {
+            if (isdigit(ch)) {
                 /* num <- num * 10 + (ch - '0') */
                 ;
             } else if (ch == ' ' || ch == CR) {
@@ -522,7 +549,7 @@ parse_request(struct msg *r)
                 break;
 
             case 'n':
-                if (r->storage || r->arithmetic || r->delete) {
+                if (memcache_storage(r) || memcache_arithmetic(r) || memcache_delete(r)) {
                     /* noreply_start <- p */
                     r->token = p;
                     state = SW_NOREPLY;
@@ -533,7 +560,7 @@ parse_request(struct msg *r)
                 break;
 
             case CR:
-                if (r->storage) {
+                if (memcache_storage(r)) {
                     state = SW_RUNTO_VAL;
                 } else {
                     state = SW_ALMOST_DONE;
@@ -553,7 +580,7 @@ parse_request(struct msg *r)
             case CR:
                 m = r->token;
                 if (((p - m) == 7) && str7cmp(m, 'n', 'o', 'r', 'e', 'p', 'l', 'y')) {
-                    ASSERT(r->storage || r->arithmetic || r->delete);
+                    ASSERT(memcache_storage(r) || memcache_arithmetic(r) || memcache_delete(r));
                     r->token = NULL;
                     /* noreply_end <- p - 1 */
                     r->noreply = 1;
@@ -572,7 +599,7 @@ parse_request(struct msg *r)
                 break;
 
             case CR:
-                if (r->storage) {
+                if (memcache_storage(r)) {
                     state = SW_RUNTO_VAL;
                 } else {
                     state = SW_ALMOST_DONE;
@@ -640,15 +667,14 @@ parse_request(struct msg *r)
     if (b->last == b->end && r->token != NULL) {
         r->pos = r->token;
         r->token = NULL;
-        r->result = PARSE_REPAIR;
+        r->result = MSG_PARSE_REPAIR;
     } else {
-        r->result = PARSE_AGAIN;
+        r->result = MSG_PARSE_AGAIN;
     }
 
-    log_debug(LOG_VVERB, "parsed req %"PRIu64" res %d type %d state %d "
-              "rpos %d of %d", r->id, r->result, r->type, r->state,
-              r->pos - b->pos, b->last - b->pos);
-
+    log_hexdump(LOG_VERB, b->pos, mbuf_length(b), "parsed req %"PRIu64" res %d "
+                "type %d state %d rpos %d of %d", r->id, r->result, r->type,
+                r->state, r->pos - b->pos, b->last - b->pos);
     return;
 
 fragment:
@@ -657,12 +683,11 @@ fragment:
     r->pos = r->token;
     r->token = NULL;
     r->state = state;
-    r->result = PARSE_FRAGMENT;
+    r->result = MSG_PARSE_FRAGMENT;
 
-    log_debug(LOG_VVERB, "parsed req %"PRIu64" res %d type %d state %d "
-              "rpos %d of %d", r->id, r->result, r->type, r->state,
-              r->pos - b->pos, b->last - b->pos);
-
+    log_hexdump(LOG_VERB, b->pos, mbuf_length(b), "parsed req %"PRIu64" res %d "
+                "type %d state %d rpos %d of %d", r->id, r->result, r->type,
+                r->state, r->pos - b->pos, b->last - b->pos);
     return;
 
 done:
@@ -670,25 +695,25 @@ done:
     r->pos = p + 1;
     ASSERT(r->pos <= b->last);
     r->state = SW_START;
-    r->result = PARSE_OK;
+    r->result = MSG_PARSE_OK;
 
-    log_debug(LOG_VVERB, "parsed req %"PRIu64" res %d type %d state %d "
-              "rpos %d of %d", r->id, r->result, r->type, r->state,
-              r->pos - b->pos, b->last - b->pos);
-
+    log_hexdump(LOG_VERB, b->pos, mbuf_length(b), "parsed req %"PRIu64" res %d "
+                "type %d state %d rpos %d of %d", r->id, r->result, r->type,
+                r->state, r->pos - b->pos, b->last - b->pos);
     return;
 
 error:
-    r->result = PARSE_ERROR;
+    r->result = MSG_PARSE_ERROR;
     r->state = state;
     errno = EINVAL;
 
-    log_debug(LOG_INFO, "parsed bad req %"PRIu64" res %d type %d state %d",
-              r->id, r->result, r->type, r->state);
+    log_hexdump(LOG_INFO, b->pos, mbuf_length(b), "parsed bad req %"PRIu64" "
+                "res %d type %d state %d", r->id, r->result, r->type,
+                r->state);
 }
 
 void
-parse_response(struct msg *r)
+memcache_parse_rsp(struct msg *r)
 {
     struct mbuf *b;
     uint8_t *p, *m;
@@ -705,9 +730,7 @@ parse_response(struct msg *r)
         SW_VLEN,
         SW_RUNTO_VAL,
         SW_VAL,
-        SW_RUNTO_END,
-        SW_E,
-        SW_EN,
+        SW_VAL_LF,
         SW_END,
         SW_RUNTO_CRLF,
         SW_CRLF,
@@ -719,6 +742,7 @@ parse_response(struct msg *r)
     b = STAILQ_LAST(&r->mhdr, mbuf, next);
 
     ASSERT(!r->request);
+    ASSERT(!r->redis);
     ASSERT(state >= SW_START && state < SW_SENTINEL);
     ASSERT(b != NULL);
     ASSERT(b->pos <= b->last);
@@ -732,25 +756,28 @@ parse_response(struct msg *r)
 
         switch (state) {
         case SW_START:
-            /* rsp_start <- p; type_start <- p */
-            r->token = p;
-            if (ch >= '0' && ch <= '9') {
-                /* num <- ch - '0' */
+            if (isdigit(ch)) {
                 state = SW_RSP_NUM;
             } else {
                 state = SW_RSP_STR;
             }
+            p = p - 1; /* go back by 1 byte */
 
             break;
 
         case SW_RSP_NUM:
-            if (ch >= '0' && ch <= '9') {
+            if (r->token == NULL) {
+                /* rsp_start <- p; type_start <- p */
+                r->token = p;
+            }
+
+            if (isdigit(ch)) {
                 /* num <- num * 10 + (ch - '0') */
                 ;
             } else if (ch == ' ' || ch == CR) {
                 /* type_end <- p - 1 */
                 r->token = NULL;
-                r->type = MSG_RSP_NUM;
+                r->type = MSG_RSP_MC_NUM;
                 p = p - 1; /* go back by 1 byte */
                 state = SW_CRLF;
             } else {
@@ -760,6 +787,11 @@ parse_response(struct msg *r)
             break;
 
         case SW_RSP_STR:
+            if (r->token == NULL) {
+                /* rsp_start <- p; type_start <- p */
+                r->token = p;
+            }
+
             if (ch == ' ' || ch == CR) {
                 /* type_end <- p - 1 */
                 m = r->token;
@@ -769,7 +801,7 @@ parse_response(struct msg *r)
                 switch (p - m) {
                 case 3:
                     if (str4cmp(m, 'E', 'N', 'D', '\r')) {
-                        r->type = MSG_RSP_END;
+                        r->type = MSG_RSP_MC_END;
                         /* end_start <- m; end_end <- p - 1*/
                         r->end = m;
                         break;
@@ -783,12 +815,12 @@ parse_response(struct msg *r)
                          * Encompasses responses for 'get', 'gets' and
                          * 'cas' command.
                          */
-                        r->type = MSG_RSP_VALUE;
+                        r->type = MSG_RSP_MC_VALUE;
                         break;
                     }
 
                     if (str5cmp(m, 'E', 'R', 'R', 'O', 'R')) {
-                        r->type = MSG_RSP_ERROR;
+                        r->type = MSG_RSP_MC_ERROR;
                         break;
                     }
 
@@ -796,12 +828,12 @@ parse_response(struct msg *r)
 
                 case 6:
                     if (str6cmp(m, 'S', 'T', 'O', 'R', 'E', 'D')) {
-                        r->type = MSG_RSP_STORED;
+                        r->type = MSG_RSP_MC_STORED;
                         break;
                     }
 
                     if (str6cmp(m, 'E', 'X', 'I', 'S', 'T', 'S')) {
-                        r->type = MSG_RSP_EXISTS;
+                        r->type = MSG_RSP_MC_EXISTS;
                         break;
                     }
 
@@ -809,7 +841,7 @@ parse_response(struct msg *r)
 
                 case 7:
                     if (str7cmp(m, 'D', 'E', 'L', 'E', 'T', 'E', 'D')) {
-                        r->type = MSG_RSP_DELETED;
+                        r->type = MSG_RSP_MC_DELETED;
                         break;
                     }
 
@@ -817,7 +849,7 @@ parse_response(struct msg *r)
 
                 case 9:
                     if (str9cmp(m, 'N', 'O', 'T', '_', 'F', 'O', 'U', 'N', 'D')) {
-                        r->type = MSG_RSP_NOT_FOUND;
+                        r->type = MSG_RSP_MC_NOT_FOUND;
                         break;
                     }
 
@@ -825,7 +857,7 @@ parse_response(struct msg *r)
 
                 case 10:
                     if (str10cmp(m, 'N', 'O', 'T', '_', 'S', 'T', 'O', 'R', 'E', 'D')) {
-                        r->type = MSG_RSP_NOT_STORED;
+                        r->type = MSG_RSP_MC_NOT_STORED;
                         break;
                     }
 
@@ -833,12 +865,12 @@ parse_response(struct msg *r)
 
                 case 12:
                     if (str12cmp(m, 'C', 'L', 'I', 'E', 'N', 'T', '_', 'E', 'R', 'R', 'O', 'R')) {
-                        r->type = MSG_RSP_CLIENT_ERROR;
+                        r->type = MSG_RSP_MC_CLIENT_ERROR;
                         break;
                     }
 
                     if (str12cmp(m, 'S', 'E', 'R', 'V', 'E', 'R', '_', 'E', 'R', 'R', 'O', 'R')) {
-                        r->type = MSG_RSP_SERVER_ERROR;
+                        r->type = MSG_RSP_MC_SERVER_ERROR;
                         break;
                     }
 
@@ -849,28 +881,28 @@ parse_response(struct msg *r)
                 case MSG_UNKNOWN:
                     goto error;
 
-                case MSG_RSP_STORED:
-                case MSG_RSP_NOT_STORED:
-                case MSG_RSP_EXISTS:
-                case MSG_RSP_NOT_FOUND:
-                case MSG_RSP_DELETED:
+                case MSG_RSP_MC_STORED:
+                case MSG_RSP_MC_NOT_STORED:
+                case MSG_RSP_MC_EXISTS:
+                case MSG_RSP_MC_NOT_FOUND:
+                case MSG_RSP_MC_DELETED:
                     state = SW_CRLF;
                     break;
 
-                case MSG_RSP_END:
+                case MSG_RSP_MC_END:
                     state = SW_CRLF;
                     break;
 
-                case MSG_RSP_VALUE:
+                case MSG_RSP_MC_VALUE:
                     state = SW_SPACES_BEFORE_KEY;
                     break;
 
-                case MSG_RSP_ERROR:
+                case MSG_RSP_MC_ERROR:
                     state = SW_CRLF;
                     break;
 
-                case MSG_RSP_CLIENT_ERROR:
-                case MSG_RSP_SERVER_ERROR:
+                case MSG_RSP_MC_CLIENT_ERROR:
+                case MSG_RSP_MC_SERVER_ERROR:
                     state = SW_RUNTO_CRLF;
                     break;
 
@@ -885,24 +917,27 @@ parse_response(struct msg *r)
 
         case SW_SPACES_BEFORE_KEY:
             if (ch != ' ') {
-                r->token = p;
-                r->key_start = p;
                 state = SW_KEY;
+                p = p - 1; /* go back by 1 byte */
             }
 
             break;
 
         case SW_KEY:
-            if (ch == ' ') {
-                if ((p - r->key_start) > PARSE_MAX_KEY_LENGTH) {
-                    log_error("req %"PRIu64" of type %d has key with prefix "
-                              "'%.*s...' and length %d that exceeds maximum "
-                              "key length", r->id, r->type, 16, r->key_start,
-                              p - r->key_start);
+            if (r->token == NULL) {
+                r->token = p;
+                r->key_start = p;
+            }
 
+            if (ch == ' ') {
+                if ((p - r->key_start) > MEMCACHE_MAX_KEY_LENGTH) {
+                    log_error("parsed bad req %"PRIu64" of type %d with key "
+                              "prefix '%.*s...' and length %d that exceeds "
+                              "maximum key length", r->id, r->type, 16,
+                              r->key_start, p - r->key_start);
                     goto error;
                 }
-                r->key_end = p - 1;
+                r->key_end = p;
                 r->token = NULL;
                 state = SW_SPACES_BEFORE_FLAGS;
             }
@@ -911,18 +946,22 @@ parse_response(struct msg *r)
 
         case SW_SPACES_BEFORE_FLAGS:
             if (ch != ' ') {
-                if (ch < '0' || ch > '9') {
+                if (!isdigit(ch)) {
                     goto error;
                 }
-                /* flags_start <- p; flags <- ch - '0' */
-                r->token = p;
                 state = SW_FLAGS;
+                p = p - 1; /* go back by 1 byte */
             }
 
             break;
 
         case SW_FLAGS:
-            if (ch >= '0' && ch <= '9') {
+            if (r->token == NULL) {
+                /* flags_start <- p */
+                r->token = p;
+            }
+
+            if (isdigit(ch)) {
                 /* flags <- flags * 10 + (ch - '0') */
                 ;
             } else if (ch == ' ') {
@@ -937,19 +976,21 @@ parse_response(struct msg *r)
 
         case SW_SPACES_BEFORE_VLEN:
             if (ch != ' ') {
-                if (ch < '0' || ch > '9') {
+                if (!isdigit(ch)) {
                     goto error;
                 }
-                /* vlen_start <- p */
-                r->token = p;
-                r->vlen = (uint32_t)(ch - '0');
+                p = p - 1; /* go back by 1 byte */
                 state = SW_VLEN;
             }
 
             break;
 
         case SW_VLEN:
-            if (ch >= '0' && ch <= '9') {
+            if (r->token == NULL) {
+                /* vlen_start <- p */
+                r->token = p;
+                r->vlen = (uint32_t)(ch - '0');
+            } else if (isdigit(ch)) {
                 r->vlen = r->vlen * 10 + (uint32_t)(ch - '0');
             } else if (ch == ' ' || ch == CR) {
                 /* vlen_end <- p - 1 */
@@ -988,7 +1029,7 @@ parse_response(struct msg *r)
             case CR:
                 /* val_end <- p - 1 */
                 p = m; /* move forward by vlen bytes */
-                state = SW_RUNTO_END;
+                state = SW_VAL_LF;
                 break;
 
             default:
@@ -997,35 +1038,9 @@ parse_response(struct msg *r)
 
             break;
 
-        case SW_RUNTO_END:
+        case SW_VAL_LF:
             switch (ch) {
             case LF:
-                state = SW_E;
-                break;
-
-            default:
-                goto error;
-            }
-
-            break;
-
-        case SW_E:
-            switch (ch) {
-            case 'E':
-                /* end_start <- p */
-                r->token = p;
-                state = SW_EN;
-                break;
-
-            default:
-                goto error;
-            }
-
-            break;
-
-        case SW_EN:
-            switch (ch) {
-            case 'N':
                 state = SW_END;
                 break;
 
@@ -1036,16 +1051,28 @@ parse_response(struct msg *r)
             break;
 
         case SW_END:
-            switch (ch) {
-            case 'D':
+            if (r->token == NULL) {
+                if (ch != 'E') {
+                    goto error;
+                }
+                /* end_start <- p */
+                r->token = p;
+            } else if (ch == CR) {
                 /* end_end <- p */
+                m = r->token;
                 r->token = NULL;
-                r->end = p - 2; /* go back by 2 bytes to get to end marker */
-                state = SW_CRLF;
-                break;
 
-            default:
-                goto error;
+                switch (p - m) {
+                case 3:
+                    if (str4cmp(m, 'E', 'N', 'D', '\r')) {
+                        r->end = m;
+                        state = SW_ALMOST_DONE;
+                    }
+                    break;
+
+                default:
+                    goto error;
+                }
             }
 
             break;
@@ -1053,7 +1080,7 @@ parse_response(struct msg *r)
         case SW_RUNTO_CRLF:
             switch (ch) {
             case CR:
-                if (r->type == MSG_RSP_VALUE) {
+                if (r->type == MSG_RSP_MC_VALUE) {
                     state = SW_RUNTO_VAL;
                 } else {
                     state = SW_ALMOST_DONE;
@@ -1109,15 +1136,14 @@ parse_response(struct msg *r)
     if (b->last == b->end && r->token != NULL) {
         r->pos = r->token;
         r->token = NULL;
-        r->result = PARSE_REPAIR;
+        r->result = MSG_PARSE_REPAIR;
     } else {
-        r->result = PARSE_AGAIN;
+        r->result = MSG_PARSE_AGAIN;
     }
 
-    log_debug(LOG_VVERB, "parsed rsp %"PRIu64" res %d type %d state %d "
-              "rpos %d of %d", r->id, r->result, r->type, r->state,
-              r->pos - b->pos, b->last - b->pos);
-
+    log_hexdump(LOG_VERB, b->pos, mbuf_length(b), "parsed rsp %"PRIu64" res %d "
+                "type %d state %d rpos %d of %d", r->id, r->result, r->type,
+                r->state, r->pos - b->pos, b->last - b->pos);
     return;
 
 done:
@@ -1126,19 +1152,155 @@ done:
     ASSERT(r->pos <= b->last);
     r->state = SW_START;
     r->token = NULL;
-    r->result = PARSE_OK;
+    r->result = MSG_PARSE_OK;
 
-    log_debug(LOG_VVERB, "parsed rsp %"PRIu64" res %d type %d state %d "
-              "rpos %d of %d", r->id, r->result, r->type, r->state,
-              r->pos - b->pos, b->last - b->pos);
-
+    log_hexdump(LOG_VERB, b->pos, mbuf_length(b), "parsed rsp %"PRIu64" res %d "
+                "type %d state %d rpos %d of %d", r->id, r->result, r->type,
+                r->state, r->pos - b->pos, b->last - b->pos);
     return;
 
 error:
-    r->result = PARSE_ERROR;
+    r->result = MSG_PARSE_ERROR;
     r->state = state;
     errno = EINVAL;
 
-    log_debug(LOG_INFO, "parsed bad rsp %"PRIu64" res %d type %d state %d",
-              r->id, r->result, r->type, r->state);
+    log_hexdump(LOG_INFO, b->pos, mbuf_length(b), "parsed bad rsp %"PRIu64" "
+                "res %d type %d state %d", r->id, r->result, r->type,
+                r->state);
+}
+
+/*
+ * Pre-split copy handler invoked when the request is a multi vector -
+ * 'get' or 'gets' request and is about to be split into two requests
+ */
+void
+memcache_pre_splitcopy(struct mbuf *mbuf, void *arg)
+{
+    struct msg *r = arg;                  /* request vector */
+    struct string get = string("get ");   /* 'get ' string */
+    struct string gets = string("gets "); /* 'gets ' string */
+
+    ASSERT(r->request);
+    ASSERT(!r->redis);
+    ASSERT(mbuf_empty(mbuf));
+
+    switch (r->type) {
+    case MSG_REQ_MC_GET:
+        mbuf_copy(mbuf, get.data, get.len);
+        break;
+
+    case MSG_REQ_MC_GETS:
+        mbuf_copy(mbuf, gets.data, gets.len);
+        break;
+
+    default:
+        NOT_REACHED();
+    }
+}
+
+/*
+ * Post-split copy handler invoked when the request is a multi vector -
+ * 'get' or 'gets' request and has already been split into two requests
+ */
+rstatus_t
+memcache_post_splitcopy(struct msg *r)
+{
+    struct mbuf *mbuf;
+    struct string crlf = string(CRLF);
+
+    ASSERT(r->request);
+    ASSERT(!r->redis);
+    ASSERT(!STAILQ_EMPTY(&r->mhdr));
+
+    mbuf = STAILQ_LAST(&r->mhdr, mbuf, next);
+    mbuf_copy(mbuf, crlf.data, crlf.len);
+
+    return NC_OK;
+}
+
+/*
+ * Pre-coalesce handler is invoked when the message is a response to
+ * the fragmented multi vector request - 'get' or 'gets' and all the
+ * responses to the fragmented request vector hasn't been received
+ */
+void
+memcache_pre_coalesce(struct msg *r)
+{
+    struct msg *pr = r->peer; /* peer request */
+    struct mbuf *mbuf;
+
+    ASSERT(!r->request);
+    ASSERT(pr->request);
+
+    if (pr->frag_id == 0) {
+        /* do nothing, if not a response to a fragmented request */
+        return;
+    }
+
+    switch (r->type) {
+
+    case MSG_RSP_MC_VALUE:
+    case MSG_RSP_MC_END:
+
+        /*
+         * Readjust responses of the fragmented message vector by not
+         * including the end marker for all but the last response
+         */
+
+        if (pr->last_fragment) {
+            break;
+        }
+
+        ASSERT(r->end != NULL);
+
+        for (;;) {
+            mbuf = STAILQ_LAST(&r->mhdr, mbuf, next);
+            ASSERT(mbuf != NULL);
+
+            /*
+             * We cannot assert that end marker points to the last mbuf
+             * Consider a scenario where end marker points to the
+             * penultimate mbuf and the last mbuf only contains spaces
+             * and CRLF: mhdr -> [...END] -> [\r\n]
+             */
+
+            if (r->end >= mbuf->pos && r->end < mbuf->last) {
+                /* end marker is within this mbuf */
+                r->mlen -= (uint32_t)(mbuf->last - r->end);
+                mbuf->last = r->end;
+                break;
+            }
+
+            /* end marker is not in this mbuf */
+            r->mlen -= mbuf_length(mbuf);
+            mbuf_remove(&r->mhdr, mbuf);
+            mbuf_put(mbuf);
+        }
+
+        break;
+
+    default:
+        /*
+         * Valid responses for a fragmented requests are MSG_RSP_MC_VALUE or,
+         * MSG_RSP_MC_END. For an invalid response, we send out SERVER_ERRROR
+         * with EINVAL errno
+         */
+        mbuf = STAILQ_FIRST(&r->mhdr);
+        log_hexdump(LOG_ERR, mbuf->pos, mbuf_length(mbuf), "rsp fragment "
+                    "with unknown type %d", r->type);
+        pr->error = 1;
+        pr->err = EINVAL;
+        break;
+    }
+}
+
+/*
+ * Post-coalesce handler is invoked when the message is a response to
+ * the fragmented multi vector request - 'get' or 'gets' and all the
+ * responses to the fragmented request vector has been received and
+ * the fragmented request is consider to be done
+ */
+void
+memcache_post_coalesce(struct msg *r)
+{
 }

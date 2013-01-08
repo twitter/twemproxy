@@ -18,10 +18,10 @@
 #include <sys/uio.h>
 
 #include <nc_core.h>
-#include <nc_parse.h>
 #include <nc_server.h>
 #include <nc_client.h>
 #include <nc_proxy.h>
+#include <proto/nc_proto.h>
 
 /*
  *                   nc_connection.[ch]
@@ -135,12 +135,13 @@ _conn_get(void)
     conn->connected = 0;
     conn->eof = 0;
     conn->done = 0;
+    conn->redis = 0;
 
     return conn;
 }
 
 struct conn *
-conn_get(void *owner, bool client)
+conn_get(void *owner, bool client, bool redis)
 {
     struct conn *conn;
 
@@ -148,6 +149,9 @@ conn_get(void *owner, bool client)
     if (conn == NULL) {
         return NULL;
     }
+
+    /* connection either handles redis or memcache messages */
+    conn->redis = redis ? 1 : 0;
 
     conn->client = client ? 1 : 0;
 
@@ -209,12 +213,15 @@ conn_get(void *owner, bool client)
 struct conn *
 conn_get_proxy(void *owner)
 {
+    struct server_pool *pool = owner;
     struct conn *conn;
 
     conn = _conn_get();
     if (conn == NULL) {
         return NULL;
     }
+
+    conn->redis = pool->redis;
 
     conn->proxy = 1;
 

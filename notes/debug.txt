@@ -75,14 +75,15 @@
   valgrind --tool=memcheck --leak-check=yes <program>
 
 - Core dump
-  $ ulimit -c unlimited
+  ulimit -c unlimited
 
 - Generate ENOMEM to test "Out of Memory"
-  $ ulimit -m <size>    # limit maximum memory size
-  $ ulimit -v <size>    # limit virtual memory
+  ulimit -m <size>    # limit maximum memory size
+  ulimit -v <size>    # limit virtual memory
 
 - get nutcracker stats
-  $ printf "" | socat  - TCP:localhost:22222 | tee stats.txt
+  printf "" | socat  - TCP:localhost:22222 | tee stats.txt
+  printf "" | nc localhost 22222 | python -mjson.tool
 
 - Signalling and Logging
   SIGTTIN - To up the log level

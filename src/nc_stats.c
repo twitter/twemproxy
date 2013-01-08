@@ -26,17 +26,50 @@
 #include <nc_core.h>
 #include <nc_server.h>
 
-#define DEFINE_ACTION(_name, _type) {.type = _type, .name = string(#_name) },
+struct stats_desc {
+    char *name; /* stats name */
+    char *desc; /* stats description */
+};
+
+#define DEFINE_ACTION(_name, _type, _desc) { .type = _type, .name = string(#_name) },
 static struct stats_metric stats_pool_codec[] = {
     STATS_POOL_CODEC( DEFINE_ACTION )
 };
-#undef DEFINE_ACTION
 
-#define DEFINE_ACTION(_name, _type) {.type = _type, .name = string(#_name) },
 static struct stats_metric stats_server_codec[] = {
     STATS_SERVER_CODEC( DEFINE_ACTION )
 };
 #undef DEFINE_ACTION
+
+#define DEFINE_ACTION(_name, _type, _desc) { .name = #_name, .desc = _desc },
+static struct stats_desc stats_pool_desc[] = {
+    STATS_POOL_CODEC( DEFINE_ACTION )
+};
+
+static struct stats_desc stats_server_desc[] = {
+    STATS_SERVER_CODEC( DEFINE_ACTION )
+};
+#undef DEFINE_ACTION
+
+void
+stats_describe(void)
+{
+    uint32_t i;
+
+    log_stderr("pool stats:");
+    for (i = 0; i < NELEMS(stats_pool_desc); i++) {
+        log_stderr("  %-20s\"%s\"", stats_pool_desc[i].name,
+                   stats_pool_desc[i].desc);
+    }
+
+    log_stderr("");
+
+    log_stderr("server stats:");
+    for (i = 0; i < NELEMS(stats_server_desc); i++) {
+        log_stderr("  %-20s\"%s\"", stats_server_desc[i].name,
+                   stats_server_desc[i].desc);
+    }
+}
 
 static void
 stats_metric_init(struct stats_metric *stm)
@@ -139,7 +172,7 @@ stats_server_init(struct stats_server *sts, struct server *s)
 {
     rstatus_t status;
 
-    sts->name = s->pname;
+    sts->name = s->name;
     array_null(&sts->metric);
 
     status = stats_server_metric_init(sts);
@@ -765,7 +798,7 @@ stats_listen(struct stats *st)
     rstatus_t status;
     struct sockinfo si;
 
-    status = nc_resolve(NULL, st->port, &si);
+    status = nc_resolve(&st->addr, st->port, &si);
     if (status < 0) {
         return status;
     }
@@ -784,8 +817,8 @@ stats_listen(struct stats *st)
 
     status = bind(st->sd, (struct sockaddr *)&si.addr, si.addrlen);
     if (status < 0) {
-        log_error("bind on m %d to addr '%s:%u' failed: %s", st->sd,
-                  STATS_ADDR, st->port, strerror(errno));
+        log_error("bind on m %d to addr '%.*s:%u' failed: %s", st->sd,
+                  st->addr.len, st->addr.data, st->port, strerror(errno));
         return NC_ERROR;
     }
 
@@ -795,8 +828,8 @@ stats_listen(struct stats *st)
         return NC_ERROR;
     }
 
-    log_debug(LOG_NOTICE, "m %d listening on '%s:%u'", st->sd, STATS_ADDR,
-              st->port);
+    log_debug(LOG_NOTICE, "m %d listening on '%.*s:%u'", st->sd,
+              st->addr.len, st->addr.data, st->port);
 
     return NC_OK;
 }
@@ -853,8 +886,8 @@ stats_stop_aggregator(struct stats *st)
 }
 
 struct stats *
-stats_create(uint16_t stats_port, int stats_interval, char *source,
-             struct array *server_pool)
+stats_create(uint16_t stats_port, char *stats_ip, int stats_interval,
+             char *source, struct array *server_pool)
 {
     rstatus_t status;
     struct stats *st;
@@ -866,7 +899,7 @@ stats_create(uint16_t stats_port, int stats_interval, char *source,
 
     st->port = stats_port;
     st->interval = stats_interval;
-    string_set_text(&st->addr, STATS_ADDR);
+    string_set_raw(&st->addr, stats_ip);
 
     st->start_ts = (int64_t)time(NULL);
 

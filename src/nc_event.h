@@ -28,9 +28,11 @@
 #ifdef NC_HAVE_KQUEUE
 struct evbase {
     int                  kq;
-    struct kevent        *changes;
-    struct kevent        *kevents;
-    int                  n_changes;
+    struct kevent        *changes;   /* list of changes to be made */
+    struct kevent        *kevents;   /* list of events returned from kevent */
+    int                  n_changes;  /* number of changes in our list */
+    int                  n_returned; /* number of events returned from kevent */
+    int                  n_processed;
     int                  nevent;
     void (*callback_fp)(void *, uint32_t);
 };

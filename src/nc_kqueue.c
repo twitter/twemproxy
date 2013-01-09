@@ -198,26 +198,22 @@ int
 event_wait(struct evbase *evb, int timeout)
 {
     int nsd, i;
-    uint32_t evflags = 0;
     int kq = evb->kq;
-    int nevent = evb->nevent;
-    int n_changes = evb->n_changes;
     struct timespec ts = nc_millisec_to_timespec(timeout);
     void (*callback_fp)(void *, uint32_t) = evb->callback_fp;
 
     ASSERT(kq > 0);
-    ASSERT(nevent > 0);
-
-    evb->n_changes = 0;
 
     for (;;) {
-        nsd = kevent(kq, evb->changes, n_changes, evb->kevents, nevent, &ts);
+        nsd = kevent(kq, evb->changes, evb->n_changes, evb->kevents,
+                     evb->nevent, &ts);
+        evb->n_changes = 0;
         if (nsd > 0) {
             for (i = 0; i < nsd; i++) {
                 struct kevent *ev = &evb->kevents[i];
 
-                evflags = 0;
-                if (ev->flags == EV_ERROR) {
+                uint32_t evflags = 0;
+                if (ev->flags & EV_ERROR) {
                    /*
                     * Error messages that can happen, when a delete fails.
                     *   EBADF happens when the file descriptor has been
@@ -252,7 +248,7 @@ event_wait(struct evbase *evb, int timeout)
         if (nsd == 0) {
             if (timeout == -1) {
                log_error("kqueue on kq %d with %d events and %d timeout "
-                         "returned no events", kq, nevent, timeout);
+                         "returned no events", kq, evb->nevent, timeout);
                 return -1;
             }
 
@@ -263,7 +259,7 @@ event_wait(struct evbase *evb, int timeout)
             continue;
         }
 
-        log_error("kevent on kq %d with %d events failed: %s", kq, nevent,
+        log_error("kevent on kq %d with %d events failed: %s", kq, evb->nevent,
                   strerror(errno));
 
         return -1;

@@ -67,6 +67,8 @@ AC_CHECK_HEADERS([fcntl.h float.h limits.h stddef.h stdlib.h string.h unistd.h])
 AC_CHECK_HEADERS([inttypes.h stdint.h])
 AC_CHECK_HEADERS([sys/ioctl.h sys/time.h sys/uio.h])
 AC_CHECK_HEADERS([sys/socket.h sys/un.h netinet/in.h arpa/inet.h netdb.h])
+AC_CHECK_HEADERS([execinfo.h],
+  [AC_DEFINE(HAVE_BACKTRACE, [1], [Define to 1 if backtrace is supported])], [])
 AC_CHECK_HEADERS([sys/epoll.h], [], [])
 AC_CHECK_HEADERS([sys/event.h], [], [])
 

@@ -110,7 +110,9 @@ AC_CACHE_CHECK([if kqueue works], [ac_cv_kqueue_works],
   AC_TRY_RUN([
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/types.h>
 #include <sys/event.h>
+#include <sys/time.h>
 int
 main(int argc, char **argv)
 {
@@ -126,6 +128,10 @@ main(int argc, char **argv)
   ], [ac_cv_kqueue_works=yes], [ac_cv_kqueue_works=no]))
 AS_IF([test "x$ac_cv_kqueue_works" = "xyes"],
   [AC_DEFINE([HAVE_KQUEUE], [1], [Define to 1 if kqueue is supported])], [])
+
+AS_IF([test "x$ac_cv_epoll_works" = "xno" &&
+       test "x$ac_cv_kqueue_works" = "xno"],
+  [AC_MSGERROR([either epoll or kqueue support is required])], [])
 
 
 # Package options

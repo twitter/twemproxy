@@ -175,6 +175,7 @@ event_add_conn(struct evbase *evb, struct conn *c)
 int
 event_del_conn(struct evbase *evb, struct conn *c)
 {
+    int i;
     struct kevent *event;
     int kq = evb->kq;
 
@@ -190,6 +191,20 @@ event_del_conn(struct evbase *evb, struct conn *c)
 
     c->recv_active = 0;
     c->send_active = 0;
+    
+    /*
+     * Now, eliminate pending events for c->sd (there should be at most one
+     * other event). This is important because we will close c->sd and free
+     * c when we return.
+     */
+    for (i = evb->n_processed + 1; i < evb->n_returned; i++) {
+        struct kevent *ev = &evb->kevents[i];
+        if (ev->ident == (uintptr_t)c->sd) {
+            ev->flags = 0;
+            ev->filter = 0;
+            break;
+        }
+    }
 
     return 0;
 }
@@ -197,7 +212,6 @@ event_del_conn(struct evbase *evb, struct conn *c)
 int
 event_wait(struct evbase *evb, int timeout)
 {
-    int nsd, i;
     int kq = evb->kq;
     struct timespec ts = nc_millisec_to_timespec(timeout);
     void (*callback_fp)(void *, uint32_t) = evb->callback_fp;
@@ -205,12 +219,13 @@ event_wait(struct evbase *evb, int timeout)
     ASSERT(kq > 0);
 
     for (;;) {
-        nsd = kevent(kq, evb->changes, evb->n_changes, evb->kevents,
-                     evb->nevent, &ts);
+        evb->n_returned = kevent(kq, evb->changes, evb->n_changes, evb->kevents,
+                                 evb->nevent, &ts);
         evb->n_changes = 0;
-        if (nsd > 0) {
-            for (i = 0; i < nsd; i++) {
-                struct kevent *ev = &evb->kevents[i];
+        if (evb->n_returned > 0) {
+            for (evb->n_processed = 0; evb->n_processed < evb->n_returned;
+                 evb->n_processed++) {
+                struct kevent *ev = &evb->kevents[evb->n_processed];
 
                 uint32_t evflags = 0;
                 if (ev->flags & EV_ERROR) {
@@ -239,13 +254,13 @@ event_wait(struct evbase *evb, int timeout)
                 if (ev->filter == EVFILT_WRITE)
                     evflags |= EV_WRITE;
 
-                if (callback_fp != NULL)
+                if (callback_fp != NULL && evflags != 0)
                     (*callback_fp)((void *)(ev->udata), evflags);
             }
-            return nsd;
+            return evb->n_returned;
         }
 
-        if (nsd == 0) {
+        if (evb->n_returned == 0) {
             if (timeout == -1) {
                log_error("kqueue on kq %d with %d events and %d timeout "
                          "returned no events", kq, evb->nevent, timeout);

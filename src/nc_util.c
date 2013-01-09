@@ -22,7 +22,10 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <netdb.h>
+
+#ifdef NC_HAVE_BACKTRACE
 #include <execinfo.h>
+#endif
 
 #include <sys/time.h>
 #include <sys/types.h>
@@ -275,6 +278,7 @@ _nc_free(void *ptr, const char *name, int line)
 void
 nc_stacktrace(int skip_count)
 {
+#ifdef NC_HAVE_BACKTRACE
     void *stack[64];
     char **symbols;
     int size, i, j;
@@ -292,6 +296,7 @@ nc_stacktrace(int skip_count)
     }
 
     free(symbols);
+#endif
 }
 
 void

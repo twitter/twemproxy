@@ -50,6 +50,10 @@
 # define NC_LITTLE_ENDIAN 1
 #endif
 
+#ifdef HAVE_BACKTRACE
+#define NC_HAVE BACKTRACE 1
+#endif
+
 #define NC_OK        0
 #define NC_ERROR    -1
 #define NC_EAGAIN   -2

@@ -1316,7 +1316,7 @@ redis_parse_req(struct msg *r)
         case SW_ARGN_LF:
             switch (ch) {
             case LF:
-                if (redis_argn(r)) {
+                if (redis_argn(r) || redis_argeval(r)) {
                     if (r->rnarg == 0) {
                         goto done;
                     }

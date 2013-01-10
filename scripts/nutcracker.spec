@@ -15,6 +15,7 @@ It was primarily built to reduce the connection count on the backend caching ser
 
 %prep
 %setup -q
+autoreconf -fvi
 
 %build
 

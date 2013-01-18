@@ -91,6 +91,7 @@ redis_arg1(struct msg *r)
 
     case MSG_REQ_REDIS_LINDEX:
     case MSG_REQ_REDIS_LPUSHX:
+    case MSG_REQ_REDIS_RPOPLPUSH:
     case MSG_REQ_REDIS_RPUSHX:
 
     case MSG_REQ_REDIS_SISMEMBER:
@@ -743,6 +744,11 @@ redis_parse_req(struct msg *r)
             case 9:
                 if (str9icmp(m, 'p', 'e', 'x', 'p', 'i', 'r', 'e', 'a', 't')) {
                     r->type = MSG_REQ_REDIS_PEXPIREAT;
+                    break;
+                }
+                
+                if (str9icmp(m, 'r', 'p', 'o', 'p', 'l', 'p', 'u', 's', 'h')) {
+                    r->type = MSG_REQ_REDIS_RPOPLPUSH;
                     break;
                 }
 

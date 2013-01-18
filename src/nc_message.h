@@ -110,6 +110,7 @@ typedef enum msg_type {
     MSG_REQ_REDIS_LSET,
     MSG_REQ_REDIS_LTRIM,
     MSG_REQ_REDIS_RPOP,
+    MSG_REQ_REDIS_RPOPLPUSH,
     MSG_REQ_REDIS_RPUSH,
     MSG_REQ_REDIS_RPUSHX,
     MSG_REQ_REDIS_SADD,                   /* redis requests - sets */

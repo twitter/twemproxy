@@ -348,6 +348,36 @@ printf '*2\r\n$5\r\nscard\r\n$4\r\nsfoo\r\n' | socat ${debug} ${timeout} - TCP:l
 printf '*4\r\n$4\r\nsadd\r\n$4\r\nsfoo\r\n$3\r\nbar\r\n$3\r\nbas\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
 printf '*2\r\n$5\r\nscard\r\n$4\r\nsfoo\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
 
+printf '\nsdiff\n'
+printf '*2\r\n$3\r\ndel\r\n$6\r\n{sfoo}\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*2\r\n$3\r\ndel\r\n$7\r\n{sfoo}2\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*4\r\n$4\r\nsadd\r\n$6\r\n{sfoo}\r\n$3\r\nbar\r\n$3\r\nbas\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*3\r\n$4\r\nsadd\r\n$7\r\n{sfoo}2\r\n$3\r\nbar\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*3\r\n$5\r\nsdiff\r\n$6\r\n{sfoo}\r\n$7\r\n{sfoo}2\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+
+printf '\nsdiffstore\n'
+printf '*2\r\n$3\r\ndel\r\n$6\r\n{sfoo}\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*2\r\n$3\r\ndel\r\n$7\r\n{sfoo}2\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*4\r\n$4\r\nsadd\r\n$6\r\n{sfoo}\r\n$3\r\nbar\r\n$3\r\nbas\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*3\r\n$4\r\nsadd\r\n$7\r\n{sfoo}2\r\n$3\r\nbar\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*4\r\n$10\r\nsdiffstore\r\n$7\r\n{sfoo}3\r\n$6\r\n{sfoo}\r\n$7\r\n{sfoo}2\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*2\r\n$8\r\nsmembers\r\n$7\r\n{sfoo}3\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+
+printf '\nsinter\n'
+printf '*2\r\n$3\r\ndel\r\n$6\r\n{sfoo}\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*2\r\n$3\r\ndel\r\n$7\r\n{sfoo}2\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*4\r\n$4\r\nsadd\r\n$6\r\n{sfoo}\r\n$3\r\nbar\r\n$3\r\nbas\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*3\r\n$4\r\nsadd\r\n$7\r\n{sfoo}2\r\n$3\r\nbar\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*3\r\n$6\r\nsinter\r\n$6\r\n{sfoo}\r\n$7\r\n{sfoo}2\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+
+printf '\nsinterstore\n'
+printf '*2\r\n$3\r\ndel\r\n$6\r\n{sfoo}\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*2\r\n$3\r\ndel\r\n$7\r\n{sfoo}2\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*4\r\n$4\r\nsadd\r\n$6\r\n{sfoo}\r\n$3\r\nbar\r\n$3\r\nbas\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*3\r\n$4\r\nsadd\r\n$7\r\n{sfoo}2\r\n$3\r\nbar\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*4\r\n$11\r\nsinterstore\r\n$7\r\n{sfoo}3\r\n$6\r\n{sfoo}\r\n$7\r\n{sfoo}2\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*2\r\n$8\r\nsmembers\r\n$7\r\n{sfoo}3\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+
 printf '\nsismember\n'
 printf '*2\r\n$3\r\ndel\r\n$4\r\nsfoo\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
 printf '*3\r\n$9\r\nsismember\r\n$4\r\nsfoo\r\n$3\r\nbar\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
@@ -360,6 +390,14 @@ printf '*2\r\n$3\r\ndel\r\n$4\r\nsfoo\r\n' | socat ${debug} ${timeout} - TCP:loc
 printf '*2\r\n$8\r\nsmembers\r\n$4\r\nsfoo\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
 printf '*4\r\n$4\r\nsadd\r\n$4\r\nsfoo\r\n$3\r\nbar\r\n$3\r\nbas\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
 printf '*2\r\n$8\r\nsmembers\r\n$4\r\nsfoo\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+
+printf '\nsmove\n'
+printf '*2\r\n$3\r\ndel\r\n$6\r\n{sfoo}\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*2\r\n$3\r\ndel\r\n$7\r\n{sfoo}2\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*4\r\n$4\r\nsadd\r\n$6\r\n{sfoo}\r\n$3\r\nbar\r\n$3\r\nbas\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*4\r\n$5\r\nsmove\r\n$6\r\n{sfoo}\r\n$7\r\n{sfoo}2\r\n$3\r\nbas\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*2\r\n$8\r\nsmembers\r\n$6\r\n{sfoo}\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*2\r\n$8\r\nsmembers\r\n$7\r\n{sfoo}2\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
 
 printf '\nspop\n'
 printf '*2\r\n$3\r\ndel\r\n$4\r\nsfoo\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
@@ -381,6 +419,21 @@ printf '*3\r\n$4\r\nsrem\r\n$4\r\nsfoo\r\n$3\r\nbar\r\n' | socat ${debug} ${time
 printf '*5\r\n$4\r\nsadd\r\n$4\r\nsfoo\r\n$3\r\nbar\r\n$3\r\nbas\r\n$3\r\nbat\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
 printf '*3\r\n$4\r\nsrem\r\n$4\r\nsfoo\r\n$3\r\nbar\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
 printf '*5\r\n$4\r\nsrem\r\n$4\r\nsfoo\r\n$3\r\nbas\r\n$3\r\nbat\r\n$3\r\nrab\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+
+printf '\nsunion\n'
+printf '*2\r\n$3\r\ndel\r\n$6\r\n{sfoo}\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*2\r\n$3\r\ndel\r\n$7\r\n{sfoo}2\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*4\r\n$4\r\nsadd\r\n$6\r\n{sfoo}\r\n$3\r\nbar\r\n$3\r\nbas\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*3\r\n$4\r\nsadd\r\n$7\r\n{sfoo}2\r\n$3\r\nbar\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*3\r\n$6\r\nsunion\r\n$6\r\n{sfoo}\r\n$7\r\n{sfoo}2\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+
+printf '\nsunionstore\n'
+printf '*2\r\n$3\r\ndel\r\n$6\r\n{sfoo}\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*2\r\n$3\r\ndel\r\n$7\r\n{sfoo}2\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*4\r\n$4\r\nsadd\r\n$6\r\n{sfoo}\r\n$3\r\nbar\r\n$3\r\nbas\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*3\r\n$4\r\nsadd\r\n$7\r\n{sfoo}2\r\n$3\r\nbar\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*4\r\n$11\r\nsunionstore\r\n$7\r\n{sfoo}3\r\n$6\r\n{sfoo}\r\n$7\r\n{sfoo}2\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*2\r\n$8\r\nsmembers\r\n$7\r\n{sfoo}3\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
 
 # sorted sets
 

@@ -461,6 +461,15 @@ printf '*2\r\n$3\r\ndel\r\n$4\r\nzfoo\r\n' | socat ${debug} ${timeout} - TCP:loc
 printf '*4\r\n$7\r\nzincrby\r\n$4\r\nzfoo\r\n$3\r\n100\r\n$3\r\nbar\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
 printf '*4\r\n$7\r\nzincrby\r\n$4\r\nzfoo\r\n$3\r\n100\r\n$3\r\nbar\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
 
+printf '\nzinterstore\n'
+printf '*2\r\n$3\r\ndel\r\n$6\r\n{zfoo}\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*2\r\n$3\r\ndel\r\n$7\r\n{zfoo}2\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*2\r\n$3\r\ndel\r\n$7\r\n{zfoo}3\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*8\r\n$4\r\nzadd\r\n$6\r\n{zfoo}\r\n$3\r\n100\r\n$3\r\nbar\r\n$3\r\n101\r\n$3\r\nbat\r\n$3\r\n102\r\n$3\r\nbau\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*6\r\n$4\r\nzadd\r\n$7\r\n{zfoo}2\r\n$3\r\n100\r\n$3\r\nbar\r\n$3\r\n101\r\n$3\r\nbat\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*5\r\n$11\r\nzinterstore\r\n$7\r\n{zfoo}3\r\n$1\r\n2\r\n$6\r\n{zfoo}\r\n$7\r\n{zfoo}2\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*5\r\n$6\r\nzrange\r\n$7\r\n{zfoo}3\r\n$1\r\n0\r\n$1\r\n3\r\n$10\r\nWITHSCORES\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+
 printf '\nzrange\n'
 printf '*2\r\n$3\r\ndel\r\n$4\r\nzfoo\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
 printf '*4\r\n$6\r\nzrange\r\n$4\r\nzfoo\r\n$1\r\n0\r\n$1\r\n3\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
@@ -521,3 +530,12 @@ printf '*2\r\n$3\r\ndel\r\n$4\r\nzfoo\r\n' | socat ${debug} ${timeout} - TCP:loc
 printf '*3\r\n$6\r\nzscore\r\n$4\r\nzfoo\r\n$3\r\nbar\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
 printf '*8\r\n$4\r\nzadd\r\n$4\r\nzfoo\r\n$3\r\n100\r\n$3\r\nbar\r\n$3\r\n101\r\n$3\r\nbat\r\n$3\r\n102\r\n$3\r\nbau\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
 printf '*3\r\n$6\r\nzscore\r\n$4\r\nzfoo\r\n$3\r\nbar\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+
+printf '\nzunionstore\n'
+printf '*2\r\n$3\r\ndel\r\n$6\r\n{zfoo}\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*2\r\n$3\r\ndel\r\n$7\r\n{zfoo}2\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*2\r\n$3\r\ndel\r\n$7\r\n{zfoo}3\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*8\r\n$4\r\nzadd\r\n$6\r\n{zfoo}\r\n$3\r\n100\r\n$3\r\nbar\r\n$3\r\n101\r\n$3\r\nbat\r\n$3\r\n102\r\n$3\r\nbau\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*6\r\n$4\r\nzadd\r\n$7\r\n{zfoo}2\r\n$3\r\n100\r\n$3\r\nbar\r\n$3\r\n101\r\n$3\r\nbat\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*5\r\n$11\r\nzunionstore\r\n$7\r\n{zfoo}3\r\n$1\r\n2\r\n$6\r\n{zfoo}\r\n$7\r\n{zfoo}2\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*5\r\n$6\r\nzrange\r\n$7\r\n{zfoo}3\r\n$1\r\n0\r\n$1\r\n3\r\n$10\r\nWITHSCORES\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close

@@ -192,11 +192,13 @@ redis_argn(struct msg *r)
     case MSG_REQ_REDIS_SUNIONSTORE:
 
     case MSG_REQ_REDIS_ZADD:
+    case MSG_REQ_REDIS_ZINTERSTORE:
     case MSG_REQ_REDIS_ZRANGE:
     case MSG_REQ_REDIS_ZRANGEBYSCORE:
     case MSG_REQ_REDIS_ZREM:
     case MSG_REQ_REDIS_ZREVRANGE:
     case MSG_REQ_REDIS_ZREVRANGEBYSCORE:
+    case MSG_REQ_REDIS_ZUNIONSTORE:
         return true;
 
     default:
@@ -816,6 +818,16 @@ redis_parse_req(struct msg *r)
 
                 if (str11icmp(m, 's', 'u', 'n', 'i', 'o', 'n', 's', 't', 'o', 'r', 'e')) {
                     r->type = MSG_REQ_REDIS_SUNIONSTORE;
+                    break;
+                }
+
+                if (str11icmp(m, 'z', 'i', 'n', 't', 'e', 'r', 's', 't', 'o', 'r', 'e')) {
+                    r->type = MSG_REQ_REDIS_ZINTERSTORE;
+                    break;
+                }
+
+                if (str11icmp(m, 'z', 'u', 'n', 'i', 'o', 'n', 's', 't', 'o', 'r', 'e')) {
+                    r->type = MSG_REQ_REDIS_ZUNIONSTORE;
                     break;
                 }
 

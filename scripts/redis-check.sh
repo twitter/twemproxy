@@ -320,6 +320,15 @@ printf '*2\r\n$4\r\nrpop\r\n$4\r\nlfoo\r\n' | socat ${debug} ${timeout} - TCP:lo
 printf '*2\r\n$4\r\nrpop\r\n$4\r\nlfoo\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
 printf '*2\r\n$4\r\nrpop\r\n$4\r\nlfoo\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
 
+printf '\nrpoplpush\n'
+printf '*2\r\n$3\r\ndel\r\n$6\r\n{lfoo}\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*2\r\n$3\r\ndel\r\n$7\r\n{lfoo}2\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*5\r\n$5\r\nlpush\r\n$6\r\n{lfoo}\r\n$3\r\nbar\r\n$3\r\nbaq\r\n$3\r\nbap\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*3\r\n$9\r\nrpoplpush\r\n$6\r\n{lfoo}\r\n$7\r\n{lfoo}2\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*3\r\n$9\r\nrpoplpush\r\n$6\r\n{lfoo}\r\n$7\r\n{lfoo}2\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*4\r\n$6\r\nlrange\r\n$6\r\n{lfoo}\r\n$1\r\n0\r\n$1\r\n3\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*4\r\n$6\r\nlrange\r\n$7\r\n{lfoo}2\r\n$1\r\n0\r\n$1\r\n3\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+
 printf '\nrpush\n'
 printf '*2\r\n$3\r\ndel\r\n$4\r\nlfoo\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
 printf '*3\r\n$5\r\nrpush\r\n$4\r\nlfoo\r\n$3\r\nbar\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close

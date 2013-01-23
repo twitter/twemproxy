@@ -136,5 +136,4 @@ struct context *core_start(struct instance *nci);
 void core_stop(struct context *ctx);
 rstatus_t core_loop(struct context *ctx);
 
-
 #endif

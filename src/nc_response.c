@@ -157,9 +157,11 @@ rsp_filter(struct context *ctx, struct conn *conn, struct msg *msg)
 
     pmsg = TAILQ_FIRST(&conn->omsg_q);
     if (pmsg == NULL) {
-        log_debug(LOG_ERR, "filter stray rsp %"PRIu64" len %"PRIu32" on s %d",
-                  msg->id, msg->mlen, conn->sd);
+        log_error("filter stray rsp %"PRIu64" len %"PRIu32" on s %d", msg->id,
+                  msg->mlen, conn->sd);
         rsp_put(msg);
+        errno = EINVAL;
+        conn->err = errno;
         return true;
     }
     ASSERT(pmsg->peer == NULL);

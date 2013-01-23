@@ -71,20 +71,8 @@ int string_compare(const struct string *s1, const struct string *s2);
 #define nc_strrchr(_p, _s, _c)          \
     _nc_strrchr((uint8_t *)(_p),(uint8_t *)(_s), (uint8_t)(_c))
 
-#ifdef HAVE_STRNDUP
 #define nc_strndup(_s, _n)              \
     (uint8_t *)strndup((char *)(_s), (size_t)(_n));
-#else
-static inline uint8_t *
-_nc_strndup (uint8_t *s, size_t n){
-     uint8_t *_dup = (uint8_t *) malloc(n*sizeof(uint8_t));  
-     strncpy(_dup, s, n);                           
-     return _dup; 
-}
-#define nc_strndup(_s, _n)              \
-     (uint8_t *)_nc_strndup((uint8_t *)(_s), (size_t)(_n)); 
-#endif
-
 
 #define nc_snprintf(_s, _n, ...)        \
     snprintf((char *)(_s), (size_t)(_n), __VA_ARGS__)

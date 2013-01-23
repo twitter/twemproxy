@@ -213,4 +213,3 @@ char *nc_unresolve_peer_desc(int sd);
 char *nc_unresolve_desc(int sd);
 
 #endif
-

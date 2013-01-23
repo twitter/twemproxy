@@ -454,11 +454,7 @@ nc_resolve_inet(struct string *name, int port, struct sockinfo *si)
     ASSERT(nc_valid_port(port));
 
     memset(&hints, 0, sizeof(hints));
-#ifdef AI_NUMERIC_SERV
     hints.ai_flags = AI_NUMERICSERV;
-#else
-    hints.ai_flags = AI_PASSIVE;
-#endif
     hints.ai_family = AF_UNSPEC;     /* AF_INET or AF_INET6 */
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_protocol = 0;

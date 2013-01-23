@@ -1076,7 +1076,7 @@ redis_parse_req(struct msg *r)
                     }
                     state = SW_ARGN_LEN;
                 } else if (redis_argeval(r)) {
-                    if (r->narg < 2) {
+                    if (r->rnarg < 2) {
                         goto error;
                     }
                     state = SW_ARG2_LEN;
@@ -1166,7 +1166,7 @@ redis_parse_req(struct msg *r)
                 } else if (redis_argeval(r)) {
                     // TODO: verify that this argument was 1 since we're only
                     // going to support scripts for 1 key at this time.
-                    if (r->narg < 1) {
+                    if (r->rnarg < 1) {
                         goto error;
                     }
                     state = SW_KEY_LEN;

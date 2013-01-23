@@ -131,7 +131,7 @@ AS_IF([test "x$ac_cv_kqueue_works" = "xyes"],
 
 AS_IF([test "x$ac_cv_epoll_works" = "xno" &&
        test "x$ac_cv_kqueue_works" = "xno"],
-  [AC_MSGERROR([either epoll or kqueue support is required])], [])
+  [AC_MSG_ERROR([either epoll or kqueue support is required])], [])
 
 
 # Package options

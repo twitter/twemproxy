@@ -51,7 +51,7 @@
 #endif
 
 #ifdef HAVE_BACKTRACE
-#define NC_HAVE BACKTRACE 1
+#define NC_HAVE_BACKTRACE 1
 #endif
 
 #define NC_OK        0

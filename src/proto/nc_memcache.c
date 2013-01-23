@@ -931,7 +931,7 @@ memcache_parse_rsp(struct msg *r)
 
             if (ch == ' ') {
                 if ((p - r->key_start) > MEMCACHE_MAX_KEY_LENGTH) {
-                    log_error("parse bad req %"PRIu64" of type %d with key "
+                    log_error("parsed bad req %"PRIu64" of type %d with key "
                               "prefix '%.*s...' and length %d that exceeds "
                               "maximum key length", r->id, r->type, 16,
                               r->key_start, p - r->key_start);

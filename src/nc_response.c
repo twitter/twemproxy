@@ -222,7 +222,7 @@ rsp_forward(struct context *ctx, struct conn *s_conn, struct msg *msg)
     ASSERT(c_conn->client && !c_conn->proxy);
 
     if (req_done(c_conn, TAILQ_FIRST(&c_conn->omsg_q))) {
-        status = event_add_out(ctx->ep, c_conn);
+        status = event_add_out(ctx->evb, c_conn);
         if (status != NC_OK) {
             c_conn->err = errno;
         }
@@ -267,7 +267,7 @@ rsp_send_next(struct context *ctx, struct conn *conn)
             log_debug(LOG_INFO, "c %d is done", conn->sd);
         }
 
-        status = event_del_out(ctx->ep, conn);
+        status = event_del_out(ctx->evb, conn);
         if (status != NC_OK) {
             conn->err = errno;
         }

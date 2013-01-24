@@ -90,6 +90,8 @@ evbase_destroy(struct evbase *evb)
 {
     int status;
 
+    if (evb == NULL) return;
+
     ASSERT(evb->kq >= 0);
 
     nc_free(evb->changes);

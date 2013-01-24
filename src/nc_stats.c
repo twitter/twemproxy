@@ -862,6 +862,7 @@ stats_start_aggregator(struct stats *st)
     if (status < 0) {
         log_error("stats aggregator create failed: %s", strerror(errno));
         evbase_destroy(st->st_evb);
+        st->st_evb = NULL;
         return NC_ERROR;
     }
 
@@ -869,6 +870,7 @@ stats_start_aggregator(struct stats *st)
     if (status < 0) {
         log_error("stats aggregator create failed: %s", strerror(status));
         evbase_destroy(st->st_evb);
+        st->st_evb = NULL;
         return NC_ERROR;
     }
 
@@ -884,6 +886,7 @@ stats_stop_aggregator(struct stats *st)
 
     close(st->sd);
     evbase_destroy(st->st_evb);
+    st->st_evb = NULL;
 }
 
 struct stats *

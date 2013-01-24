@@ -77,6 +77,8 @@ evbase_destroy(struct evbase *evb)
 {
     int status;
 
+    if (evb == NULL) return;
+
     ASSERT(evb->ep >= 0);
 
     nc_free(evb->event);

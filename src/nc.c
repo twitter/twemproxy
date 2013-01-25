@@ -430,7 +430,11 @@ nc_get_options(int argc, char **argv, struct instance *nci)
     return NC_OK;
 }
 
-static int
+/*
+ * Returns true if configuration file has a valid syntax, otherwise
+ * returns false
+ */
+static bool
 nc_test_conf(struct instance *nci)
 {
     struct conf *cf;
@@ -439,14 +443,14 @@ nc_test_conf(struct instance *nci)
     if (cf == NULL) {
         log_stderr("nutcracker: configuration file '%s' syntax is invalid",
                    nci->conf_filename);
-        return 1;
+        return false;
     }
 
     conf_destroy(cf);
 
     log_stderr("nutcracker: configuration file '%s' syntax is ok",
                nci->conf_filename);
-    return 0;
+    return true;
 }
 
 static rstatus_t
@@ -549,7 +553,10 @@ main(int argc, char **argv)
     }
 
     if (test_conf) {
-        exit(nc_test_conf(&nci));
+        if (!nc_test_conf(&nci)) {
+            exit(1);
+        }
+        exit(0);
     }
 
     status = nc_pre_run(&nci);

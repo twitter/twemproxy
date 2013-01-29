@@ -221,6 +221,7 @@ If you are deploying nutcracker in production, you might consider reading throug
 + [Pinterest](http://pinterest.com/)
 + [Tumblr](https://www.tumblr.com/)
 + [Twitter](https://twitter.com/)
++ [Vine](http://vine.co/)
 
 ## Issues and Support
 

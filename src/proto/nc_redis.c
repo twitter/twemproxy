@@ -1152,7 +1152,7 @@ redis_parse_req(struct msg *r)
                 // we need to error out if number of keys is 0.
                 // At this point, both p and m point to the end of the argument
                 // and r->token points to the start.
-                if (p - r->token <= 1)
+                if (p - r->token < 1)
                     goto error;
                 uint32_t nkeys = 0;
                 for (uint8_t *chp = r->token; chp < p; chp++) {

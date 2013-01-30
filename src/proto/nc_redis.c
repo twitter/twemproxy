@@ -1190,8 +1190,6 @@ redis_parse_req(struct msg *r)
                     }
                     state = SW_ARGN_LEN;
                 } else if (redis_argeval(r)) {
-                    // TODO: verify that this argument was 1 since we're only
-                    // going to support scripts for 1 key at this time.
                     if (r->rnarg < 1) {
                         goto error;
                     }

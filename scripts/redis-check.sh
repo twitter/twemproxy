@@ -554,6 +554,7 @@ printf '*5\r\n$6\r\nzrange\r\n$7\r\n{zfoo}3\r\n$1\r\n0\r\n$1\r\n3\r\n$10\r\nWITH
 
 # scripting
 
+printf '\neval\n'
 printf '*2\r\n$4\r\neval\r\n$10\r\nreturn 123\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
 printf '*3\r\n$4\r\neval\r\n$10\r\nreturn 123\r\n$1\r\n0\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
 printf '*3\r\n$4\r\neval\r\n$10\r\nreturn 123\r\n$1\r\n1\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close

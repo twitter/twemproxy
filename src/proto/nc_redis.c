@@ -217,6 +217,27 @@ redis_argx(struct msg *r)
 }
 
 /*
+ * Return true, if the redis command is either EVAL or EVALSHA. These commands
+ * have a special format with exactly 2 arguments, followed by one or more keys,
+ * followed by zero or more arguments (the documentation online seems to suggest
+ * that at least one argument is required, but that shouldn't be the case).
+ */
+static bool
+redis_argeval(struct msg *r)
+{
+    switch (r->type) {
+    case MSG_REQ_REDIS_EVAL:
+    case MSG_REQ_REDIS_EVALSHA:
+        return true;
+
+    default:
+        break;
+    }
+
+    return false;
+}
+
+/*
  * Reference: http://redis.io/topics/protocol
  *
  * Redis >= 1.2 uses the unified protocol to send requests to the Redis
@@ -511,6 +532,11 @@ redis_parse_req(struct msg *r)
                     break;
                 }
 
+                if (str4icmp(m, 'e', 'v', 'a', 'l')) {
+                    r->type = MSG_REQ_REDIS_EVAL;
+                    break;
+                }
+
                 break;
 
             case 5:
@@ -705,6 +731,11 @@ redis_parse_req(struct msg *r)
                     break;
                 }
 
+                if (str7icmp(m, 'e', 'v', 'a', 'l', 's', 'h', 'a')) {
+                    r->type = MSG_REQ_REDIS_EVALSHA;
+                    break;
+                }
+
                 break;
 
             case 8:
@@ -826,7 +857,11 @@ redis_parse_req(struct msg *r)
         case SW_REQ_TYPE_LF:
             switch (ch) {
             case LF:
-                state = SW_KEY_LEN;
+                if (redis_argeval(r)) {
+                    state = SW_ARG1_LEN;
+                } else {
+                    state = SW_KEY_LEN;
+                }
                 break;
 
             default:
@@ -942,6 +977,11 @@ redis_parse_req(struct msg *r)
                         goto done;
                     }
                     state = SW_FRAGMENT;
+                } else if (redis_argeval(r)) {
+                    if (r->rnarg == 0) {
+                        goto done;
+                    }
+                    state = SW_ARGN_LEN;
                 } else {
                     goto error;
                 }
@@ -1035,6 +1075,11 @@ redis_parse_req(struct msg *r)
                         goto done;
                     }
                     state = SW_ARGN_LEN;
+                } else if (redis_argeval(r)) {
+                    if (r->rnarg < 2) {
+                        goto error;
+                    }
+                    state = SW_ARG2_LEN;
                 } else {
                     goto error;
                 }
@@ -1082,6 +1127,10 @@ redis_parse_req(struct msg *r)
             break;
 
         case SW_ARG2:
+            if (r->token == NULL) {
+                r->token = p;
+            }
+
             m = p + r->rlen;
             if (m >= b->last) {
                 r->rlen -= (uint32_t)(b->last - p);
@@ -1096,6 +1145,28 @@ redis_parse_req(struct msg *r)
 
             p = m; /* move forward by rlen bytes */
             r->rlen = 0;
+
+            if (redis_argeval(r)) {
+                // For EVAL/EVALSHA, we need to find the integer value of this
+                // argument. It tells us the number of keys in the script, and
+                // we need to error out if number of keys is 0.
+                // At this point, both p and m point to the end of the argument
+                // and r->token points to the start.
+                if (p - r->token < 1)
+                    goto error;
+                uint32_t nkeys = 0;
+                uint8_t *chp = r->token;
+                for (; chp < p; chp++) {
+                    if (isdigit(*chp))
+                        nkeys = nkeys * 10 + (uint32_t)(*chp - '0');
+                    else
+                        goto error;
+                }
+                if (nkeys == 0)
+                    goto error;
+            }
+            
+            r->token = NULL;
             state = SW_ARG2_LF;
 
             break;
@@ -1118,6 +1189,11 @@ redis_parse_req(struct msg *r)
                         goto done;
                     }
                     state = SW_ARGN_LEN;
+                } else if (redis_argeval(r)) {
+                    if (r->rnarg < 1) {
+                        goto error;
+                    }
+                    state = SW_KEY_LEN;
                 } else {
                     goto error;
                 }
@@ -1264,7 +1340,7 @@ redis_parse_req(struct msg *r)
         case SW_ARGN_LF:
             switch (ch) {
             case LF:
-                if (redis_argn(r)) {
+                if (redis_argn(r) || redis_argeval(r)) {
                     if (r->rnarg == 0) {
                         goto done;
                     }

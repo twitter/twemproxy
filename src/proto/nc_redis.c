@@ -1155,7 +1155,8 @@ redis_parse_req(struct msg *r)
                 if (p - r->token < 1)
                     goto error;
                 uint32_t nkeys = 0;
-                for (uint8_t *chp = r->token; chp < p; chp++) {
+                uint8_t *chp = r->token;
+                for (; chp < p; chp++) {
                     if (isdigit(*chp))
                         nkeys = nkeys * 10 + (uint32_t)(*chp - '0');
                     else

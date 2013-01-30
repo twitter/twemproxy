@@ -1127,7 +1127,11 @@ redis_parse_req(struct msg *r)
             break;
 
         case SW_ARG2:
-            if (r->token == NULL) {
+            if (r->token == NULL && redis_argeval(r)) {
+                /*
+                 * For EVAL/EVALSHA, ARG2 represents is the # key/arg pairs which must
+                 * be tokenized and stored in contiguous memory.
+                 */
                 r->token = p;
             }
 
@@ -1147,26 +1151,34 @@ redis_parse_req(struct msg *r)
             r->rlen = 0;
 
             if (redis_argeval(r)) {
-                // For EVAL/EVALSHA, we need to find the integer value of this
-                // argument. It tells us the number of keys in the script, and
-                // we need to error out if number of keys is 0.
-                // At this point, both p and m point to the end of the argument
-                // and r->token points to the start.
-                if (p - r->token < 1)
+                uint32_t nkey;
+                uint8_t *chp;
+
+                /*
+                 * For EVAL/EVALSHA, we need to find the integer value of this
+                 * argument. It tells us the number of keys in the script, and
+                 * we need to error out if number of keys is 0. At this point,
+                 * both p and m point to the end of the argument and r->token
+                 * points to the start.
+                 */
+                if (p - r->token < 1) {
                     goto error;
-                uint32_t nkeys = 0;
-                uint8_t *chp = r->token;
-                for (; chp < p; chp++) {
-                    if (isdigit(*chp))
-                        nkeys = nkeys * 10 + (uint32_t)(*chp - '0');
-                    else
-                        goto error;
                 }
-                if (nkeys == 0)
+
+                for (nkey = 0, chp = r->token; chp < p; chp++) {
+                    if (isdigit(*chp)) {
+                        nkey = nkey * 10 + (uint32_t)(*chp - '0');
+                    } else {
+                        goto error;
+                    }
+                }
+                if (nkey == 0) {
                     goto error;
+                }
+
+                r->token = NULL;
             }
-            
-            r->token = NULL;
+
             state = SW_ARG2_LF;
 
             break;

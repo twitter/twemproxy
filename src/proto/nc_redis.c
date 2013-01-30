@@ -1191,7 +1191,7 @@ redis_parse_req(struct msg *r)
         case SW_ARG2:
             if (r->token == NULL && redis_argeval(r)) {
                 /*
-                 * For EVAL/EVALSHA, ARG2 represents is the # key/arg pairs which must
+                 * For EVAL/EVALSHA, ARG2 represents the # key/arg pairs which must
                  * be tokenized and stored in contiguous memory.
                  */
                 r->token = p;

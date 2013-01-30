@@ -168,6 +168,8 @@
     |      RPUSHX       |    Yes     | RPUSHX key value                                                                                                    |
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
 
+* RPOPLPUSH support requires that source and destination keys hash to the same server. You can ensure this by using the same [hashtag](https://github.com/twitter/twemproxy/blob/master/notes/recommendation.md#hash-tags) for source and destination key. Twemproxy does no checking on its end to verify that source and destination key hash to the same server, and the RPOPLPUSH command is forwarded to the server that the source key hashes to
+
 ### Sets
 
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
@@ -201,6 +203,9 @@
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
     |   SUNIONSTORE     |    Yes*    | SUNIONSTORE destination key [key ...]                                                                               |
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
+
+* SIDFF, SDIFFSTORE, SINTER, SINTERSTORE, SMOVE, SUNION and SUNIONSTORE support requires that the supplied keys hash to the same server. You can ensure this by using the same [hashtag](https://github.com/twitter/twemproxy/blob/master/notes/recommendation.md#hash-tags) for all keys in the command. Twemproxy does no checking on its end to verify that all the keys hash to the same server, and the given command is forwarded to the server that the first key hashes to.
+
 
 ### Sorted Sets
 
@@ -239,6 +244,9 @@
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
     |    ZUNIONSTORE    |    Yes*    | ZUNIONSTORE destination numkeys key [key ...] [WEIGHTS weight [weight ...]] [AGGREGATE SUM|MIN|MAX]                 |
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
+
+* ZINTERSTORE and ZUNIONSTORE support requires that the supplied keys hash to the same server. You can ensure this by using the same [hashtag](https://github.com/twitter/twemproxy/blob/master/notes/recommendation.md#hash-tags) for all keys in the command. Twemproxy does no checking on its end to verify that all the keys hash to the same server, and the given command is forwarded to the server that the first key hashes to.
+
 
 ### Pub/Sub
 

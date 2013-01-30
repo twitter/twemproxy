@@ -289,7 +289,8 @@
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
     |    SCRIPT LOAD    |    No      | SCRIPT LOAD script                                                                                                  |
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
-    *EVAL/EVALSHA support is limited to scripts that take at least 1 key. If multiple keys are used, all keys must hash to the same server (use the same hashtag).
+   
+ * EVAL and EVALSHA support is limited to scripts that take at least 1 key. If multiple keys are used, all keys must hash to the same server. You can ensure this by using the same hashtag.
 
 ### Connection
 

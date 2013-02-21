@@ -76,6 +76,7 @@ nutcracker can be configured through a YAML file specified by the -c or --conf-f
 + **hash**: The name of the hash function. Possible values are:
  + one_at_a_time
  + md5
+ + crc16
  + crc32
  + fnv1_64
  + fnv1a_64

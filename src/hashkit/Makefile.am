@@ -10,6 +10,7 @@ noinst_LIBRARIES = libhashkit.a
 noinst_HEADERS = nc_hashkit.h
 
 libhashkit_a_SOURCES =		\
+	nc_crc16.c		\
 	nc_crc32.c		\
 	nc_fnv.c		\
 	nc_hsieh.c		\

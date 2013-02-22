@@ -95,7 +95,7 @@ nutcracker can be configured through a YAML file specified by the -c or --conf-f
 + **preconnect**: A boolean value that controls if nutcracker should preconnect to all the servers in this pool on process start. Defaults to false.
 + **redis**: A boolean value that controls if a server pool speaks redis or memcached protocol. Defaults to false.
 + **server_connections**: The maximum number of connections that can be opened to each server. By default, we open at most 1 server connection.
-+ **auto_eject_hosts**: A boolean value that controls if server should be ejected temporarily when it fails consecutively server_failure_limit times. Defaults to false.
++ **auto_eject_hosts**: A boolean value that controls if server should be ejected temporarily when it fails consecutively server_failure_limit times. See [liveness recommendations](notes/recommendation.md#liveness) for information. Defaults to false.
 + **server_retry_timeout**: The timeout value in msec to wait for before retrying on a temporarily ejected server, when auto_eject_host is set to true. Defaults to 30000 msec.
 + **server_failure_limit**: The number of conseutive failures on a server that would leads to it being temporarily ejected when auto_eject_host is set to true. Defaults to 2.
 + **servers**: A list of server address, port and weight (name:port:weight or ip:port:weight) for this server pool.

@@ -34,6 +34,8 @@ Failures are a fact of life, especially when things are distributed. To be resil
 
 Enabling `auto_eject_hosts:` ensures that a dead server can be ejected out of the hash ring after `server_failure_limit:` consecutive failures have been encountered on that said server. A non-zero `server_retry_timeout:` ensures that we don't incorrectly mark a server as dead forever especially when the failures were really transient. The combination of `server_retry_timeout:` and `server_failure_limit:` controls the tradeoff between resiliency to permanent and transient failures.
 
+Note that an ejected server will not be included in the hash ring for any requests until the retry timeout passes. This will lead to data partitioning as keys originally on the ejected server will now be written to a server still in the pool.
+
 To ensure that requests always succeed in the face of server ejections (`auto_eject_hosts:` is enabled), some form of retry must be implemented at the client layer since nutcracker itself does not retry a request. This client-side retry count must be greater than `server_failure_limit:` value, which ensures that the original request has a chance to make it to a live server.
 
 ## Timeout

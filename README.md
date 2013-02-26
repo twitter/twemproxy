@@ -223,6 +223,7 @@ If you are deploying nutcracker in production, you might consider reading throug
 + [Tumblr](https://www.tumblr.com/)
 + [Twitter](https://twitter.com/)
 + [Vine](http://vine.co/)
++ [Kiip](http://www.kiip.me/)
 
 ## Issues and Support
 

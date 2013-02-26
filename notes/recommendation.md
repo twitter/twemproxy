@@ -54,7 +54,7 @@ By default, nutcracker waits indefinitely for any request sent to the server. Ho
 
 ## Error Response
 
-Whenever a request encounters failure on a server we usually send to the client a response with the general form - `SERVER_ERROR <errno description>\r\n` (memcached) or `-ERR <errno description>` (redis). 
+Whenever a request encounters failure on a server we usually send to the client a response with the general form - `SERVER_ERROR <errno description>\r\n` (memcached) or `-ERR <errno description>` (redis).
 
 For example, when a memcache server is down, this error response is usually:
 
@@ -74,7 +74,7 @@ All memory for incoming requests and outgoing responses is allocated in mbuf. Mb
 If nutcracker is meant to handle a large number of concurrent client connections, you should set the mbuf size to 512 or 1K bytes.
 
 ## Maximum Key Length
-The memcache ascii protocol [specification](https://github.com/twitter/twemproxy/blob/master/notes/memcache.txt) limits the maximum length of the key to 250 characters. The key should not include whitespace, or '\r' or '\n' character. For redis, we have no such limitation. However, nutcracker requires the key to be stored in a contiguous memory region. Since all requests and responses in nutcracker are stored in mbuf, the maximum length of the redis key is limited by the size of the maximum available space for data in mbuf (mbuf_data_size()). This means that if you want your redis instances to handle large keys, you might want to choose large mbuf size set using -m or --mbuf-size=N command-line argument.
+The memcache ascii protocol [specification](notes/memcache.txt) limits the maximum length of the key to 250 characters. The key should not include whitespace, or '\r' or '\n' character. For redis, we have no such limitation. However, nutcracker requires the key to be stored in a contiguous memory region. Since all requests and responses in nutcracker are stored in mbuf, the maximum length of the redis key is limited by the size of the maximum available space for data in mbuf (mbuf_data_size()). This means that if you want your redis instances to handle large keys, you might want to choose large mbuf size set using -m or --mbuf-size=N command-line argument.
 
 ## Node Names for Consistent Hashing
 

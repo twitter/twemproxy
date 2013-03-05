@@ -102,6 +102,7 @@ struct server_pool {
 
     struct string      name;                 /* pool name (ref in conf_pool) */
     struct string      addrstr;              /* pool address (ref in conf_pool) */
+    struct string      redis_auth;           /* redis_auth password */
     uint16_t           port;                 /* port */
     int                family;               /* socket family */
     socklen_t          addrlen;              /* socket length */

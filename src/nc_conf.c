@@ -74,6 +74,10 @@ static struct command conf_commands[] = {
       conf_set_bool,
       offsetof(struct conf_pool, redis) },
 
+    { string("redis_auth"),
+      conf_set_string,
+      offsetof(struct conf_pool, redis_auth) },
+
     { string("preconnect"),
       conf_set_bool,
       offsetof(struct conf_pool, preconnect) },
@@ -170,6 +174,7 @@ conf_pool_init(struct conf_pool *cp, struct string *name)
 
     string_init(&cp->listen.pname);
     string_init(&cp->listen.name);
+    string_init(&cp->redis_auth);
     cp->listen.port = 0;
     memset(&cp->listen.info, 0, sizeof(cp->listen.info));
     cp->listen.valid = 0;
@@ -218,6 +223,10 @@ conf_pool_deinit(struct conf_pool *cp)
 
     string_deinit(&cp->listen.pname);
     string_deinit(&cp->listen.name);
+
+    if (cp->redis_auth.len > 0) {
+        string_deinit(&cp->redis_auth);
+    }
 
     while (array_n(&cp->server) != 0) {
         conf_server_deinit(array_pop(&cp->server));
@@ -268,6 +277,7 @@ conf_pool_each_transform(void *elem, void *data)
     sp->hash_tag = cp->hash_tag;
 
     sp->redis = cp->redis ? 1 : 0;
+    sp->redis_auth = cp->redis_auth;
     sp->timeout = cp->timeout;
     sp->backlog = cp->backlog;
 

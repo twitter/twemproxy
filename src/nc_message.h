@@ -145,6 +145,7 @@ typedef enum msg_type {
     MSG_REQ_REDIS_ZUNIONSTORE,
     MSG_REQ_REDIS_EVAL,                   /* redis requests - eval */
     MSG_REQ_REDIS_EVALSHA,
+    MSG_REQ_REDIS_AUTH,
     MSG_RSP_REDIS_STATUS,                 /* redis response */
     MSG_RSP_REDIS_ERROR,
     MSG_RSP_REDIS_INTEGER,

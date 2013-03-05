@@ -84,6 +84,7 @@ struct conn {
     unsigned           eof:1;         /* eof? aka passive close? */
     unsigned           done:1;        /* done? aka close? */
     unsigned           redis:1;       /* redis? */
+    unsigned           auth:1;       /* auth flag */
 };
 
 TAILQ_HEAD(conn_tqh, conn);

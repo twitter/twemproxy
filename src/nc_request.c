@@ -473,7 +473,13 @@ req_filter(struct context *ctx, struct conn *conn, struct msg *msg)
         return true;
     }
 
-    return false;
+
+    /*
+     * Hanlde "AUTH requirepass\r\n"
+     *
+     */
+
+    return msg->auth(ctx, conn, msg);
 }
 
 static void
@@ -554,6 +560,8 @@ req_forward(struct context *ctx, struct conn *c_conn, struct msg *msg)
             return;
         }
     }
+
+    msg->add_auth(ctx, c_conn, s_conn);
     s_conn->enqueue_inq(ctx, s_conn, msg);
 
     req_forward_stats(ctx, s_conn->owner, msg);

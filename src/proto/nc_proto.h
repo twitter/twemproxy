@@ -142,12 +142,17 @@ void memcache_parse_req(struct msg *r);
 void memcache_parse_rsp(struct msg *r);
 void memcache_pre_coalesce(struct msg *r);
 void memcache_post_coalesce(struct msg *r);
+bool memcache_auth_req(struct context *ctx, struct conn *conn, struct msg *msg);
+void memcache_add_auth_packet(struct context *ctx, struct conn *c_conn, struct conn *s_conn);
 rstatus_t memcache_fragment(struct msg *r, uint32_t ncontinuum, struct msg_tqh *frag_msgq);
+rstatus_t memcache_reply(struct msg *r);
 
 void redis_parse_req(struct msg *r);
 void redis_parse_rsp(struct msg *r);
 void redis_pre_coalesce(struct msg *r);
 void redis_post_coalesce(struct msg *r);
+bool redis_auth_req(struct context *ctx, struct conn *conn, struct msg *msg);
+void redis_add_auth_packet(struct context *ctx, struct conn *c_conn, struct conn *s_conn);
 rstatus_t redis_fragment(struct msg *r, uint32_t ncontinuum, struct msg_tqh *frag_msgq);
 rstatus_t redis_reply(struct msg *r);
 

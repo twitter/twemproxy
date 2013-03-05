@@ -21,6 +21,8 @@
 #include <nc_core.h>
 
 typedef void (*msg_parse_t)(struct msg *);
+typedef bool (*msg_auth_t)(struct context *ctx, struct conn *conn, struct msg *msg);
+typedef void (*msg_add_auth_t)(struct context *ctx, struct conn *c_conn, struct conn *s_conn);
 typedef rstatus_t (*msg_fragment_t)(struct msg *, uint32_t, struct msg_tqh *);
 typedef void (*msg_coalesce_t)(struct msg *r);
 typedef rstatus_t (*msg_reply_t)(struct msg *r);
@@ -160,6 +162,7 @@ typedef enum msg_parse_result {
     ACTION( REQ_REDIS_EVALSHA )                                                                     \
     ACTION( REQ_REDIS_PING )                   /* redis requests - ping/quit */                     \
     ACTION( REQ_REDIS_QUIT)                                                                         \
+    ACTION( REQ_REDIS_AUTH)                                                                         \
     ACTION( RSP_REDIS_STATUS )                 /* redis response */                                 \
     ACTION( RSP_REDIS_ERROR )                                                                       \
     ACTION( RSP_REDIS_INTEGER )                                                                     \
@@ -200,6 +203,8 @@ struct msg {
 
     msg_parse_t          parser;          /* message parser */
     msg_parse_result_t   result;          /* message parsing result */
+    msg_auth_t           auth;            /* message auth */
+    msg_add_auth_t       add_auth;        /* add auth message */
 
     msg_fragment_t       fragment;        /* message fragment */
     msg_reply_t          reply;           /* gen message reply (example: ping) */

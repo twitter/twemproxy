@@ -451,7 +451,7 @@ server_connect(struct context *ctx, struct server *server, struct conn *conn)
     log_debug(LOG_VVERB, "connect to server '%.*s'", server->pname.len,
               server->pname.data);
 
-	conn->sd = socket(conn->family, SOCK_STREAM, 0);
+    conn->sd = socket(conn->family, SOCK_STREAM, 0);
     if (conn->sd < 0) {
         log_error("socket for server '%.*s' failed: %s", server->pname.len,
                   server->pname.data, strerror(errno));
@@ -467,11 +467,13 @@ server_connect(struct context *ctx, struct server *server, struct conn *conn)
         goto error;
     }
 
-    status = nc_set_tcpnodelay(conn->sd);
-    if (status != NC_OK) {
-        log_warn("set tcpnodelay on s %d for server '%.*s' failed, ignored: %s",
-                 conn->sd, server->pname.len, server->pname.data,
-                 strerror(errno));
+    if (server->pname.data[0] != '/') {
+        status = nc_set_tcpnodelay(conn->sd);
+        if (status != NC_OK) {
+            log_warn("set tcpnodelay on s %d for server '%.*s' failed, ignored: %s",
+                     conn->sd, server->pname.len, server->pname.data,
+                     strerror(errno));
+        }
     }
 
     status = event_add_conn(ctx->ep, conn);
@@ -484,7 +486,7 @@ server_connect(struct context *ctx, struct server *server, struct conn *conn)
 
     ASSERT(!conn->connecting && !conn->connected);
 
-	status = connect(conn->sd, conn->addr, conn->addrlen);
+    status = connect(conn->sd, conn->addr, conn->addrlen);
     if (status != NC_OK) {
         if (errno == EINPROGRESS) {
             conn->connecting = 1;

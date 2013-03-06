@@ -1472,7 +1472,7 @@ conf_add_server(struct conf *cf, struct command *cmd, void *conf)
     struct conf_server *field;
     uint8_t *p, *q, *start;
     uint8_t *pname, *addr, *port, *weight, *name;
-    uint32_t k, pnamelen, addrlen, portlen, weightlen, namelen;
+    uint32_t k, delimlen, pnamelen, addrlen, portlen, weightlen, namelen;
     struct string address;
     char delim[] = " ::";
 
@@ -1489,7 +1489,7 @@ conf_add_server(struct conf *cf, struct command *cmd, void *conf)
 
     value = array_top(&cf->arg);
 
-    /* parse "hostname:port:weight [name]" from the end */
+    /* parse "hostname:port:weight [name]" or "/path/unix_socket:weight [name]" from the end */
     p = value->data + value->len - 1;
     start = value->data;
     addr = NULL;
@@ -1500,6 +1500,8 @@ conf_add_server(struct conf *cf, struct command *cmd, void *conf)
     portlen = 0;
     name = NULL;
     namelen = 0;
+
+    delimlen = value->data[0] == '/' ? 2 : 3;
 
     for (k = 0; k < sizeof(delim); k++) {
         q = nc_strrchr(p, start, delim[k]);
@@ -1537,8 +1539,8 @@ conf_add_server(struct conf *cf, struct command *cmd, void *conf)
         p = q - 1;
     }
 
-    if (k != 3) {
-        return "has an invalid \"hostname:port:weight [name]\" format string";
+    if (k != delimlen) {
+        return "has an invalid \"hostname:port:weight [name]\"or \"/path/unix_socket:weight [name]\" format string";
     }
 
     pname = value->data;
@@ -1557,9 +1559,11 @@ conf_add_server(struct conf *cf, struct command *cmd, void *conf)
         return "has an invalid weight in \"hostname:port:weight [name]\" format string";
     }
 
-    field->port = nc_atoi(port, portlen);
-    if (field->port < 0 || !nc_valid_port(field->port)) {
-        return "has an invalid port in \"hostname:port:weight [name]\" format string";
+    if (value->data[0] != '/') {
+        field->port = nc_atoi(port, portlen);
+        if (field->port < 0 || !nc_valid_port(field->port)) {
+            return "has an invalid port in \"hostname:port:weight [name]\" format string";
+        }
     }
 
     if (name == NULL) {

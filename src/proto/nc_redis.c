@@ -458,6 +458,11 @@ redis_parse_req(struct msg *r)
                     break;
                 }
 
+                if (str4icmp(m, 'd', 'u', 'm', 'p')) {
+                    r->type = MSG_REQ_REDIS_DUMP;
+                    break;
+                }
+
                 if (str4icmp(m, 'h', 'd', 'e', 'l')) {
                     r->type = MSG_REQ_REDIS_HDEL;
                     break;
@@ -764,6 +769,11 @@ redis_parse_req(struct msg *r)
 
                 if (str7icmp(m, 'e', 'v', 'a', 'l', 's', 'h', 'a')) {
                     r->type = MSG_REQ_REDIS_EVALSHA;
+                    break;
+                }
+
+                if (str7icmp(m, 'r', 'e', 's', 't', 'o', 'r', 'e')) {
+                    r->type = MSG_REQ_REDIS_RESTORE;
                     break;
                 }
 

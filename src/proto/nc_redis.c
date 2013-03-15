@@ -99,6 +99,8 @@ redis_arg1(struct msg *r)
     case MSG_REQ_REDIS_ZRANK:
     case MSG_REQ_REDIS_ZREVRANK:
     case MSG_REQ_REDIS_ZSCORE:
+
+    case MSG_REQ_REDIS_DUMP:
         return true;
 
     default:
@@ -155,6 +157,7 @@ static bool
 redis_arg3(struct msg *r)
 {
     switch (r->type) {
+    case MSG_REQ_REDIS_RESTORE:
     case MSG_REQ_REDIS_LINSERT:
         return true;
 

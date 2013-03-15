@@ -34,6 +34,7 @@ redis_arg0(struct msg *r)
     case MSG_REQ_REDIS_PTTL:
     case MSG_REQ_REDIS_TTL:
     case MSG_REQ_REDIS_TYPE:
+    case MSG_REQ_REDIS_DUMP:
 
     case MSG_REQ_REDIS_DECR:
     case MSG_REQ_REDIS_GET:
@@ -99,8 +100,6 @@ redis_arg1(struct msg *r)
     case MSG_REQ_REDIS_ZRANK:
     case MSG_REQ_REDIS_ZREVRANK:
     case MSG_REQ_REDIS_ZSCORE:
-
-    case MSG_REQ_REDIS_DUMP:
         return true;
 
     default:
@@ -140,6 +139,8 @@ redis_arg2(struct msg *r)
     case MSG_REQ_REDIS_ZINCRBY:
     case MSG_REQ_REDIS_ZREMRANGEBYRANK:
     case MSG_REQ_REDIS_ZREMRANGEBYSCORE:
+
+    case MSG_REQ_REDIS_RESTORE:
         return true;
 
     default:
@@ -157,7 +158,6 @@ static bool
 redis_arg3(struct msg *r)
 {
     switch (r->type) {
-    case MSG_REQ_REDIS_RESTORE:
     case MSG_REQ_REDIS_LINSERT:
         return true;
 

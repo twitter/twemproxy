@@ -960,11 +960,11 @@ redis_parse_req(struct msg *r)
                               "key", r->id, r->type);
                     goto error;
                 }
-                if (r->rlen > mbuf_data_size()) {
+                if (r->rlen >= mbuf_data_size()) {
                     log_error("parsed bad req %"PRIu64" of type %d with key "
-                              "length %d that exceeds maximum redis key "
-                              "length of %d", r->id, r->type, r->rlen,
-                              mbuf_data_size());
+                              "length %d that greater than or equal to maximum"
+                              " redis key length of %d", r->id, r->type,
+                              r->rlen, mbuf_data_size());
                     goto error;
                 }
                 if (r->rnarg == 0) {

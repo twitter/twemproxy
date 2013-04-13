@@ -124,7 +124,7 @@ struct instance {
     unsigned        pidfile:1;                   /* pid file created? */
 };
 
-struct context *core_start(struct instance *nci);
+struct context *core_start(struct instance *nci, bool short_circuit);
 void core_stop(struct context *ctx);
 rstatus_t core_loop(struct context *ctx);
 

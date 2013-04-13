@@ -49,6 +49,8 @@ static int show_version;
 static int test_conf;
 static int daemonize;
 static int describe_stats;
+static int show_key_to_server_map;
+static char *key;
 
 static struct option long_options[] = {
     { "help",           no_argument,        NULL,   'h' },
@@ -64,10 +66,11 @@ static struct option long_options[] = {
     { "stats-addr",     required_argument,  NULL,   'a' },
     { "pid-file",       required_argument,  NULL,   'p' },
     { "mbuf-size",      required_argument,  NULL,   'm' },
+    { "key",            required_argument,  NULL,   'k' },
     { NULL,             0,                  NULL,    0  }
 };
 
-static char short_options[] = "hVtdDv:o:c:s:i:a:p:m:";
+static char short_options[] = "hVtdDv:o:c:s:i:a:p:m:k:";
 
 static rstatus_t
 nc_daemonize(int dump_core)
@@ -211,6 +214,7 @@ nc_show_usage(void)
         "  -i, --stats-interval=N : set stats aggregation interval in msec (default: %d msec)" CRLF
         "  -p, --pid-file=S       : set pid file (default: %s)" CRLF
         "  -m, --mbuf-size=N      : set size of mbuf chunk in bytes (default: %d bytes)" CRLF
+        "  -k, --key=S            : print server of this key string and exit" CRLF
         "",
         NC_LOG_DEFAULT, NC_LOG_MIN, NC_LOG_MAX,
         NC_LOG_PATH != NULL ? NC_LOG_PATH : "stderr",
@@ -394,6 +398,11 @@ nc_get_options(int argc, char **argv, struct instance *nci)
             nci->mbuf_chunk_size = (size_t)value;
             break;
 
+        case 'k':
+            show_key_to_server_map = 1;
+            key = optarg;
+            break;
+
         case '?':
             switch (optopt) {
             case 'o':
@@ -484,7 +493,9 @@ nc_pre_run(struct instance *nci)
         }
     }
 
-    nc_print_run(nci);
+    if (!show_key_to_server_map) {
+        nc_print_run(nci);
+    }
 
     return NC_OK;
 }
@@ -509,7 +520,7 @@ nc_run(struct instance *nci)
     rstatus_t status;
     struct context *ctx;
 
-    ctx = core_start(nci);
+    ctx = core_start(nci, false);
     if (ctx == NULL) {
         return;
     }
@@ -523,6 +534,28 @@ nc_run(struct instance *nci)
     }
 
     core_stop(ctx);
+}
+
+static void
+nc_show_key(struct instance *nci)
+{
+    struct context *ctx;
+    struct server *server;
+    uint32_t i;
+
+    ctx = core_start(nci, true);
+    if (ctx == NULL) {
+        return;
+    }
+
+    for (i = 0; i < array_n(&ctx->pool); i++) {
+        struct server_pool *pool;
+
+        pool = array_get(&ctx->pool, i);
+        server = server_pool_server(pool, key, nc_strlen(key));
+
+        log_stderr("pool: %.*s server: %.*s", pool->name.len, pool->name.data, server->pname.len, server->pname.data);
+    }
 }
 
 int
@@ -563,6 +596,11 @@ main(int argc, char **argv)
     if (status != NC_OK) {
         nc_post_run(&nci);
         exit(1);
+    }
+
+    if (show_key_to_server_map) {
+        nc_show_key(&nci);
+        exit(0);
     }
 
     nc_run(&nci);

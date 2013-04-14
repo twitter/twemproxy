@@ -136,8 +136,21 @@ _conn_get(void)
     conn->eof = 0;
     conn->done = 0;
     conn->redis = 0;
+    conn->auth = 0;
 
     return conn;
+}
+
+static int
+set_auth(void *owner, bool redis) {
+    struct server_pool *pool = (struct server_pool *)(owner);
+    int ret = 0;
+
+    if (redis && pool->redis_auth.len > 0) {
+        ret = 1;
+    }
+
+    return ret;
 }
 
 struct conn *
@@ -173,6 +186,7 @@ conn_get(void *owner, bool client, bool redis)
 
         conn->ref = client_ref;
         conn->unref = client_unref;
+        conn->auth = set_auth(owner, redis);
 
         conn->enqueue_inq = NULL;
         conn->dequeue_inq = NULL;
@@ -183,6 +197,8 @@ conn_get(void *owner, bool client, bool redis)
          * server receives a response, possibly parsing it, and sends a
          * request upstream.
          */
+        struct server *server = (struct server *)owner;
+
         conn->recv = msg_recv;
         conn->recv_next = rsp_recv_next;
         conn->recv_done = rsp_recv_done;
@@ -197,6 +213,8 @@ conn_get(void *owner, bool client, bool redis)
         conn->ref = server_ref;
         conn->unref = server_unref;
 
+        conn->auth = set_auth(server->owner, redis);
+
         conn->enqueue_inq = req_server_enqueue_imsgq;
         conn->dequeue_inq = req_server_dequeue_imsgq;
         conn->enqueue_outq = req_server_enqueue_omsgq;
@@ -204,7 +222,6 @@ conn_get(void *owner, bool client, bool redis)
     }
 
     conn->ref(conn, owner);
-
     log_debug(LOG_VVERB, "get conn %p client %d", conn, conn->client);
 
     return conn;

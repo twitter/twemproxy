@@ -56,6 +56,7 @@ redis_arg0(struct msg *r)
     case MSG_REQ_REDIS_SRANDMEMBER:
 
     case MSG_REQ_REDIS_ZCARD:
+    case MSG_REQ_REDIS_AUTH:
         return true;
 
     default:
@@ -553,6 +554,11 @@ redis_parse_req(struct msg *r)
 
                 if (str4icmp(m, 'e', 'v', 'a', 'l')) {
                     r->type = MSG_REQ_REDIS_EVAL;
+                    break;
+                }
+
+                if (str4icmp(m, 'a', 'u', 't', 'h')) {
+                    r->type = MSG_REQ_REDIS_AUTH;
                     break;
                 }
 

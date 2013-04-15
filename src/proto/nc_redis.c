@@ -1538,7 +1538,6 @@ redis_parse_rsp(struct msg *r)
     struct mbuf *b;
     uint8_t *p, *m;
     uint8_t ch;
-    uint8_t integer_reply;
 
     enum {
         SW_START,
@@ -1561,7 +1560,6 @@ redis_parse_rsp(struct msg *r)
         SW_SENTINEL
     } state;
 
-    integer_reply = 0;
     state = r->state;
     b = STAILQ_LAST(&r->mhdr, mbuf, next);
 
@@ -1678,6 +1676,7 @@ redis_parse_rsp(struct msg *r)
                 r->token = p;
                 r->rlen = 0;
             } else if (ch == '-') {
+                /* handles null bulk reply = '$-1' */
                 state = SW_RUNTO_CRLF;
             } else if (isdigit(ch)) {
                 r->rlen = r->rlen * 10 + (uint32_t)(ch - '0');
@@ -1782,10 +1781,16 @@ redis_parse_rsp(struct msg *r)
 
         case SW_MULTIBULK_ARGN_LEN:
             if (r->token == NULL) {
-                if (ch == ':') {
-                    integer_reply = 1;
-                }
-                else if (ch != '$') {
+                /*
+                 * From: http://redis.io/topics/protocol, a multi bulk reply
+                 * is used to return an array of other replies. Every element
+                 * of a multi bulk reply can be of any kind, including a
+                 * nested multi bulk reply.
+                 *
+                 * Here, we only handle a multi bulk reply element that
+                 * are either integer reply or bulk reply.
+                 */
+                if (ch != '$' && ch != ':') {
                     goto error;
                 }
                 r->token = p;
@@ -1799,11 +1804,10 @@ redis_parse_rsp(struct msg *r)
                     goto error;
                 }
 
-                if (r->rlen == 1 && (p - r->token) == 3 || integer_reply == 1) {
-                    /* handles not-found reply = '$-1'*/
+                if ((r->rlen == 1 && (p - r->token) == 3) || *r->token == ':') {
+                    /* handles not-found reply = '$-1' or integer reply = ':<num>' */
                     r->rlen = 0;
                     state = SW_MULTIBULK_ARGN_LF;
-                    integer_reply = 0;
                 } else {
                     state = SW_MULTIBULK_ARGN_LEN_LF;
                 }

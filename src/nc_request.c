@@ -17,7 +17,6 @@
 
 #include <nc_core.h>
 #include <nc_server.h>
-#include <nc_event.h>
 
 struct msg *
 req_get(struct conn *conn)

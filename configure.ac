@@ -181,7 +181,8 @@ AC_CONFIG_FILES([Makefile
                  contrib/Makefile
                  src/Makefile
                  src/hashkit/Makefile
-                 src/proto/Makefile])
+                 src/proto/Makefile
+                 src/event/Makefile])
 
 # Generate the "configure" script
 AC_OUTPUT

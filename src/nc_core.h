@@ -100,6 +100,7 @@ struct instance;
 #include <nc_rbtree.h>
 #include <nc_log.h>
 #include <nc_util.h>
+#include <event/nc_event.h>
 #include <nc_stats.h>
 #include <nc_mbuf.h>
 #include <nc_message.h>

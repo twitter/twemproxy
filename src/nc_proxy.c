@@ -19,7 +19,6 @@
 
 #include <nc_core.h>
 #include <nc_server.h>
-#include <nc_event.h>
 #include <nc_proxy.h>
 
 void

@@ -25,7 +25,6 @@
 
 #include <nc_core.h>
 #include <nc_server.h>
-#include <nc_event.h>
 
 struct stats_desc {
     char *name; /* stats name */

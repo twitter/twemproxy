@@ -26,6 +26,7 @@
     ACTION( HASH_MD5,           md5           ) \
     ACTION( HASH_CRC16,         crc16         ) \
     ACTION( HASH_CRC32,         crc32         ) \
+    ACTION( HASH_CRC32A,        crc32a        ) \
     ACTION( HASH_FNV1_64,       fnv1_64       ) \
     ACTION( HASH_FNV1A_64,      fnv1a_64      ) \
     ACTION( HASH_FNV1_32,       fnv1_32       ) \
@@ -56,8 +57,9 @@ typedef enum dist_type {
 uint32_t hash_one_at_a_time(const char *key, size_t key_length);
 void md5_signature(const unsigned char *key, unsigned int length, unsigned char *result);
 uint32_t hash_md5(const char *key, size_t key_length);
-uint32_t hash_crc32(const char *key, size_t key_length);
 uint32_t hash_crc16(const char *key, size_t key_length);
+uint32_t hash_crc32(const char *key, size_t key_length);
+uint32_t hash_crc32a(const char *key, size_t key_length);
 uint32_t hash_fnv1_64(const char *key, size_t key_length);
 uint32_t hash_fnv1a_64(const char *key, size_t key_length);
 uint32_t hash_fnv1_32(const char *key, size_t key_length);

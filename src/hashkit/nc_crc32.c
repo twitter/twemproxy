@@ -91,15 +91,33 @@ static const uint32_t crc32tab[256] = {
     0xb40bbe37, 0xc30c8ea1, 0x5a05df1b, 0x2d02ef8d,
 };
 
+/*
+ * CRC-32 implementation compatible with libmemcached library. Unfortunately
+ * this implementation does not return CRC-32 as per spec.
+ */
 uint32_t
 hash_crc32(const char *key, size_t key_length)
 {
     uint64_t x;
     uint32_t crc = UINT32_MAX;
 
-    for (x= 0; x < key_length; x++) {
+    for (x = 0; x < key_length; x++) {
         crc = (crc >> 8) ^ crc32tab[(crc ^ (uint64_t)key[x]) & 0xff];
     }
 
     return ((~crc) >> 16) & 0x7fff;
+}
+
+uint32_t
+hash_crc32a(const char *key, size_t key_length)
+{
+    const uint8_t *p = key;
+    uint32_t crc;
+
+    crc = ~0U;
+    while (key_length--) {
+        crc = crc32tab[(crc ^ *p++) & 0xFF] ^ (crc >> 8);
+    }
+
+    return crc ^ ~0U;
 }

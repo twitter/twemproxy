@@ -118,3 +118,20 @@ For example, the configuration of server pool _beta_, aslo shown below, specifie
        - 127.0.0.1:6381:1 server2
        - 127.0.0.1:6382:1 server3
        - 127.0.0.1:6383:1 server4
+       
+       
+## Graphing Cache-pool State
+
+When running nutcracker in production, you often would like to know the list of live and ejected servers at any given time. You can easily answer this question, by generating a time series graph of live and/or dead servers that are part of any cache pool. To do this your graphing client must collect the following stats exposed by nutcracker:
+
+- **server_eof** which is incremented when server closes the connection normally which should not happen because we use persistent connections.
+- **server_timedout** is incremented when the connection / request to server timedout.
+- **server_err** is incremented for any other kinds of errors.
+
+So, on a given server, the cumulative number of times a server is ejected can be computed as:
+
+```c
+(server_err + server_timedout + server_eof) / server_failure_limit
+```
+
+A diff of the above value between two successive time intervals would generate a nice timeseries graph for ejected servers.

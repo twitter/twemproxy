@@ -15,17 +15,15 @@
  * limitations under the License.
  */
 
-#include <unistd.h>
 #include <nc_core.h>
-#include <nc_event.h>
 
 #ifdef NC_HAVE_EPOLL
+
 #include <sys/epoll.h>
 
-struct evbase * 
+struct evbase *
 evbase_create(int nevent, void (*callback_fp)(void *, uint32_t))
 {
-
     struct evbase *evb;
     int status, ep;
     struct epoll_event *event;
@@ -77,7 +75,9 @@ evbase_destroy(struct evbase *evb)
 {
     int status;
 
-    if (evb == NULL) return;
+    if (evb == NULL) {
+        return;
+    }
 
     ASSERT(evb->ep >= 0);
 
@@ -219,17 +219,21 @@ event_wait(struct evbase *evb, int timeout)
                 struct epoll_event *ev = &evb->event[i];
 
                 evflags = 0;
-                if (ev->events & EPOLLERR)
+                if (ev->events & EPOLLERR) {
                     evflags |= EV_ERR;
+                }
 
-                if (ev->events & EPOLLIN)
+                if (ev->events & EPOLLIN) {
                     evflags |= EV_READ;
+                }
 
-                if (ev->events & EPOLLOUT)
+                if (ev->events & EPOLLOUT) {
                     evflags |= EV_WRITE;
+                }
 
-                if (callback_fp != NULL)
+                if (callback_fp != NULL) {
                     (*callback_fp)((void *) ev->data.ptr, evflags);
+                }
             }
             return nsd;
         }
@@ -271,7 +275,7 @@ event_add_st(struct evbase *evb, int fd)
                   strerror(errno));
         return status;
     }
-    
+
     return status;
 }
 

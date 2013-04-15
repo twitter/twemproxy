@@ -321,7 +321,7 @@ core_core(void *arg, uint32_t evflags)
 rstatus_t
 core_loop(struct context *ctx)
 {
-    int i, nsd;
+    int nsd;
 
     nsd = event_wait(ctx->evb, ctx->timeout);
     if (nsd < 0) {

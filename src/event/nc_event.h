@@ -21,9 +21,10 @@
 #include <nc_core.h>
 
 #define NC_EVENT_SIZE 1024
-#define EV_READ 0xff
-#define EV_WRITE 0xff00
-#define EV_ERR 0xff0000
+
+#define EV_READ     0x0000ff
+#define EV_WRITE    0x00ff00
+#define EV_ERR      0xff0000
 
 #ifdef NC_HAVE_KQUEUE
 struct evbase {

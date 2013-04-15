@@ -75,7 +75,6 @@ struct mbuf;
 struct mhdr;
 struct conf;
 struct stats;
-struct epoll_event;
 struct instance;
 
 #include <stddef.h>

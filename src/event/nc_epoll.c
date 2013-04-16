@@ -202,7 +202,7 @@ int
 event_wait(struct evbase *evb, int timeout)
 {
     int nsd, i;
-    uint32_t evflags = 0;
+    uint32_t events = 0;
     int ep = evb->ep;
     struct epoll_event *event = evb->event;
     int nevent = evb->nevent;
@@ -218,21 +218,21 @@ event_wait(struct evbase *evb, int timeout)
             for (i = 0; i < nsd; i++) {
                 struct epoll_event *ev = &evb->event[i];
 
-                evflags = 0;
+                events = 0;
                 if (ev->events & EPOLLERR) {
-                    evflags |= EV_ERR;
+                    events |= EV_ERR;
                 }
 
                 if (ev->events & EPOLLIN) {
-                    evflags |= EV_READ;
+                    events |= EV_READ;
                 }
 
                 if (ev->events & EPOLLOUT) {
-                    evflags |= EV_WRITE;
+                    events |= EV_WRITE;
                 }
 
                 if (callback_fp != NULL) {
-                    (*callback_fp)((void *) ev->data.ptr, evflags);
+                    (*callback_fp)((void *) ev->data.ptr, events);
                 }
             }
             return nsd;

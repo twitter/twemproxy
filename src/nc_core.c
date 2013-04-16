@@ -26,7 +26,7 @@ static uint32_t ctx_id; /* context generation */
 
 /* function prototype for use in core_ctx_create() */
 static void
-core_core(void *arg, uint32_t evflags);
+core_core(void *arg, uint32_t events);
 
 static struct context *
 core_ctx_create(struct instance *nci)
@@ -275,13 +275,11 @@ core_timeout(struct context *ctx)
 }
 
 static void
-core_core(void *arg, uint32_t evflags)
+core_core(void *arg, uint32_t events)
 {
     rstatus_t status;
     struct conn *conn = (struct conn *) arg;
     struct context *ctx;
-
-    
 
     if ((conn->proxy) || (conn->client)) {
         ctx = ((struct server_pool *) (conn -> owner)) -> ctx;
@@ -289,19 +287,19 @@ core_core(void *arg, uint32_t evflags)
         ctx = ((struct server_pool *) (((struct server *) (conn -> owner)) -> owner )) -> ctx;
     }
 
-    log_debug(LOG_VVERB, "event %04"PRIX32" on %c %d", evflags,
+    log_debug(LOG_VVERB, "event %04"PRIX32" on %c %d", events,
               conn->client ? 'c' : (conn->proxy ? 'p' : 's'), conn->sd);
 
-    conn->events = evflags;
+    conn->events = events;
 
     /* error takes precedence over read | write */
-    if (evflags & EV_ERR) {
+    if (events & EV_ERR) {
         core_error(ctx, conn);
         return;
     }
 
     /* read takes precedence over write */
-    if (evflags & EV_READ) {
+    if (events & EV_READ) {
         status = core_recv(ctx, conn);
         if (status != NC_OK || conn->done || conn->err) {
             core_close(ctx, conn);
@@ -309,7 +307,7 @@ core_core(void *arg, uint32_t evflags)
         }
     }
 
-    if (evflags & EV_WRITE) {
+    if (events & EV_WRITE) {
         status = core_send(ctx, conn);
         if (status != NC_OK || conn->done || conn->err) {
             core_close(ctx, conn);

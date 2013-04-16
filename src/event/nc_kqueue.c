@@ -226,7 +226,7 @@ event_wait(struct evbase *evb, int timeout)
             for (evb->n_processed = 0; evb->n_processed < evb->n_returned;
                 evb->n_processed++) {
                 struct kevent *ev = &evb->kevents[evb->n_processed];
-                uint32_t evflags = 0;
+                uint32_t events = 0;
 
                 if (ev->flags & EV_ERROR) {
                    /*
@@ -245,19 +245,19 @@ event_wait(struct evbase *evb, int timeout)
                         ev->data == ENOENT) {
                         continue;
                     }
-                    evflags |= EV_ERR;
+                    events |= EV_ERR;
                 }
 
                 if (ev->filter == EVFILT_READ) {
-                    evflags |= EV_READ;
+                    events |= EV_READ;
                 }
 
                 if (ev->filter == EVFILT_WRITE) {
-                    evflags |= EV_WRITE;
+                    events |= EV_WRITE;
                 }
 
-                if (callback_fp != NULL && evflags != 0) {
-                    (*callback_fp)((void *)(ev->udata), evflags);
+                if (callback_fp != NULL && events != 0) {
+                    (*callback_fp)((void *)(ev->udata), events);
                 }
             }
             return evb->n_returned;

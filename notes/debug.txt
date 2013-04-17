@@ -149,10 +149,29 @@
   EVFILT_PROC       (-5)    /* attached to struct proc */
   EVFILT_SIGNAL     (-6)    /* attached to struct proc */
   EVFILT_TIMER      (-7)    /* timers */
-  EVFILT_MACHPORT   (-8)    /* Mach portsets */
-  EVFILT_FS         (-9)    /* Filesystem events */
-  EVFILT_USER       (-10)   /* User events */
-  EVFILT_VM         (-12)   /* Virtual memory events */
+  EVFILT_MACHPORT   (-8)    /* mach portsets */
+  EVFILT_FS         (-9)    /* filesystem events */
+  EVFILT_USER       (-10)   /* user events */
+  EVFILT_VM         (-12)   /* virtual memory events */
 
   EV_CLEAR behaves like EPOLLET because it resets the event after it is
-  returned; without this flag, the event would be repeatedly returned
+  returned; without this flag, the event would be repeatedly returned.
+
+- poll (unix)
+
+  POLLIN       0x001    /* there is data to read */
+  POLLPRI      0x002    /* there is urgent data to read */
+  POLLOUT      0x004    /* writing now will not block */
+
+  POLLRDNORM   0x040    /* normal data may be read */
+  POLLRDBAND   0x080    /* priority data may be read */
+  POLLWRNORM   0x100    /* writing now will not block */
+  POLLWRBAND   0x200    /* priority data may be written */
+
+  POLLMSG      0x400
+  POLLREMOVE  0x1000
+  POLLRDHUP   0x2000
+
+  POLLERR	   0x008    /* error condition */
+  POLLHUP      0x010    /* hung up */
+  POLLNVAL     0x020    /* invalid polling request */

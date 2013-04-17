@@ -78,6 +78,7 @@ struct mhdr;
 struct conf;
 struct stats;
 struct instance;
+struct event_base;
 
 #include <stddef.h>
 #include <stdint.h>
@@ -114,9 +115,9 @@ struct context {
     struct stats       *stats;      /* stats */
 
     struct array       pool;        /* server_pool[] */
-    struct evbase      *evb;
-    int                max_timeout; /* epoll wait max timeout in msec */
-    int                timeout;
+    struct event_base  *evb;        /* event base */
+    int                max_timeout; /* max timeout in msec */
+    int                timeout;     /* timeout in msec */
 };
 
 

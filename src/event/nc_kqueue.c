@@ -196,8 +196,6 @@ event_del_out(struct event_base *evb, struct conn *c)
 int
 event_add_conn(struct event_base *evb, struct conn *c)
 {
-    struct kevent *event;
-
     ASSERT(evb->kq > 0);
     ASSERT(c != NULL);
     ASSERT(c->sd > 0);
@@ -214,7 +212,6 @@ event_add_conn(struct event_base *evb, struct conn *c)
 int
 event_del_conn(struct event_base *evb, struct conn *c)
 {
-    struct kevent *event;
     int i;
 
     ASSERT(evb->kq > 0);

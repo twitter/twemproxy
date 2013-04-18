@@ -257,7 +257,7 @@ event_wait(struct event_base *evb, int timeout)
                     events |= EVENT_ERR;
                 }
 
-                if (ev->events & EPOLLIN) {
+                if (ev->events & (EPOLLIN | EPOLLHUP)) {
                     events |= EVENT_READ;
                 }
 

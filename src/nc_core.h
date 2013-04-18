@@ -41,11 +41,11 @@
 #endif
 
 #ifdef HAVE_EPOLL
-#define NC_HAVE_EPOLL 1
+# define NC_HAVE_EPOLL 1
 #elif HAVE_KQUEUE
-#define NC_HAVE_KQUEUE 1
+# define NC_HAVE_KQUEUE 1
 #else
-#error missing scalable I/O event notification mechanism
+# error missing scalable I/O event notification mechanism
 #endif
 
 #ifdef HAVE_LITTLE_ENDIAN
@@ -53,7 +53,7 @@
 #endif
 
 #ifdef HAVE_BACKTRACE
-#define NC_HAVE_BACKTRACE 1
+# define NC_HAVE_BACKTRACE 1
 #endif
 
 #define NC_OK        0

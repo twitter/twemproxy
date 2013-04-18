@@ -34,7 +34,7 @@
 #include <nc_core.h>
 
 #ifdef NC_HAVE_BACKTRACE
-#include <execinfo.h>
+# include <execinfo.h>
 #endif
 
 int

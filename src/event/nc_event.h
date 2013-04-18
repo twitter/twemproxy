@@ -56,9 +56,7 @@ struct event_base {
 };
 
 #else
-
-#error missing scalable I/O event notification mechanism
-
+# error missing scalable I/O event notification mechanism
 #endif
 
 struct event_base *event_base_create(int size, event_cb_t cb);

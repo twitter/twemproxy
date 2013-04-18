@@ -89,7 +89,7 @@ event_base_destroy(struct event_base *evb)
         return;
     }
 
-    ASSERT(evb->kq >= 0);
+    ASSERT(evb->kq > 0);
 
     nc_free(evb->change);
     nc_free(evb->event);
@@ -98,6 +98,8 @@ event_base_destroy(struct event_base *evb)
     if (status < 0) {
         log_error("close kq %d failed, ignored: %s", evb->kq, strerror(errno));
     }
+    evb->kq = -1;
+
     nc_free(evb);
 }
 

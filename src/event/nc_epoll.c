@@ -53,7 +53,6 @@ event_base_create(int nevent, event_cb_t cb)
             log_error("close e %d failed, ignored: %s", ep, strerror(errno));
         }
         return NULL;
-
     }
 
     evb->ep = ep;
@@ -75,7 +74,7 @@ event_base_destroy(struct event_base *evb)
         return;
     }
 
-    ASSERT(evb->ep >= 0);
+    ASSERT(evb->ep > 0);
 
     nc_free(evb->event);
 
@@ -83,6 +82,8 @@ event_base_destroy(struct event_base *evb)
     if (status < 0) {
         log_error("close e %d failed, ignored: %s", evb->ep, strerror(errno));
     }
+    evb->ep = -1;
+
     nc_free(evb);
 }
 
@@ -287,7 +288,6 @@ event_wait(struct event_base *evb, int timeout)
 
         log_error("epoll wait on e %d with %d events failed: %s", ep, nevent,
                   strerror(errno));
-
         return -1;
     }
 

@@ -270,7 +270,7 @@ core_timeout(struct context *ctx)
     }
 }
 
-void
+rstatus_t
 core_core(void *arg, uint32_t events)
 {
     rstatus_t status;
@@ -285,7 +285,7 @@ core_core(void *arg, uint32_t events)
     /* error takes precedence over read | write */
     if (events & EVENT_ERR) {
         core_error(ctx, conn);
-        return;
+        return NC_ERROR;
     }
 
     /* read takes precedence over write */
@@ -293,7 +293,7 @@ core_core(void *arg, uint32_t events)
         status = core_recv(ctx, conn);
         if (status != NC_OK || conn->done || conn->err) {
             core_close(ctx, conn);
-            return;
+            return NC_ERROR;
         }
     }
 
@@ -301,9 +301,11 @@ core_core(void *arg, uint32_t events)
         status = core_send(ctx, conn);
         if (status != NC_OK || conn->done || conn->err) {
             core_close(ctx, conn);
-            return;
+            return NC_ERROR;
         }
     }
+
+    return NC_OK;
 }
 
 rstatus_t

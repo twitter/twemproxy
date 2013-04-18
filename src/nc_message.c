@@ -116,6 +116,13 @@ static struct msg_tqh free_msgq; /* free msg q */
 static struct rbtree tmo_rbt;    /* timeout rbtree */
 static struct rbnode tmo_rbs;    /* timeout rbtree sentinel */
 
+#define DEFINE_ACTION(_name) string(#_name),
+static struct string msg_type_strings[] = {
+    MSG_TYPE_CODEC( DEFINE_ACTION )
+    null_string
+};
+#undef DEFINE_ACTION
+
 static struct msg *
 msg_from_rbe(struct rbnode *node)
 {
@@ -409,6 +416,12 @@ msg_deinit(void)
         msg_free(msg);
     }
     ASSERT(nfree_msgq == 0);
+}
+
+struct string *
+msg_type_string(msg_type_t type)
+{
+    return &msg_type_strings[type];
 }
 
 bool
@@ -832,15 +845,3 @@ msg_send(struct context *ctx, struct conn *conn)
     return NC_OK;
 }
 
-#define DEFINE_ACTION(_name) case _name: return (uint8_t *)#_name;
-inline uint8_t *
-msg_type_str(msg_type_t type)
-{
-    switch (type) {
-
-    MSG_TYPE_CODEC(DEFINE_ACTION)
-
-    default: return (uint8_t *)"UNKNOWN";
-    }
-}
-#undef DEFINE_ACTION

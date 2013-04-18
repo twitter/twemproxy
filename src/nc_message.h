@@ -32,130 +32,130 @@ typedef enum msg_parse_result {
     MSG_PARSE_AGAIN,                      /* incomplete -> parse again */
 } msg_parse_result_t;
 
-#define MSG_TYPE_CODEC(ACTION)                                                                          \
-    ACTION( MSG_UNKNOWN )                                                                               \
-    ACTION( MSG_REQ_MC_GET )                       /* memcache retrieval requests */                    \
-    ACTION( MSG_REQ_MC_GETS )                                                                           \
-    ACTION( MSG_REQ_MC_DELETE )                    /* memcache delete request */                        \
-    ACTION( MSG_REQ_MC_CAS )                       /* memcache cas request and storage request */       \
-    ACTION( MSG_REQ_MC_SET )                       /* memcache storage request */                       \
-    ACTION( MSG_REQ_MC_ADD )                                                                            \
-    ACTION( MSG_REQ_MC_REPLACE )                                                                        \
-    ACTION( MSG_REQ_MC_APPEND )                                                                         \
-    ACTION( MSG_REQ_MC_PREPEND )                                                                        \
-    ACTION( MSG_REQ_MC_INCR )                      /* memcache arithmetic request */                    \
-    ACTION( MSG_REQ_MC_DECR )                                                                           \
-    ACTION( MSG_REQ_MC_QUIT )                      /* memcache quit request */                          \
-    ACTION( MSG_RSP_MC_NUM )                       /* memcache arithmetic response */                   \
-    ACTION( MSG_RSP_MC_STORED )                    /* memcache cas and storage response */              \
-    ACTION( MSG_RSP_MC_NOT_STORED )                                                                     \
-    ACTION( MSG_RSP_MC_EXISTS )                                                                         \
-    ACTION( MSG_RSP_MC_NOT_FOUND )                                                                      \
-    ACTION( MSG_RSP_MC_END )                                                                            \
-    ACTION( MSG_RSP_MC_VALUE )                                                                          \
-    ACTION( MSG_RSP_MC_DELETED )                   /* memcache delete response */                       \
-    ACTION( MSG_RSP_MC_ERROR )                     /* memcache error responses */                       \
-    ACTION( MSG_RSP_MC_CLIENT_ERROR )                                                                   \
-    ACTION( MSG_RSP_MC_SERVER_ERROR )                                                                   \
-    ACTION( MSG_REQ_REDIS_DEL )                    /* redis commands - keys */                          \
-    ACTION( MSG_REQ_REDIS_EXISTS )                                                                      \
-    ACTION( MSG_REQ_REDIS_EXPIRE )                                                                      \
-    ACTION( MSG_REQ_REDIS_EXPIREAT )                                                                    \
-    ACTION( MSG_REQ_REDIS_PEXPIRE )                                                                     \
-    ACTION( MSG_REQ_REDIS_PEXPIREAT )                                                                   \
-    ACTION( MSG_REQ_REDIS_PERSIST )                                                                     \
-    ACTION( MSG_REQ_REDIS_PTTL )                                                                        \
-    ACTION( MSG_REQ_REDIS_TTL )                                                                         \
-    ACTION( MSG_REQ_REDIS_TYPE )                                                                        \
-    ACTION( MSG_REQ_REDIS_APPEND )                 /* redis requests - string */                        \
-    ACTION( MSG_REQ_REDIS_BITCOUNT )                                                                    \
-    ACTION( MSG_REQ_REDIS_DECR )                                                                        \
-    ACTION( MSG_REQ_REDIS_DECRBY )                                                                      \
-    ACTION( MSG_REQ_REDIS_DUMP )                                                                        \
-    ACTION( MSG_REQ_REDIS_GET )                                                                         \
-    ACTION( MSG_REQ_REDIS_GETBIT )                                                                      \
-    ACTION( MSG_REQ_REDIS_GETRANGE )                                                                    \
-    ACTION( MSG_REQ_REDIS_GETSET )                                                                      \
-    ACTION( MSG_REQ_REDIS_INCR )                                                                        \
-    ACTION( MSG_REQ_REDIS_INCRBY )                                                                      \
-    ACTION( MSG_REQ_REDIS_INCRBYFLOAT )                                                                 \
-    ACTION( MSG_REQ_REDIS_MGET )                                                                        \
-    ACTION( MSG_REQ_REDIS_PSETEX )                                                                      \
-    ACTION( MSG_REQ_REDIS_RESTORE )                                                                     \
-    ACTION( MSG_REQ_REDIS_SET )                                                                         \
-    ACTION( MSG_REQ_REDIS_SETBIT )                                                                      \
-    ACTION( MSG_REQ_REDIS_SETEX )                                                                       \
-    ACTION( MSG_REQ_REDIS_SETNX )                                                                       \
-    ACTION( MSG_REQ_REDIS_SETRANGE )                                                                    \
-    ACTION( MSG_REQ_REDIS_STRLEN )                                                                      \
-    ACTION( MSG_REQ_REDIS_HDEL )                   /* redis requests - hashes */                        \
-    ACTION( MSG_REQ_REDIS_HEXISTS )                                                                     \
-    ACTION( MSG_REQ_REDIS_HGET )                                                                        \
-    ACTION( MSG_REQ_REDIS_HGETALL )                                                                     \
-    ACTION( MSG_REQ_REDIS_HINCRBY )                                                                     \
-    ACTION( MSG_REQ_REDIS_HINCRBYFLOAT )                                                                \
-    ACTION( MSG_REQ_REDIS_HKEYS )                                                                       \
-    ACTION( MSG_REQ_REDIS_HLEN )                                                                        \
-    ACTION( MSG_REQ_REDIS_HMGET )                                                                       \
-    ACTION( MSG_REQ_REDIS_HMSET )                                                                       \
-    ACTION( MSG_REQ_REDIS_HSET )                                                                        \
-    ACTION( MSG_REQ_REDIS_HSETNX )                                                                      \
-    ACTION( MSG_REQ_REDIS_HVALS )                                                                       \
-    ACTION( MSG_REQ_REDIS_LINDEX )                 /* redis requests - lists */                         \
-    ACTION( MSG_REQ_REDIS_LINSERT )                                                                     \
-    ACTION( MSG_REQ_REDIS_LLEN )                                                                        \
-    ACTION( MSG_REQ_REDIS_LPOP )                                                                        \
-    ACTION( MSG_REQ_REDIS_LPUSH )                                                                       \
-    ACTION( MSG_REQ_REDIS_LPUSHX )                                                                      \
-    ACTION( MSG_REQ_REDIS_LRANGE )                                                                      \
-    ACTION( MSG_REQ_REDIS_LREM )                                                                        \
-    ACTION( MSG_REQ_REDIS_LSET )                                                                        \
-    ACTION( MSG_REQ_REDIS_LTRIM )                                                                       \
-    ACTION( MSG_REQ_REDIS_RPOP )                                                                        \
-    ACTION( MSG_REQ_REDIS_RPOPLPUSH )                                                                   \
-    ACTION( MSG_REQ_REDIS_RPUSH )                                                                       \
-    ACTION( MSG_REQ_REDIS_RPUSHX )                                                                      \
-    ACTION( MSG_REQ_REDIS_SADD )                   /* redis requests - sets */                          \
-    ACTION( MSG_REQ_REDIS_SCARD )                                                                       \
-    ACTION( MSG_REQ_REDIS_SDIFF )                                                                       \
-    ACTION( MSG_REQ_REDIS_SDIFFSTORE )                                                                  \
-    ACTION( MSG_REQ_REDIS_SINTER )                                                                      \
-    ACTION( MSG_REQ_REDIS_SINTERSTORE )                                                                 \
-    ACTION( MSG_REQ_REDIS_SISMEMBER )                                                                   \
-    ACTION( MSG_REQ_REDIS_SMEMBERS )                                                                    \
-    ACTION( MSG_REQ_REDIS_SMOVE )                                                                       \
-    ACTION( MSG_REQ_REDIS_SPOP )                                                                        \
-    ACTION( MSG_REQ_REDIS_SRANDMEMBER )                                                                 \
-    ACTION( MSG_REQ_REDIS_SREM )                                                                        \
-    ACTION( MSG_REQ_REDIS_SUNION )                                                                      \
-    ACTION( MSG_REQ_REDIS_SUNIONSTORE )                                                                 \
-    ACTION( MSG_REQ_REDIS_ZADD )                   /* redis requests - sorted sets */                   \
-    ACTION( MSG_REQ_REDIS_ZCARD )                                                                       \
-    ACTION( MSG_REQ_REDIS_ZCOUNT )                                                                      \
-    ACTION( MSG_REQ_REDIS_ZINCRBY )                                                                     \
-    ACTION( MSG_REQ_REDIS_ZINTERSTORE )                                                                 \
-    ACTION( MSG_REQ_REDIS_ZRANGE )                                                                      \
-    ACTION( MSG_REQ_REDIS_ZRANGEBYSCORE )                                                               \
-    ACTION( MSG_REQ_REDIS_ZRANK )                                                                       \
-    ACTION( MSG_REQ_REDIS_ZREM )                                                                        \
-    ACTION( MSG_REQ_REDIS_ZREMRANGEBYRANK )                                                             \
-    ACTION( MSG_REQ_REDIS_ZREMRANGEBYSCORE )                                                            \
-    ACTION( MSG_REQ_REDIS_ZREVRANGE )                                                                   \
-    ACTION( MSG_REQ_REDIS_ZREVRANGEBYSCORE )                                                            \
-    ACTION( MSG_REQ_REDIS_ZREVRANK )                                                                    \
-    ACTION( MSG_REQ_REDIS_ZSCORE )                                                                      \
-    ACTION( MSG_REQ_REDIS_ZUNIONSTORE )                                                                 \
-    ACTION( MSG_REQ_REDIS_EVAL )                   /* redis requests - eval */                          \
-    ACTION( MSG_REQ_REDIS_EVALSHA )                                                                     \
-    ACTION( MSG_RSP_REDIS_STATUS )                 /* redis response */                                 \
-    ACTION( MSG_RSP_REDIS_ERROR )                                                                       \
-    ACTION( MSG_RSP_REDIS_INTEGER )                                                                     \
-    ACTION( MSG_RSP_REDIS_BULK )                                                                        \
-    ACTION( MSG_RSP_REDIS_MULTIBULK )                                                                   \
-    ACTION( MSG_SENTINEL )                                                                              \
+#define MSG_TYPE_CODEC(ACTION)                                                                      \
+    ACTION( UNKNOWN )                                                                               \
+    ACTION( REQ_MC_GET )                       /* memcache retrieval requests */                    \
+    ACTION( REQ_MC_GETS )                                                                           \
+    ACTION( REQ_MC_DELETE )                    /* memcache delete request */                        \
+    ACTION( REQ_MC_CAS )                       /* memcache cas request and storage request */       \
+    ACTION( REQ_MC_SET )                       /* memcache storage request */                       \
+    ACTION( REQ_MC_ADD )                                                                            \
+    ACTION( REQ_MC_REPLACE )                                                                        \
+    ACTION( REQ_MC_APPEND )                                                                         \
+    ACTION( REQ_MC_PREPEND )                                                                        \
+    ACTION( REQ_MC_INCR )                      /* memcache arithmetic request */                    \
+    ACTION( REQ_MC_DECR )                                                                           \
+    ACTION( REQ_MC_QUIT )                      /* memcache quit request */                          \
+    ACTION( RSP_MC_NUM )                       /* memcache arithmetic response */                   \
+    ACTION( RSP_MC_STORED )                    /* memcache cas and storage response */              \
+    ACTION( RSP_MC_NOT_STORED )                                                                     \
+    ACTION( RSP_MC_EXISTS )                                                                         \
+    ACTION( RSP_MC_NOT_FOUND )                                                                      \
+    ACTION( RSP_MC_END )                                                                            \
+    ACTION( RSP_MC_VALUE )                                                                          \
+    ACTION( RSP_MC_DELETED )                   /* memcache delete response */                       \
+    ACTION( RSP_MC_ERROR )                     /* memcache error responses */                       \
+    ACTION( RSP_MC_CLIENT_ERROR )                                                                   \
+    ACTION( RSP_MC_SERVER_ERROR )                                                                   \
+    ACTION( REQ_REDIS_DEL )                    /* redis commands - keys */                          \
+    ACTION( REQ_REDIS_EXISTS )                                                                      \
+    ACTION( REQ_REDIS_EXPIRE )                                                                      \
+    ACTION( REQ_REDIS_EXPIREAT )                                                                    \
+    ACTION( REQ_REDIS_PEXPIRE )                                                                     \
+    ACTION( REQ_REDIS_PEXPIREAT )                                                                   \
+    ACTION( REQ_REDIS_PERSIST )                                                                     \
+    ACTION( REQ_REDIS_PTTL )                                                                        \
+    ACTION( REQ_REDIS_TTL )                                                                         \
+    ACTION( REQ_REDIS_TYPE )                                                                        \
+    ACTION( REQ_REDIS_APPEND )                 /* redis requests - string */                        \
+    ACTION( REQ_REDIS_BITCOUNT )                                                                    \
+    ACTION( REQ_REDIS_DECR )                                                                        \
+    ACTION( REQ_REDIS_DECRBY )                                                                      \
+    ACTION( REQ_REDIS_DUMP )                                                                        \
+    ACTION( REQ_REDIS_GET )                                                                         \
+    ACTION( REQ_REDIS_GETBIT )                                                                      \
+    ACTION( REQ_REDIS_GETRANGE )                                                                    \
+    ACTION( REQ_REDIS_GETSET )                                                                      \
+    ACTION( REQ_REDIS_INCR )                                                                        \
+    ACTION( REQ_REDIS_INCRBY )                                                                      \
+    ACTION( REQ_REDIS_INCRBYFLOAT )                                                                 \
+    ACTION( REQ_REDIS_MGET )                                                                        \
+    ACTION( REQ_REDIS_PSETEX )                                                                      \
+    ACTION( REQ_REDIS_RESTORE )                                                                     \
+    ACTION( REQ_REDIS_SET )                                                                         \
+    ACTION( REQ_REDIS_SETBIT )                                                                      \
+    ACTION( REQ_REDIS_SETEX )                                                                       \
+    ACTION( REQ_REDIS_SETNX )                                                                       \
+    ACTION( REQ_REDIS_SETRANGE )                                                                    \
+    ACTION( REQ_REDIS_STRLEN )                                                                      \
+    ACTION( REQ_REDIS_HDEL )                   /* redis requests - hashes */                        \
+    ACTION( REQ_REDIS_HEXISTS )                                                                     \
+    ACTION( REQ_REDIS_HGET )                                                                        \
+    ACTION( REQ_REDIS_HGETALL )                                                                     \
+    ACTION( REQ_REDIS_HINCRBY )                                                                     \
+    ACTION( REQ_REDIS_HINCRBYFLOAT )                                                                \
+    ACTION( REQ_REDIS_HKEYS )                                                                       \
+    ACTION( REQ_REDIS_HLEN )                                                                        \
+    ACTION( REQ_REDIS_HMGET )                                                                       \
+    ACTION( REQ_REDIS_HMSET )                                                                       \
+    ACTION( REQ_REDIS_HSET )                                                                        \
+    ACTION( REQ_REDIS_HSETNX )                                                                      \
+    ACTION( REQ_REDIS_HVALS )                                                                       \
+    ACTION( REQ_REDIS_LINDEX )                 /* redis requests - lists */                         \
+    ACTION( REQ_REDIS_LINSERT )                                                                     \
+    ACTION( REQ_REDIS_LLEN )                                                                        \
+    ACTION( REQ_REDIS_LPOP )                                                                        \
+    ACTION( REQ_REDIS_LPUSH )                                                                       \
+    ACTION( REQ_REDIS_LPUSHX )                                                                      \
+    ACTION( REQ_REDIS_LRANGE )                                                                      \
+    ACTION( REQ_REDIS_LREM )                                                                        \
+    ACTION( REQ_REDIS_LSET )                                                                        \
+    ACTION( REQ_REDIS_LTRIM )                                                                       \
+    ACTION( REQ_REDIS_RPOP )                                                                        \
+    ACTION( REQ_REDIS_RPOPLPUSH )                                                                   \
+    ACTION( REQ_REDIS_RPUSH )                                                                       \
+    ACTION( REQ_REDIS_RPUSHX )                                                                      \
+    ACTION( REQ_REDIS_SADD )                   /* redis requests - sets */                          \
+    ACTION( REQ_REDIS_SCARD )                                                                       \
+    ACTION( REQ_REDIS_SDIFF )                                                                       \
+    ACTION( REQ_REDIS_SDIFFSTORE )                                                                  \
+    ACTION( REQ_REDIS_SINTER )                                                                      \
+    ACTION( REQ_REDIS_SINTERSTORE )                                                                 \
+    ACTION( REQ_REDIS_SISMEMBER )                                                                   \
+    ACTION( REQ_REDIS_SMEMBERS )                                                                    \
+    ACTION( REQ_REDIS_SMOVE )                                                                       \
+    ACTION( REQ_REDIS_SPOP )                                                                        \
+    ACTION( REQ_REDIS_SRANDMEMBER )                                                                 \
+    ACTION( REQ_REDIS_SREM )                                                                        \
+    ACTION( REQ_REDIS_SUNION )                                                                      \
+    ACTION( REQ_REDIS_SUNIONSTORE )                                                                 \
+    ACTION( REQ_REDIS_ZADD )                   /* redis requests - sorted sets */                   \
+    ACTION( REQ_REDIS_ZCARD )                                                                       \
+    ACTION( REQ_REDIS_ZCOUNT )                                                                      \
+    ACTION( REQ_REDIS_ZINCRBY )                                                                     \
+    ACTION( REQ_REDIS_ZINTERSTORE )                                                                 \
+    ACTION( REQ_REDIS_ZRANGE )                                                                      \
+    ACTION( REQ_REDIS_ZRANGEBYSCORE )                                                               \
+    ACTION( REQ_REDIS_ZRANK )                                                                       \
+    ACTION( REQ_REDIS_ZREM )                                                                        \
+    ACTION( REQ_REDIS_ZREMRANGEBYRANK )                                                             \
+    ACTION( REQ_REDIS_ZREMRANGEBYSCORE )                                                            \
+    ACTION( REQ_REDIS_ZREVRANGE )                                                                   \
+    ACTION( REQ_REDIS_ZREVRANGEBYSCORE )                                                            \
+    ACTION( REQ_REDIS_ZREVRANK )                                                                    \
+    ACTION( REQ_REDIS_ZSCORE )                                                                      \
+    ACTION( REQ_REDIS_ZUNIONSTORE )                                                                 \
+    ACTION( REQ_REDIS_EVAL )                   /* redis requests - eval */                          \
+    ACTION( REQ_REDIS_EVALSHA )                                                                     \
+    ACTION( RSP_REDIS_STATUS )                 /* redis response */                                 \
+    ACTION( RSP_REDIS_ERROR )                                                                       \
+    ACTION( RSP_REDIS_INTEGER )                                                                     \
+    ACTION( RSP_REDIS_BULK )                                                                        \
+    ACTION( RSP_REDIS_MULTIBULK )                                                                   \
+    ACTION( SENTINEL )                                                                              \
 
 
-#define DEFINE_ACTION(_name) _name,
+#define DEFINE_ACTION(_name) MSG_##_name,
 typedef enum msg_type {
     MSG_TYPE_CODEC(DEFINE_ACTION)
 } msg_type_t;
@@ -229,6 +229,7 @@ void msg_tmo_delete(struct msg *msg);
 
 void msg_init(void);
 void msg_deinit(void);
+struct string *msg_type_string(msg_type_t type);
 struct msg *msg_get(struct conn *conn, bool request, bool redis);
 void msg_put(struct msg *msg);
 struct msg *msg_get_error(bool redis, err_t err);
@@ -236,7 +237,6 @@ void msg_dump(struct msg *msg);
 bool msg_empty(struct msg *msg);
 rstatus_t msg_recv(struct context *ctx, struct conn *conn);
 rstatus_t msg_send(struct context *ctx, struct conn *conn);
-uint8_t *msg_type_str(msg_type_t type);
 
 struct msg *req_get(struct conn *conn);
 void req_put(struct msg *msg);

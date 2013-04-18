@@ -1074,6 +1074,21 @@ _stats_pool_decr_by(struct context *ctx, struct server_pool *pool,
               stm->name.data, stm->value.counter);
 }
 
+void
+_stats_pool_set_ts(struct context *ctx, struct server_pool *pool,
+                   stats_pool_field_t fidx, int64_t val)
+{
+    struct stats_metric *stm;
+
+    stm = stats_pool_to_metric(ctx, pool, fidx);
+
+    ASSERT(stm->type == STATS_TIMESTAMP);
+    stm->value.timestamp = val;
+
+    log_debug(LOG_VVVERB, "set ts field '%.*s' to %"PRId64"", stm->name.len,
+              stm->name.data, stm->value.timestamp);
+}
+
 static struct stats_metric *
 stats_server_to_metric(struct context *ctx, struct server *server,
                        stats_server_field_t fidx)
@@ -1158,4 +1173,19 @@ _stats_server_decr_by(struct context *ctx, struct server *server,
 
     log_debug(LOG_VVVERB, "decr by field '%.*s' to %"PRId64"", stm->name.len,
               stm->name.data, stm->value.counter);
+}
+
+void
+_stats_server_set_ts(struct context *ctx, struct server *server,
+                     stats_server_field_t fidx, int64_t val)
+{
+    struct stats_metric *stm;
+
+    stm = stats_server_to_metric(ctx, server, fidx);
+
+    ASSERT(stm->type == STATS_TIMESTAMP);
+    stm->value.timestamp = val;
+
+    log_debug(LOG_VVVERB, "set ts field '%.*s' to %"PRId64"", stm->name.len,
+              stm->name.data, stm->value.timestamp);
 }

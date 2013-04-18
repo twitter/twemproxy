@@ -272,6 +272,9 @@ server_failure(struct context *ctx, struct server *server)
     if (now < 0) {
         return;
     }
+
+    stats_server_set_ts(ctx, server, server_ejected_at, now);
+
     next = now + pool->server_retry_timeout;
 
     log_debug(LOG_INFO, "update pool %"PRIu32" '%.*s' to delete server '%.*s' "

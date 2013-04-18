@@ -20,32 +20,33 @@
 
 #include <nc_core.h>
 
-#define STATS_POOL_CODEC(ACTION)                                                                            \
-    /* client behavior */                                                                                   \
-    ACTION( client_eof,             STATS_COUNTER,      "# eof on client connections")                      \
-    ACTION( client_err,             STATS_COUNTER,      "# errors on client connections")                   \
-    ACTION( client_connections,     STATS_GAUGE,        "# active client connections")                      \
-    /* pool behavior */                                                                                     \
-    ACTION( server_ejects,          STATS_COUNTER,      "# times backend server was ejected")               \
-    /* forwarder behavior */                                                                                \
-    ACTION( forward_error,          STATS_COUNTER,      "# times we encountered a forwarding error")        \
-    ACTION( fragments,              STATS_COUNTER,      "# fragments created from a multi-vector request")  \
+#define STATS_POOL_CODEC(ACTION)                                                                                    \
+    /* client behavior */                                                                                           \
+    ACTION( client_eof,             STATS_COUNTER,      "# eof on client connections")                              \
+    ACTION( client_err,             STATS_COUNTER,      "# errors on client connections")                           \
+    ACTION( client_connections,     STATS_GAUGE,        "# active client connections")                              \
+    /* pool behavior */                                                                                             \
+    ACTION( server_ejects,          STATS_COUNTER,      "# times backend server was ejected")                       \
+    /* forwarder behavior */                                                                                        \
+    ACTION( forward_error,          STATS_COUNTER,      "# times we encountered a forwarding error")                \
+    ACTION( fragments,              STATS_COUNTER,      "# fragments created from a multi-vector request")          \
 
-#define STATS_SERVER_CODEC(ACTION)                                                                          \
-    /* server behavior */                                                                                   \
-    ACTION( server_eof,             STATS_COUNTER,      "# eof on server connections")                      \
-    ACTION( server_err,             STATS_COUNTER,      "# errors on server connections")                   \
-    ACTION( server_timedout,        STATS_COUNTER,      "# timeouts on server connections")                 \
-    ACTION( server_connections,     STATS_GAUGE,        "# active server connections")                      \
-    /* data behavior */                                                                                     \
-    ACTION( requests,               STATS_COUNTER,      "# requests")                                       \
-    ACTION( request_bytes,          STATS_COUNTER,      "total request bytes")                              \
-    ACTION( responses,              STATS_COUNTER,      "# respones")                                       \
-    ACTION( response_bytes,         STATS_COUNTER,      "total response bytes")                             \
-    ACTION( in_queue,               STATS_GAUGE,        "# requests in incoming queue")                     \
-    ACTION( in_queue_bytes,         STATS_GAUGE,        "current request bytes in incoming queue")          \
-    ACTION( out_queue,              STATS_GAUGE,        "# requests in outgoing queue")                     \
-    ACTION( out_queue_bytes,        STATS_GAUGE,        "current request bytes in outgoing queue")          \
+#define STATS_SERVER_CODEC(ACTION)                                                                                  \
+    /* server behavior */                                                                                           \
+    ACTION( server_eof,             STATS_COUNTER,      "# eof on server connections")                              \
+    ACTION( server_err,             STATS_COUNTER,      "# errors on server connections")                           \
+    ACTION( server_timedout,        STATS_COUNTER,      "# timeouts on server connections")                         \
+    ACTION( server_connections,     STATS_GAUGE,        "# active server connections")                              \
+    ACTION( server_ejected_at,      STATS_TIMESTAMP,    "timestamp when server was ejected in usec since epoch")    \
+    /* data behavior */                                                                                             \
+    ACTION( requests,               STATS_COUNTER,      "# requests")                                               \
+    ACTION( request_bytes,          STATS_COUNTER,      "total request bytes")                                      \
+    ACTION( responses,              STATS_COUNTER,      "# respones")                                               \
+    ACTION( response_bytes,         STATS_COUNTER,      "total response bytes")                                     \
+    ACTION( in_queue,               STATS_GAUGE,        "# requests in incoming queue")                             \
+    ACTION( in_queue_bytes,         STATS_GAUGE,        "current request bytes in incoming queue")                  \
+    ACTION( out_queue,              STATS_GAUGE,        "# requests in outgoing queue")                             \
+    ACTION( out_queue_bytes,        STATS_GAUGE,        "current request bytes in outgoing queue")                  \
 
 #define STATS_ADDR      "0.0.0.0"
 #define STATS_PORT      22222
@@ -145,6 +146,10 @@ typedef enum stats_server_field {
     _stats_pool_decr_by(_ctx, _pool, STATS_POOL_##_name, _val);         \
 } while (0)
 
+#define stats_pool_set_ts(_ctx, _pool, _name, _val) do {                \
+    _stats_pool_set_ts(_ctx, _pool, STATS_POOL_##_name, _val);          \
+} while (0)
+
 #define stats_server_incr(_ctx, _server, _name) do {                    \
     _stats_server_incr(_ctx, _server, STATS_SERVER_##_name);            \
 } while (0)
@@ -159,6 +164,10 @@ typedef enum stats_server_field {
 
 #define stats_server_decr_by(_ctx, _server, _name, _val) do {           \
     _stats_server_decr_by(_ctx, _server, STATS_SERVER_##_name, _val);   \
+} while (0)
+
+#define stats_server_set_ts(_ctx, _server, _name, _val) do {            \
+     _stats_server_set_ts(_ctx, _server, STATS_SERVER_##_name, _val);   \
 } while (0)
 
 #else
@@ -189,11 +198,13 @@ void _stats_pool_incr(struct context *ctx, struct server_pool *pool, stats_pool_
 void _stats_pool_decr(struct context *ctx, struct server_pool *pool, stats_pool_field_t fidx);
 void _stats_pool_incr_by(struct context *ctx, struct server_pool *pool, stats_pool_field_t fidx, int64_t val);
 void _stats_pool_decr_by(struct context *ctx, struct server_pool *pool, stats_pool_field_t fidx, int64_t val);
+void _stats_pool_set_ts(struct context *ctx, struct server_pool *pool, stats_pool_field_t fidx, int64_t val);
 
 void _stats_server_incr(struct context *ctx, struct server *server, stats_server_field_t fidx);
 void _stats_server_decr(struct context *ctx, struct server *server, stats_server_field_t fidx);
 void _stats_server_incr_by(struct context *ctx, struct server *server, stats_server_field_t fidx, int64_t val);
 void _stats_server_decr_by(struct context *ctx, struct server *server, stats_server_field_t fidx, int64_t val);
+void _stats_server_set_ts(struct context *ctx, struct server *server, stats_server_field_t fidx, int64_t val);
 
 struct stats *stats_create(uint16_t stats_port, char *stats_ip, int stats_interval, char *source, struct array *server_pool);
 void stats_destroy(struct stats *stats);

@@ -294,23 +294,51 @@ event_wait(struct event_base *evb, int timeout)
     NOT_REACHED();
 }
 
-int
-event_add_st(struct event_base *evb, int fd)
+void
+event_loop_stats(event_stats_cb_t cb, void *arg)
 {
-    int status;
+    struct stats *st = arg;
+    int status, ep;
     struct epoll_event ev;
 
-    ev.data.fd = fd;
-    ev.events = EPOLLIN;
-
-    status = epoll_ctl(evb->ep, EPOLL_CTL_ADD, fd, &ev);
-    if (status < 0) {
-        log_error("epoll ctl on e %d sd %d failed: %s", evb->ep, fd,
-                  strerror(errno));
-        return status;
+    ep = epoll_create(1);
+    if (ep < 0) {
+        log_error("epoll create failed: %s", strerror(errno));
+        return;
     }
 
-    return status;
+    ev.data.fd = st->sd;
+    ev.events = EPOLLIN;
+
+    status = epoll_ctl(ep, EPOLL_CTL_ADD, st->sd, &ev);
+    if (status < 0) {
+        log_error("epoll ctl on e %d sd %d failed: %s", ep, st->sd,
+                  strerror(errno));
+        goto error;
+    }
+
+    for (;;) {
+        int n;
+
+        n = epoll_wait(ep, &ev, 1, st->interval);
+        if (n < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            log_error("epoll wait on e %d with m %d failed: %s", ep,
+                      st->sd, strerror(errno));
+            break;
+        }
+
+        cb(st, &n);
+    }
+
+error:
+    status = close(ep);
+    if (status < 0) {
+        log_error("close e %d failed, ignored: %s", ep, strerror(errno));
+    }
+    ep = -1;
 }
 
 #endif /* NC_HAVE_EPOLL */

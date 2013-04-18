@@ -769,26 +769,27 @@ stats_send_rsp(struct stats *st)
     return NC_OK;
 }
 
+static void
+stats_loop_callback(void *arg1, void *arg2)
+{
+    struct stats *st = arg1;
+    int n = *((int *)arg2);
+
+    /* aggregate stats from shadow (b) -> sum (c) */
+    stats_aggregate(st);
+
+    if (n == 0) {
+        return;
+    }
+
+    /* send aggregate stats sum (c) to collector */
+    stats_send_rsp(st);
+}
+
 static void *
 stats_loop(void *arg)
 {
-    struct stats *st = arg;
-    int n;
-
-    for (;;) {
-        n = event_wait(st->st_evb, st->interval);
-
-        /* aggregate stats from shadow (b) -> sum (c) */
-        stats_aggregate(st);
-
-        if (n == 0) {
-            continue;
-        }
-
-        /* send aggregate stats sum (c) to collector */
-        stats_send_rsp(st);
-    }
-
+    event_loop_stats(stats_loop_callback, arg);
     return NULL;
 }
 
@@ -848,28 +849,9 @@ stats_start_aggregator(struct stats *st)
         return status;
     }
 
-    st->st_evb = event_base_create(1, NULL);
-    if (st->st_evb == NULL) {
-        log_error("stats aggregator create failed: %s", strerror(errno));
-        return NC_ERROR;
-    }
-
-    ASSERT(st->st_evb != NULL);
-    ASSERT(st->sd >= 0);
-
-    status = event_add_st(st->st_evb, st->sd);
-    if (status < 0) {
-        log_error("stats aggregator create failed: %s", strerror(errno));
-        event_base_destroy(st->st_evb);
-        st->st_evb = NULL;
-        return NC_ERROR;
-    }
-
     status = pthread_create(&st->tid, NULL, stats_loop, st);
     if (status < 0) {
         log_error("stats aggregator create failed: %s", strerror(status));
-        event_base_destroy(st->st_evb);
-        st->st_evb = NULL;
         return NC_ERROR;
     }
 
@@ -884,8 +866,6 @@ stats_stop_aggregator(struct stats *st)
     }
 
     close(st->sd);
-    event_base_destroy(st->st_evb);
-    st->st_evb = NULL;
 }
 
 struct stats *
@@ -915,7 +895,6 @@ stats_create(uint16_t stats_port, char *stats_ip, int stats_interval,
     array_null(&st->sum);
 
     st->tid = (pthread_t) -1;
-    st->st_evb = NULL;
     st->sd = -1;
 
     string_set_text(&st->service_str, "service");

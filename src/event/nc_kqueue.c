@@ -302,7 +302,7 @@ event_wait(struct event_base *evb, int timeout)
                     * field is set to ENOENT.
                     */
                     if (ev->data == EBADF || ev->data == EINVAL ||
-                        ev->data == ENOENT) {
+                        ev->data == ENOENT || ev->data == EINTR) {
                         continue;
                     }
                     events |= EVENT_ERR;
@@ -345,14 +345,68 @@ event_wait(struct event_base *evb, int timeout)
     NOT_REACHED();
 }
 
-int
-event_add_st(struct event_base *evb, int fd)
+void
+event_loop_stats(event_stats_cb_t cb, void *arg)
 {
-    struct kevent *ev = &evb->change[evb->nchange++];
+    struct stats *st = arg;
+    int status, kq;
+    struct kevent change, event;
+    struct timespec ts, *tsp;
 
-    EV_SET(ev, fd, EVFILT_READ, EV_ADD | EV_CLEAR, 0, 0, NULL);
+    kq = kqueue();
+    if (kq < 0) {
+        log_error("kqueue failed: %s", strerror(errno));
+        return;
+    }
 
-    return 0;
+    EV_SET(&change, st->sd, EVFILT_READ, EV_ADD | EV_CLEAR, 0, 0, NULL);
+
+    /* kevent should block indefinitely if st->interval < 0 */
+    if (st->interval < 0) {
+        tsp = NULL;
+    } else {
+        tsp = &ts;
+        tsp->tv_sec = st->interval / 1000LL;
+        tsp->tv_nsec = (st->interval % 1000LL) * 1000000LL;
+    }
+
+    for (;;) {
+        int nreturned, nprocessed;
+
+        nreturned = kevent(kq, &change, 1, &event, 1, tsp);
+        if (nreturned < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            log_error("kevent on kq %d with m %d failed: %s", kq, st->sd,
+                      strerror(errno));
+            goto error;
+        }
+
+        ASSERT(nreturned <= 1);
+
+        if (nreturned == 1) {
+            struct kevent *ev = &event;
+
+            if (ev->flags & EV_ERROR) {
+                if (ev->data == EINTR) {
+                    continue;
+                }
+                log_error("kevent on kq %d with m %d failed: %s", kq, st->sd,
+                          strerror(ev->data));
+                goto error;
+            }
+        }
+
+        cb(st, &nreturned);
+    }
+
+error:
+    status = close(kq);
+    if (status < 0) {
+        log_error("close kq %d failed, ignored: %s", kq, strerror(errno));
+    }
+    kq = -1;
 }
 
 #endif /* NC_HAVE_KQUEUE */

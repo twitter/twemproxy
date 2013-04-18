@@ -27,6 +27,7 @@
 #define EVENT_ERR   0xff0000
 
 typedef void (*event_cb_t)(void *, uint32_t);
+typedef void (*event_stats_cb_t)(void *, void *);
 
 #ifdef NC_HAVE_KQUEUE
 
@@ -69,6 +70,6 @@ int event_del_out(struct event_base *evb, struct conn *c);
 int event_add_conn(struct event_base *evb, struct conn *c);
 int event_del_conn(struct event_base *evb, struct conn *c);
 int event_wait(struct event_base *evb, int timeout);
-int event_add_st(struct event_base *evb, int fd);
+void event_loop_stats(event_stats_cb_t cb, void *arg);
 
 #endif /* _NC_EVENT_H */

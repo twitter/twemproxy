@@ -108,22 +108,22 @@ string_compare(const struct string *s1, const struct string *s2)
     return nc_strncmp(s1->data, s2->data, s1->len);
 }
 
-static const char HEX[] = "0123456789abcdef";
-
 static char *
-safe_utoa(int _base, uint64_t val, char *buf)
+_safe_utoa(int _base, uint64_t val, char *buf)
 {
+    char hex[] = "0123456789abcdef";
     uint32_t base = (uint32_t) _base;
     *buf-- = 0;
     do {
-        *buf-- = HEX[val % base];
+        *buf-- = hex[val % base];
     } while ((val /= base) != 0);
     return buf + 1;
 }
 
 static char *
-safe_itoa(int base, int64_t val, char *buf)
+_safe_itoa(int base, int64_t val, char *buf)
 {
+    char hex[] = "0123456789abcdef";
     char *orig_buf = buf;
     const int32_t is_neg = (val < 0);
     *buf-- = 0;
@@ -139,7 +139,7 @@ safe_itoa(int base, int64_t val, char *buf)
     }
 
     do {
-        *buf-- = HEX[val % base];
+        *buf-- = hex[val % base];
     } while ((val /= base) != 0);
 
     if (is_neg && base == 10) {
@@ -176,7 +176,7 @@ safe_itoa(int base, int64_t val, char *buf)
 }
 
 static const char *
-safe_check_longlong(const char *fmt, int32_t * have_longlong)
+_safe_check_longlong(const char *fmt, int32_t * have_longlong)
 {
     *have_longlong = false;
     if (*fmt == 'l') {
@@ -207,7 +207,7 @@ _safe_vsnprintf(char *to, size_t size, const char *format, va_list ap)
         }
         ++format;               /* skip '%' */
 
-        format = safe_check_longlong(format, &have_longlong);
+        format = _safe_check_longlong(format, &have_longlong);
 
         switch (*format) {
         case 'd':
@@ -240,8 +240,8 @@ _safe_vsnprintf(char *to, size_t size, const char *format, va_list ap)
 
 		            /* *INDENT-OFF* */
                     char *val_as_str = (*format == 'u') ?
-                        safe_utoa(base, uval, &buff[sizeof(buff) - 1]) :
-                        safe_itoa(base, ival, &buff[sizeof(buff) - 1]);
+                        _safe_utoa(base, uval, &buff[sizeof(buff) - 1]) :
+                        _safe_itoa(base, ival, &buff[sizeof(buff) - 1]);
 		            /* *INDENT-ON* */
 
                     /* Strip off "ffffffff" if we have 'x' format without 'll' */
@@ -282,5 +282,3 @@ _safe_snprintf(char *to, size_t n, const char *fmt, ...)
     va_end(args);
     return result;
 }
-
-

@@ -114,7 +114,6 @@ struct logger {
     }                                                                       \
 } while (0)
 
-
 int log_init(int level, char *filename);
 void log_deinit(void);
 void log_level_up(void);
@@ -124,11 +123,9 @@ void log_stacktrace(void);
 void log_reopen(void);
 int log_loggable(int level);
 void _log(const char *file, int line, int panic, const char *fmt, ...);
-
 void _log_stderr(const char *fmt, ...);
 void _log_safe(const char *fmt, ...);
 void _log_stderr_safe(const char *fmt, ...);
-
 void _log_hexdump(const char *file, int line, char *data, int datalen, const char *fmt, ...);
 
 #endif

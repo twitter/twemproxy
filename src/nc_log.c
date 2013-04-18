@@ -109,12 +109,12 @@ void
 log_stacktrace(void)
 {
     struct logger *l = &logger;
+
     if (l->fd < 0) {
         return;
     }
     nc_stacktrace_fd(l->fd);
 }
-
 
 int
 log_loggable(int level)
@@ -199,7 +199,6 @@ _log_stderr(const char *fmt, ...)
     errno = errno_save;
 }
 
-
 /*
  * Hexadecimal dump in the canonical hex + ascii display
  * See -C option in man hexdump
@@ -282,10 +281,10 @@ _log_safe(const char *fmt, ...)
     len = 0;            /* length of output buffer */
     size = LOG_MAX_LEN; /* size of output buffer */
 
-    len += safe_snprintf(buf + len, size - len, "[........................] ");
+    len += nc_safe_snprintf(buf + len, size - len, "[........................] ");
 
     va_start(args, fmt);
-    len += safe_vsnprintf(buf + len, size - len, fmt, args);
+    len += nc_safe_vsnprintf(buf + len, size - len, fmt, args);
     va_end(args);
 
     buf[len++] = '\n';
@@ -307,15 +306,14 @@ _log_stderr_safe(const char *fmt, ...)
     va_list args;
     ssize_t n;
 
-
     errno_save = errno;
     len = 0;            /* length of output buffer */
     size = LOG_MAX_LEN; /* size of output buffer */
 
-    len += safe_snprintf(buf + len, size - len, "[........................] ");
+    len += nc_safe_snprintf(buf + len, size - len, "[........................] ");
 
     va_start(args, fmt);
-    len += safe_vsnprintf(buf + len, size - len, fmt, args);
+    len += nc_safe_vsnprintf(buf + len, size - len, fmt, args);
     va_end(args);
 
     buf[len++] = '\n';

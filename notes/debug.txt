@@ -175,3 +175,22 @@
   POLLERR	   0x008    /* error condition */
   POLLHUP      0x010    /* hung up */
   POLLNVAL     0x020    /* invalid polling request */
+
+- event ports (solaris)
+
+  typedef struct port_event {
+      int         portev_events;  /* event data is source specific */
+      ushort_t    portev_source;  /* event source */
+      ushort_t    portev_pad;     /* port internal use */
+      uintptr_t   portev_object;  /* source specific object */
+      void        *portev_user;   /* user cookie */
+  } port_event_t;
+
+  /* port sources */
+  PORT_SOURCE_AIO     1
+  PORT_SOURCE_TIMER   2
+  PORT_SOURCE_USER    3
+  PORT_SOURCE_FD      4
+  PORT_SOURCE_ALERT   5
+  PORT_SOURCE_MQ      6
+  PORT_SOURCE_FILE    7

@@ -36,6 +36,8 @@ modula_update(struct server_pool *pool)
     uint32_t continuum_index;     /* continuum index */
     uint32_t continuum_addition;  /* extra space in the continuum */
     uint32_t server_index;        /* server index */
+    uint32_t weight_index;        /* weight index */
+    uint32_t total_weight;        /* total live server weight */
     int64_t now;                  /* current timestamp in usec */
 
     now = nc_usec_now();
@@ -45,6 +47,7 @@ modula_update(struct server_pool *pool)
 
     nserver = array_n(&pool->server);
     nlive_server = 0;
+    total_weight = 0;
     pool->next_rebuild = 0LL;
 
     for (server_index = 0; server_index < nserver; server_index++) {
@@ -60,6 +63,13 @@ modula_update(struct server_pool *pool)
             }
         } else {
             nlive_server++;
+        }
+
+        ASSERT(server->weight > 0);
+
+        /* count weight only for live servers */
+        if (!pool->auto_eject_hosts || server->next_retry <= now) {
+            total_weight += server->weight;
         }
     }
 
@@ -85,9 +95,9 @@ modula_update(struct server_pool *pool)
      * Allocate the continuum for the pool, the first time, and every time we
      * add a new server to the pool
      */
-    if (nlive_server > pool->nserver_continuum) {
+    if (total_weight > pool->nserver_continuum) {
         struct continuum *continuum;
-        uint32_t nserver_continuum = nlive_server + MODULA_CONTINUUM_ADDITION;
+        uint32_t nserver_continuum = total_weight + MODULA_CONTINUUM_ADDITION;
         uint32_t ncontinuum = nserver_continuum *  MODULA_POINTS_PER_SERVER;
 
         continuum = nc_realloc(pool->continuum, sizeof(*continuum) * ncontinuum);
@@ -110,12 +120,14 @@ modula_update(struct server_pool *pool)
             continue;
         }
 
-        pointer_per_server = 1;
+        for (weight_index = 0; weight_index < server->weight; weight_index++) {
+            pointer_per_server = 1;
 
-        pool->continuum[continuum_index].index = server_index;
-        pool->continuum[continuum_index++].value = 0;
+            pool->continuum[continuum_index].index = server_index;
+            pool->continuum[continuum_index++].value = 0;
 
-        pointer_counter += pointer_per_server;
+            pointer_counter += pointer_per_server;
+        }
     }
     pool->ncontinuum = pointer_counter;
 

@@ -34,6 +34,8 @@ Failures are a fact of life, especially when things are distributed. To be resil
 
 Enabling `auto_eject_hosts:` ensures that a dead server can be ejected out of the hash ring after `server_failure_limit:` consecutive failures have been encountered on that said server. A non-zero `server_retry_timeout:` ensures that we don't incorrectly mark a server as dead forever especially when the failures were really transient. The combination of `server_retry_timeout:` and `server_failure_limit:` controls the tradeoff between resiliency to permanent and transient failures.
 
+Note that an ejected server will not be included in the hash ring for any requests until the retry timeout passes. This will lead to data partitioning as keys originally on the ejected server will now be written to a server still in the pool.
+
 To ensure that requests always succeed in the face of server ejections (`auto_eject_hosts:` is enabled), some form of retry must be implemented at the client layer since nutcracker itself does not retry a request. This client-side retry count must be greater than `server_failure_limit:` value, which ensures that the original request has a chance to make it to a live server.
 
 ## Timeout
@@ -52,7 +54,7 @@ By default, nutcracker waits indefinitely for any request sent to the server. Ho
 
 ## Error Response
 
-Whenever a request encounters failure on a server we usually send to the client a response with the general form - `SERVER_ERROR <errno description>\r\n` (memcached) or `-ERR <errno description>` (redis). 
+Whenever a request encounters failure on a server we usually send to the client a response with the general form - `SERVER_ERROR <errno description>\r\n` (memcached) or `-ERR <errno description>` (redis).
 
 For example, when a memcache server is down, this error response is usually:
 
@@ -72,7 +74,7 @@ All memory for incoming requests and outgoing responses is allocated in mbuf. Mb
 If nutcracker is meant to handle a large number of concurrent client connections, you should set the mbuf size to 512 or 1K bytes.
 
 ## Maximum Key Length
-The memcache ascii protocol [specification](https://github.com/twitter/twemproxy/blob/master/notes/memcache.txt) limits the maximum length of the key to 250 characters. The key should not include whitespace, or '\r' or '\n' character. For redis, we have no such limitation. However, nutcracker requires the key to be stored in a contiguous memory region. Since all requests and responses in nutcracker are stored in mbuf, the maximum length of the redis key is limited by the size of the maximum available space for data in mbuf (mbuf_data_size()). This means that if you want your redis instances to handle large keys, you might want to choose large mbuf size set using -m or --mbuf-size=N command-line argument.
+The memcache ascii protocol [specification](notes/memcache.txt) limits the maximum length of the key to 250 characters. The key should not include whitespace, or '\r' or '\n' character. For redis, we have no such limitation. However, nutcracker requires the key to be stored in a contiguous memory region. Since all requests and responses in nutcracker are stored in mbuf, the maximum length of the redis key is limited by the size of the maximum available space for data in mbuf (mbuf_data_size()). This means that if you want your redis instances to handle large keys, you might want to choose large mbuf size set using -m or --mbuf-size=N command-line argument.
 
 ## Node Names for Consistent Hashing
 
@@ -116,3 +118,20 @@ For example, the configuration of server pool _beta_, aslo shown below, specifie
        - 127.0.0.1:6381:1 server2
        - 127.0.0.1:6382:1 server3
        - 127.0.0.1:6383:1 server4
+       
+       
+## Graphing Cache-pool State
+
+When running nutcracker in production, you often would like to know the list of live and ejected servers at any given time. You can easily answer this question, by generating a time series graph of live and/or dead servers that are part of any cache pool. To do this your graphing client must collect the following stats exposed by nutcracker:
+
+- **server_eof** which is incremented when server closes the connection normally which should not happen because we use persistent connections.
+- **server_timedout** is incremented when the connection / request to server timedout.
+- **server_err** is incremented for any other kinds of errors.
+
+So, on a given server, the cumulative number of times a server is ejected can be computed as:
+
+```c
+(server_err + server_timedout + server_eof) / server_failure_limit
+```
+
+A diff of the above value between two successive time intervals would generate a nice timeseries graph for ejected servers.

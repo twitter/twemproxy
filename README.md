@@ -35,7 +35,7 @@ To build nutcracker from source with _debug logs enabled_ and _assertions disabl
 + Supports proxying to multiple servers.
 + Supports multiple server pools simultaneously.
 + Shard data automatically across multiple servers.
-+ Implements the complete [memcached ascii](https://github.com/twitter/twemproxy/blob/master/notes/memcache.txt) and [redis](https://github.com/twitter/twemproxy/blob/master/notes/redis.md) protocol.
++ Implements the complete [memcached ascii](notes/memcache.txt) and [redis](notes/redis.md) protocol.
 + Easy configuration of server pools through a YAML file.
 + Supports multiple hashing modes including consistent hashing and distribution.
 + Can be configured to disable nodes on failures.
@@ -76,6 +76,7 @@ nutcracker can be configured through a YAML file specified by the -c or --conf-f
 + **hash**: The name of the hash function. Possible values are:
  + one_at_a_time
  + md5
+ + crc16
  + crc32
  + fnv1_64
  + fnv1a_64
@@ -84,7 +85,7 @@ nutcracker can be configured through a YAML file specified by the -c or --conf-f
  + hsieh
  + murmur
  + jenkins
-+ **hash_tag**: A two character string that specifies the part of the key used for hashing. Eg "{}" or "$$". [Hash tag](https://github.com/twitter/twemproxy/blob/master/notes/recommendation.md#hash-tags)  enable mapping different keys to the same server as long as the part of the key within the tag is the same. 
++ **hash_tag**: A two character string that specifies the part of the key used for hashing. Eg "{}" or "$$". [Hash tag](notes/recommendation.md#hash-tags)  enable mapping different keys to the same server as long as the part of the key within the tag is the same.
 + **distribution**: The key distribution mode. Possible values are:
  + ketama
  + modula
@@ -94,13 +95,13 @@ nutcracker can be configured through a YAML file specified by the -c or --conf-f
 + **preconnect**: A boolean value that controls if nutcracker should preconnect to all the servers in this pool on process start. Defaults to false.
 + **redis**: A boolean value that controls if a server pool speaks redis or memcached protocol. Defaults to false.
 + **server_connections**: The maximum number of connections that can be opened to each server. By default, we open at most 1 server connection.
-+ **auto_eject_hosts**: A boolean value that controls if server should be ejected temporarily when it fails consecutively server_failure_limit times. Defaults to false.
++ **auto_eject_hosts**: A boolean value that controls if server should be ejected temporarily when it fails consecutively server_failure_limit times. See [liveness recommendations](notes/recommendation.md#liveness) for information. Defaults to false.
 + **server_retry_timeout**: The timeout value in msec to wait for before retrying on a temporarily ejected server, when auto_eject_host is set to true. Defaults to 30000 msec.
 + **server_failure_limit**: The number of conseutive failures on a server that would leads to it being temporarily ejected when auto_eject_host is set to true. Defaults to 2.
 + **servers**: A list of server address, port and weight (name:port:weight or ip:port:weight) for this server pool.
 
 
-For example, the configuration file in [conf/nutcracker.yml](https://github.com/twitter/twemproxy/blob/master/conf/nutcracker.yml), also shown below, configures 5 server pools with names - _alpha_, _beta_, _gamma_, _delta_ and omega. Clients that intend to send requests to one of the 10 servers in pool delta connect to port 22124 on 127.0.0.1. Clients that intend to send request to one of 2 servers in pool omega connect to unix path /tmp/gamma. Requests sent to pool alpha and omega have no timeout and might require timeout functionality to be implemented on the client side. On the other hand, requests sent to pool beta, gamma and delta timeout after 400 msec, 400 msec and 100 msec respectively when no response is received from the server. Of the 5 server pools, only pools alpha, gamma and deleta are configured to use server ejection and hence are resilient to server failures. All the 5 server pools use ketama consistent hashing for key distribution with the key hasher for pools alpha, beta, gamma and delta set to fnv1a_64 while that for pool omega set to hsieh. Also only pool beta uses [nodes names](https://github.com/twitter/twemproxy/blob/master/notes/recommendation.md#node-names-for-consistent-hashing) for consistent hashing, while pool alpha, gamma, delta and omega use 'host:port:weight' for consistent hashing. Finally, only pool alpha and beta can speak redis protocol, while pool gamma, deta and omega speak memcached protocol.
+For example, the configuration file in [conf/nutcracker.yml](conf/nutcracker.yml), also shown below, configures 5 server pools with names - _alpha_, _beta_, _gamma_, _delta_ and omega. Clients that intend to send requests to one of the 10 servers in pool delta connect to port 22124 on 127.0.0.1. Clients that intend to send request to one of 2 servers in pool omega connect to unix path /tmp/gamma. Requests sent to pool alpha and omega have no timeout and might require timeout functionality to be implemented on the client side. On the other hand, requests sent to pool beta, gamma and delta timeout after 400 msec, 400 msec and 100 msec respectively when no response is received from the server. Of the 5 server pools, only pools alpha, gamma and delta are configured to use server ejection and hence are resilient to server failures. All the 5 server pools use ketama consistent hashing for key distribution with the key hasher for pools alpha, beta, gamma and delta set to fnv1a_64 while that for pool omega set to hsieh. Also only pool beta uses [nodes names](notes/recommendation.md#node-names-for-consistent-hashing) for consistent hashing, while pool alpha, gamma, delta and omega use 'host:port:weight' for consistent hashing. Finally, only pool alpha and beta can speak redis protocol, while pool gamma, deta and omega speak memcached protocol.
 
     alpha:
       listen: 127.0.0.1:22121
@@ -112,7 +113,7 @@ For example, the configuration file in [conf/nutcracker.yml](https://github.com/
       server_failure_limit: 1
       servers:
        - 127.0.0.1:6379:1
-    
+
     beta:
       listen: 127.0.0.1:22122
       hash: fnv1a_64
@@ -126,7 +127,7 @@ For example, the configuration file in [conf/nutcracker.yml](https://github.com/
        - 127.0.0.1:6381:1 server2
        - 127.0.0.1:6382:1 server3
        - 127.0.0.1:6383:1 server4
-    
+
     gamma:
       listen: 127.0.0.1:22123
       hash: fnv1a_64
@@ -140,7 +141,7 @@ For example, the configuration file in [conf/nutcracker.yml](https://github.com/
       servers:
        - 127.0.0.1:11212:1
        - 127.0.0.1:11213:1
-    
+
     delta:
       listen: 127.0.0.1:22124
       hash: fnv1a_64
@@ -160,7 +161,7 @@ For example, the configuration file in [conf/nutcracker.yml](https://github.com/
        - 127.0.0.1:11221:1
        - 127.0.0.1:11222:1
        - 127.0.0.1:11223:1
-    
+
     omega:
       listen: /tmp/gamma
       hash: hsieh
@@ -169,7 +170,7 @@ For example, the configuration file in [conf/nutcracker.yml](https://github.com/
       servers:
        - 127.0.0.1:11214:100000
        - 127.0.0.1:11215:1
-       
+
 Finally, to make writing syntactically correct configuration file easier, nutcracker provides a command-line argument -t or --test-conf that can be used to test the YAML configuration file for any syntax error.
 
 ## Observability
@@ -207,7 +208,7 @@ Logging in nutcracker is only available when nutcracker is built with logging en
 ## Pipelining
 
 
-Nutcracker enables proxying multiple client connections onto one or few server connections. This architectural setup makes it ideal for pipelining requests and responses and hence saving on the round trip time. 
+Nutcracker enables proxying multiple client connections onto one or few server connections. This architectural setup makes it ideal for pipelining requests and responses and hence saving on the round trip time.
 
 For example, if nutcracker is proxing three client connections onto a single server and we get requests - 'get key\r\n', 'set key 0 0 3\r\nval\r\n' and 'delete key\r\n' on these three connections respectively, nutcracker would try to batch these requests and send them as a single message onto the server connection as 'get key\r\nset key 0 0 3\r\nval\r\ndelete key\r\n'.
 
@@ -215,12 +216,14 @@ Pipelining is the reason why nutcracker ends up doing better in terms of through
 
 ## Deployment
 
-If you are deploying nutcracker in production, you might consider reading through the [recommendation document](https://github.com/twitter/twemproxy/blob/master/notes/recommendation.md) to understand the parameters you could tune in nutcracker to run it efficiently in the production environment.
+If you are deploying nutcracker in production, you might consider reading through the [recommendation document](notes/recommendation.md) to understand the parameters you could tune in nutcracker to run it efficiently in the production environment.
 
 ## Users
 + [Pinterest](http://pinterest.com/)
 + [Tumblr](https://www.tumblr.com/)
 + [Twitter](https://twitter.com/)
++ [Vine](http://vine.co/)
++ [Kiip](http://www.kiip.me/)
 
 ## Issues and Support
 

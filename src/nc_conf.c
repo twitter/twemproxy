@@ -1110,14 +1110,6 @@ conf_pre_validate(struct conf *cf)
 }
 
 static int
-conf_server_pname_cmp(const void *t1, const void *t2)
-{
-    const struct conf_server *s1 = t1, *s2 = t2;
-
-    return string_compare(&s1->pname, &s2->pname);
-}
-
-static int
 conf_server_name_cmp(const void *t1, const void *t2)
 {
     const struct conf_server *s1 = t1, *s2 = t2;
@@ -1156,27 +1148,10 @@ conf_validate_server(struct conf *cf, struct conf_pool *cp)
 
     /*
      * Disallow duplicate servers - servers with identical "host:port:weight"
-     * or "name" combination are considered as duplicates
+     * or "name" combination are considered as duplicates. When server name
+     * is configured, we only check for duplicate "name" and not for duplicate
+     * "host:port:weight"
      */
-    array_sort(&cp->server, conf_server_pname_cmp);
-    for (valid = true, i = 0; i < nserver - 1; i++) {
-        struct conf_server *cs1, *cs2;
-
-        cs1 = array_get(&cp->server, i);
-        cs2 = array_get(&cp->server, i + 1);
-
-        if (string_compare(&cs1->pname, &cs2->pname) == 0) {
-            log_error("conf: pool '%.*s' has servers with same name '%.*s'",
-                    cp->name.len, cp->name.data, cs1->pname.len,
-                    cs1->pname.data);
-            valid = false;
-            break;
-        }
-    }
-    if (!valid) {
-        return NC_ERROR;
-    }
-
     array_sort(&cp->server, conf_server_name_cmp);
     for (valid = true, i = 0; i < nserver - 1; i++) {
         struct conf_server *cs1, *cs2;
@@ -1497,7 +1472,7 @@ conf_add_server(struct conf *cf, struct command *cmd, void *conf)
     struct conf_server *field;
     uint8_t *p, *q, *start;
     uint8_t *pname, *addr, *port, *weight, *name;
-    uint32_t k, pnamelen, addrlen, portlen, weightlen, namelen;
+    uint32_t k, delimlen, pnamelen, addrlen, portlen, weightlen, namelen;
     struct string address;
     char delim[] = " ::";
 
@@ -1514,7 +1489,7 @@ conf_add_server(struct conf *cf, struct command *cmd, void *conf)
 
     value = array_top(&cf->arg);
 
-    /* parse "hostname:port:weight [name]" from the end */
+    /* parse "hostname:port:weight [name]" or "/path/unix_socket:weight [name]" from the end */
     p = value->data + value->len - 1;
     start = value->data;
     addr = NULL;
@@ -1525,6 +1500,8 @@ conf_add_server(struct conf *cf, struct command *cmd, void *conf)
     portlen = 0;
     name = NULL;
     namelen = 0;
+
+    delimlen = value->data[0] == '/' ? 2 : 3;
 
     for (k = 0; k < sizeof(delim); k++) {
         q = nc_strrchr(p, start, delim[k]);
@@ -1562,8 +1539,8 @@ conf_add_server(struct conf *cf, struct command *cmd, void *conf)
         p = q - 1;
     }
 
-    if (k != 3) {
-        return "has an invalid \"hostname:port:weight [name]\" format string";
+    if (k != delimlen) {
+        return "has an invalid \"hostname:port:weight [name]\"or \"/path/unix_socket:weight [name]\" format string";
     }
 
     pname = value->data;
@@ -1582,9 +1559,11 @@ conf_add_server(struct conf *cf, struct command *cmd, void *conf)
         return "has an invalid weight in \"hostname:port:weight [name]\" format string";
     }
 
-    field->port = nc_atoi(port, portlen);
-    if (field->port < 0 || !nc_valid_port(field->port)) {
-        return "has an invalid port in \"hostname:port:weight [name]\" format string";
+    if (value->data[0] != '/') {
+        field->port = nc_atoi(port, portlen);
+        if (field->port < 0 || !nc_valid_port(field->port)) {
+            return "has an invalid port in \"hostname:port:weight [name]\" format string";
+        }
     }
 
     if (name == NULL) {

@@ -1,3 +1,22 @@
+2013-23-04  Manju Rajashekhar  <manj@cs.stanford.edu>
+    * twemproxy: version 0.2.4 release
+      redis keys must be less than mbuf_data_size() in length (fifsky)
+      Adds support for DUMP/RESTORE commands in Redis (remotezygote)
+      Use of the weight value in the modula distribution (mezzatto)
+      Add support to unix socket connections to servers (mezzatto)
+      only check for duplicate server name and not 'host:port:weight' when 'name' is configured
+      crc16 hash support added (mezzatto)
+
+2013-31-01  Manju Rajashekhar  <manj@twitter.com>
+    * twemproxy: version 0.2.3 release
+      RPOPLPUSH, SDIFF, SDIFFSTORE, SINTER, SINTERSTORE, SMOVE, SUNION, SUNIONSTORE, ZINTERSTORE, and ZUNIONSTORE support (dcartoon)
+      EVAL and EVALSHA support (ferenyx)
+      exit 1 if configuration file is invalid (cofyc)
+      return non-zero exit status when nutcracker cannot start for some reason
+      use server names in stats (charsyam)
+      Fix failure to resolve long FQDN name resolve (conmame)
+      add support for hash tags
+
 2012-18-10  Manju Rajashekhar  <manj@twitter.com>
 
     * twemproxy: version 0.2.2 release

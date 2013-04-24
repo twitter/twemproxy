@@ -7,7 +7,7 @@
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
     |        DEL        |    Yes     | DEL key [key …]                                                                                                     |
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
-    |       DUMP        |    No      | DUMP key                                                                                                            |
+    |       DUMP        |    Yes     | DUMP key                                                                                                            |
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
     |      EXISTS       |    Yes     | EXISTS key                                                                                                          |
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
@@ -37,7 +37,7 @@
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
     |     RENAMENX      |    No      | RENAMENX key newkey                                                                                                 |
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
-    |      RESTORE      |    No      | RESTORE key ttl serialized-value                                                                                    |
+    |      RESTORE      |    Yes     | RESTORE key ttl serialized-value                                                                                    |
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
     |      SORT         |    No      | SORT key [BY pattern] [LIMIT offset count] [GET pattern [GET pattern ...]] [ASC|DESC] [ALPHA] [STORE destination]   |
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
@@ -161,12 +161,14 @@
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
     |      RPOP         |    Yes     | RPOP key                                                                                                            |
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
-    |     RPOPLPUSH     |    No      | RPOPLPUSH source destination                                                                                        |
+    |     RPOPLPUSH     |    Yes*    | RPOPLPUSH source destination                                                                                        |
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
     |      RPUSH        |    Yes     | RPUSH key value [value ...]                                                                                         |
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
     |      RPUSHX       |    Yes     | RPUSHX key value                                                                                                    |
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
+
+* RPOPLPUSH support requires that source and destination keys hash to the same server. You can ensure this by using the same [hashtag](notes/recommendation.md#hash-tags) for source and destination key. Twemproxy does no checking on its end to verify that source and destination key hash to the same server, and the RPOPLPUSH command is forwarded to the server that the source key hashes to
 
 ### Sets
 
@@ -177,19 +179,19 @@
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
     |      SCARD        |    Yes     | SCARD key                                                                                                           |
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
-    |      SDIFF        |    No      | SDIFF key [key ...]                                                                                                 |
+    |      SDIFF        |    Yes*    | SDIFF key [key ...]                                                                                                 |
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
-    |     SDIFFSTORE    |    No      | SDIFFSTORE destination key [key ...]                                                                                |
+    |     SDIFFSTORE    |    Yes*    | SDIFFSTORE destination key [key ...]                                                                                |
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
-    |      SINTER       |    No      | SINTER key [key ...]                                                                                                |
+    |      SINTER       |    Yes*    | SINTER key [key ...]                                                                                                |
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
-    |    SINTERSTORE    |    No      | SINTERSTORE destination key [key ...]                                                                               |
+    |    SINTERSTORE    |    Yes*    | SINTERSTORE destination key [key ...]                                                                               |
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
     |     SISMEMBER     |    Yes     | SISMEMBER key member                                                                                                |
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
     |     SMEMBERS      |    Yes     | SMEMBERS key                                                                                                        |
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
-    |      SMOVE        |    No      | SMOVE source destination member                                                                                     |
+    |      SMOVE        |    Yes*    | SMOVE source destination member                                                                                     |
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
     |      SPOP         |    Yes     | SPOP key                                                                                                            |
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
@@ -197,10 +199,13 @@
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
     |      SREM         |    Yes     | SREM key member [member ...]                                                                                        |
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
-    |     SUNION        |    No      | SUNION key [key ...]                                                                                                |
+    |     SUNION        |    Yes*    | SUNION key [key ...]                                                                                                |
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
-    |   SUNIONSTORE     |    No      | SUNIONSTORE destination key [key ...]                                                                               |
+    |   SUNIONSTORE     |    Yes*    | SUNIONSTORE destination key [key ...]                                                                               |
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
+
+* SIDFF, SDIFFSTORE, SINTER, SINTERSTORE, SMOVE, SUNION and SUNIONSTORE support requires that the supplied keys hash to the same server. You can ensure this by using the same [hashtag](notes/recommendation.md#hash-tags) for all keys in the command. Twemproxy does no checking on its end to verify that all the keys hash to the same server, and the given command is forwarded to the server that the first key hashes to.
+
 
 ### Sorted Sets
 
@@ -215,7 +220,7 @@
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
     |      ZINCRBY      |    Yes     | ZINCRBY key increment member                                                                                        |
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
-    |     ZINTERSTORE   |    No      | ZINTERSTORE destination numkeys key [key ...] [WEIGHTS weight [weight ...]] [AGGREGATE SUM|MIN|MAX]                 |
+    |     ZINTERSTORE   |    Yes*    | ZINTERSTORE destination numkeys key [key ...] [WEIGHTS weight [weight ...]] [AGGREGATE SUM|MIN|MAX]                 |
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
     |      ZRANGE       |    Yes     | ZRANGE key start stop [WITHSCORES]                                                                                  |
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
@@ -237,8 +242,11 @@
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
     |     ZSCORE        |    Yes     | ZSCORE key member                                                                                                   |
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
-    |    ZUNIONSTORE    |    No      | ZUNIONSTORE destination numkeys key [key ...] [WEIGHTS weight [weight ...]] [AGGREGATE SUM|MIN|MAX]                 |
+    |    ZUNIONSTORE    |    Yes*    | ZUNIONSTORE destination numkeys key [key ...] [WEIGHTS weight [weight ...]] [AGGREGATE SUM|MIN|MAX]                 |
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
+
+* ZINTERSTORE and ZUNIONSTORE support requires that the supplied keys hash to the same server. You can ensure this by using the same [hashtag](notes/recommendation.md#hash-tags) for all keys in the command. Twemproxy does no checking on its end to verify that all the keys hash to the same server, and the given command is forwarded to the server that the first key hashes to.
+
 
 ### Pub/Sub
 
@@ -277,9 +285,9 @@
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
     |      Command      | Supported? | Format                                                                                                              |
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
-    |       EVAL        |    No      | EVAL script numkeys key [key ...] arg [arg ...]                                                                     |
+    |       EVAL        |    Yes*    | EVAL script numkeys key [key ...] arg [arg ...]                                                                     |
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
-    |     EVALSHA       |    No      | EVALSHA sha1 numkeys key [key ...] arg [arg ...]                                                                    |
+    |     EVALSHA       |    Yes*    | EVALSHA sha1 numkeys key [key ...] arg [arg ...]                                                                    |
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
     |    SCRIPT EXISTS  |    No      | SCRIPT EXISTS script [script ...]                                                                                   |
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
@@ -289,6 +297,8 @@
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
     |    SCRIPT LOAD    |    No      | SCRIPT LOAD script                                                                                                  |
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
+
+ * EVAL and EVALSHA support is limited to scripts that take at least 1 key. If multiple keys are used, all keys must hash to the same server. You can ensure this by using the same [hashtag](notes/recommendation.md#hash-tags) for all keys. If you use more than 1 key, the proxy does no checking to verify that all keys hash to the same server, and the entire command is forwarded to the server that the first key hashes to
 
 ### Connection
 
@@ -373,7 +383,7 @@
 
 ### redis-benchmark against redis-server
 
-    $ redis-benchmark -h <machine-A> -q -t set,get,incr,lpush,lpop,sadd,spop,lpush,lrange -c 100 -p 6379 
+    $ redis-benchmark -h <machine-A> -q -t set,get,incr,lpush,lpop,sadd,spop,lpush,lrange -c 100 -p 6379
     SET: 89285.71 requests per second
     GET: 92592.59 requests per second
     INCR: 89285.71 requests per second
@@ -402,4 +412,4 @@
     LRANGE_300 (first 300 elements): 12376.24 requests per second
     LRANGE_500 (first 450 elements): 8605.85 requests per second
     LRANGE_600 (first 600 elements): 6587.62 requests per second
-    
+

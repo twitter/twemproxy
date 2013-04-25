@@ -35,6 +35,7 @@
 #define CONF_DEFAULT_ARGS       3
 #define CONF_DEFAULT_POOL       8
 #define CONF_DEFAULT_SERVERS    8
+#define CONF_DEFAULT_SELECT     0
 
 #define CONF_UNSET_NUM  -1
 #define CONF_UNSET_PTR  NULL
@@ -82,6 +83,7 @@ struct conf_pool {
     int                client_connections;    /* client_connections: */
     int                redis;                 /* redis: */
     int                preconnect;            /* preconnect: */
+    int                select;                /* select db */ 
     int                auto_eject_hosts;      /* auto_eject_hosts: */
     int                server_connections;    /* server_connections: */
     int                server_retry_timeout;  /* server_retry_timeout: in msec */

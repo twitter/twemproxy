@@ -154,6 +154,7 @@ conn_get(void *owner, bool client, bool redis)
     conn->redis = redis ? 1 : 0;
 
     conn->client = client ? 1 : 0;
+    conn->isSelectMsg = 1;
 
     if (conn->client) {
         /*

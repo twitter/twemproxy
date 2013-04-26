@@ -174,7 +174,7 @@ void  setSelectDb(struct conn *conn,struct server *server){
          char selectCommand[25];
          sprintf(selectCommand,"*2\r\n$6\r\nSELECT\r\n$1\r\n%d\r\n",server->owner->select);
          n = write(conn->sd,selectCommand,strlen(selectCommand));
-         if (n < 0) log_error("ERROR selecting db on  socket for socket %d-> error %d ", conn->sd, errno ); 
+         if (n < 0) log_error("ERROR selecting db on  socket for socket %d-> error %d ", conn->sd, errno );
 }
 
 

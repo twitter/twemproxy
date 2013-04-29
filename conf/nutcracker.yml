@@ -1,7 +1,5 @@
 alpha:
-  listen: 0.0.0.0:22121
-  preconnect: true
-  select: 1
+  listen: 127.0.0.1:22121
   hash: fnv1a_64
   distribution: ketama
   auto_eject_hosts: true
@@ -10,5 +8,60 @@ alpha:
   server_failure_limit: 1
   servers:
    - 127.0.0.1:6379:1
-   - 172.16.154.26:6379:1
-  server_connections: 25
+
+beta:
+  listen: 127.0.0.1:22122
+  hash: fnv1a_64
+  hash_tag: "{}"
+  distribution: ketama
+  auto_eject_hosts: false
+  timeout: 400
+  redis: true
+  servers:
+   - 127.0.0.1:6380:1 server1
+   - 127.0.0.1:6381:1 server2
+   - 127.0.0.1:6382:1 server3
+   - 127.0.0.1:6383:1 server4
+
+gamma:
+  listen: 127.0.0.1:22123
+  hash: fnv1a_64
+  distribution: ketama
+  timeout: 400
+  backlog: 1024
+  preconnect: true
+  auto_eject_hosts: true
+  server_retry_timeout: 2000
+  server_failure_limit: 3
+  servers:
+   - 127.0.0.1:11212:1
+   - 127.0.0.1:11213:1
+
+delta:
+  listen: 127.0.0.1:22124
+  hash: fnv1a_64
+  distribution: ketama
+  timeout: 100
+  auto_eject_hosts: true
+  server_retry_timeout: 2000
+  server_failure_limit: 1
+  servers:
+   - 127.0.0.1:11214:1
+   - 127.0.0.1:11215:1
+   - 127.0.0.1:11216:1
+   - 127.0.0.1:11217:1
+   - 127.0.0.1:11218:1
+   - 127.0.0.1:11219:1
+   - 127.0.0.1:11220:1
+   - 127.0.0.1:11221:1
+   - 127.0.0.1:11222:1
+   - 127.0.0.1:11223:1
+
+omega:
+  listen: /tmp/gamma
+  hash: hsieh
+  distribution: ketama
+  auto_eject_hosts: false
+  servers:
+   - 127.0.0.1:11214:100000
+   - 127.0.0.1:11215:1

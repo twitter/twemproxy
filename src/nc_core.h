@@ -122,6 +122,7 @@ struct instance {
     pid_t           pid;                         /* process id */
     char            *pid_filename;               /* pid filename */
     unsigned        pidfile:1;                   /* pid file created? */
+    unsigned        stats_http_response:1;       /* stats http response */
 };
 
 struct context *core_start(struct instance *nci);

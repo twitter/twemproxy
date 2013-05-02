@@ -56,6 +56,7 @@ static struct option long_options[] = {
     { "test-conf",      no_argument,        NULL,   't' },
     { "daemonize",      no_argument,        NULL,   'd' },
     { "describe-stats", no_argument,        NULL,   'D' },
+    { "http-stats",     no_argument,        NULL,   'j' },
     { "verbose",        required_argument,  NULL,   'v' },
     { "output",         required_argument,  NULL,   'o' },
     { "conf-file",      required_argument,  NULL,   'c' },
@@ -67,7 +68,7 @@ static struct option long_options[] = {
     { NULL,             0,                  NULL,    0  }
 };
 
-static char short_options[] = "hVtdDv:o:c:s:i:a:p:m:";
+static char short_options[] = "hVtdDjv:o:c:s:i:a:p:m:";
 
 static rstatus_t
 nc_daemonize(int dump_core)
@@ -201,7 +202,8 @@ nc_show_usage(void)
         "  -V, --version          : show version and exit" CRLF
         "  -t, --test-conf        : test configuration for syntax errors and exit" CRLF
         "  -d, --daemonize        : run as a daemon" CRLF
-        "  -D, --describe-stats   : print stats description and exit");
+        "  -D, --describe-stats   : print stats description and exit" CRLF
+        "  -j, --http-stats       ; set stats response with http protocol");
     log_stderr(
         "  -v, --verbosity=N      : set logging level (default: %d, min: %d, max: %d)" CRLF
         "  -o, --output=S         : set logging file (default: %s)" CRLF
@@ -276,6 +278,7 @@ nc_set_default_options(struct instance *nci)
     nci->stats_port = NC_STATS_PORT;
     nci->stats_addr = NC_STATS_ADDR;
     nci->stats_interval = NC_STATS_INTERVAL;
+    nci->stats_http_response = 0;
 
     status = nc_gethostname(nci->hostname, NC_MAXHOSTNAMELEN);
     if (status < 0) {
@@ -326,6 +329,10 @@ nc_get_options(int argc, char **argv, struct instance *nci)
         case 'D':
             describe_stats = 1;
             show_version = 1;
+            break;
+
+        case 'j':
+            nci->stats_http_response = 1;
             break;
 
         case 'v':

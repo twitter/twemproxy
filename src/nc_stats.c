@@ -758,6 +758,23 @@ stats_send_rsp(struct stats *st)
 
     log_debug(LOG_VERB, "send stats on sd %d %d bytes", sd, st->buf.len);
 
+    if (st->http) {
+        char http_header[4096];
+        snprintf(http_header, sizeof(http_header),
+                 "HTTP/1.0 200 OK\r\n"
+                 "Content-Type: application/json\r\n"
+                 "Content-Length: %d\r\n"
+                 "Connection: close\r\n\r\n",
+                 st->buf.len);
+
+        n = nc_sendn(sd, http_header, strlen(http_header));
+        if (n < 0) {
+            log_error("send stats on sd %d failed: %s", sd, strerror(errno));
+            close(sd);
+            return NC_ERROR;
+        }
+    }
+
     n = nc_sendn(sd, st->buf.data, st->buf.len);
     if (n < 0) {
         log_error("send stats on sd %d failed: %s", sd, strerror(errno));
@@ -896,7 +913,7 @@ stats_stop_aggregator(struct stats *st)
 
 struct stats *
 stats_create(uint16_t stats_port, char *stats_ip, int stats_interval,
-             char *source, struct array *server_pool)
+             int stats_http_response, char *source, struct array *server_pool)
 {
     rstatus_t status;
     struct stats *st;
@@ -908,6 +925,7 @@ stats_create(uint16_t stats_port, char *stats_ip, int stats_interval,
 
     st->port = stats_port;
     st->interval = stats_interval;
+    st->http = stats_http_response;
     string_set_raw(&st->addr, stats_ip);
 
     st->start_ts = (int64_t)time(NULL);

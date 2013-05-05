@@ -224,6 +224,7 @@ If you are deploying nutcracker in production, you might consider reading throug
 + [Twitter](https://twitter.com/)
 + [Vine](http://vine.co/)
 + [Kiip](http://www.kiip.me/)
++ [Wuaki.tv](https://wuaki.tv/)
 
 ## Issues and Support
 

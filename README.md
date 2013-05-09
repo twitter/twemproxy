@@ -221,6 +221,7 @@ If you are deploying nutcracker in production, you might consider reading throug
 ## Utils
 + [nagios checks](https://github.com/wanelo/nagios-checks/blob/master/check_twemproxy)
 + [circunous](https://github.com/wanelo-chef/nad-checks/blob/master/recipes/twemproxy.rb)
++ [puppet module](https://github.com/wuakitv/puppet-twemproxy)
 
 ## Users
 + [Pinterest](http://pinterest.com/)

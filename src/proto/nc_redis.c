@@ -1538,6 +1538,8 @@ redis_parse_rsp(struct msg *r)
     struct mbuf *b;
     uint8_t *p, *m;
     uint8_t ch;
+    uint8_t integer_reply;
+
     enum {
         SW_START,
         SW_STATUS,
@@ -1559,6 +1561,7 @@ redis_parse_rsp(struct msg *r)
         SW_SENTINEL
     } state;
 
+    integer_reply = 0;
     state = r->state;
     b = STAILQ_LAST(&r->mhdr, mbuf, next);
 
@@ -1742,12 +1745,15 @@ redis_parse_rsp(struct msg *r)
                 /* rsp_start <- p */
                 r->narg_start = p;
                 r->rnarg = 0;
+            } else if (ch == '-') {
+                state = SW_RUNTO_CRLF;
             } else if (isdigit(ch)) {
                 r->rnarg = r->rnarg * 10 + (uint32_t)(ch - '0');
             } else if (ch == CR) {
                 if ((p - r->token) <= 1) {
                     goto error;
                 }
+
                 r->narg = r->rnarg;
                 r->narg_end = p;
                 r->token = NULL;
@@ -1776,7 +1782,10 @@ redis_parse_rsp(struct msg *r)
 
         case SW_MULTIBULK_ARGN_LEN:
             if (r->token == NULL) {
-                if (ch != '$') {
+                if (ch == ':') {
+                    integer_reply = 1;
+                }
+                else if (ch != '$') {
                     goto error;
                 }
                 r->token = p;
@@ -1790,10 +1799,11 @@ redis_parse_rsp(struct msg *r)
                     goto error;
                 }
 
-                if (r->rlen == 1 && (p - r->token) == 3) {
+                if (r->rlen == 1 && (p - r->token) == 3 || integer_reply == 1) {
                     /* handles not-found reply = '$-1'*/
                     r->rlen = 0;
                     state = SW_MULTIBULK_ARGN_LF;
+                    integer_reply = 0;
                 } else {
                     state = SW_MULTIBULK_ARGN_LEN_LF;
                 }

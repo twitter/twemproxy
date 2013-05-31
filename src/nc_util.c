@@ -22,7 +22,10 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <netdb.h>
+
+#ifdef NC_HAVE_BACKTRACE
 #include <execinfo.h>
+#endif
 
 #include <sys/time.h>
 #include <sys/types.h>
@@ -275,6 +278,7 @@ _nc_free(void *ptr, const char *name, int line)
 void
 nc_stacktrace(int skip_count)
 {
+#ifdef NC_HAVE_BACKTRACE
     void *stack[64];
     char **symbols;
     int size, i, j;
@@ -292,6 +296,7 @@ nc_stacktrace(int skip_count)
     }
 
     free(symbols);
+#endif
 }
 
 void
@@ -616,4 +621,15 @@ nc_unresolve_desc(int sd)
     }
 
     return nc_unresolve_addr(addr, addrlen);
+}
+
+struct timespec
+nc_millisec_to_timespec (int n_millisec)
+{
+    struct timeval tv = {n_millisec/1000LL, (n_millisec%1000LL)*1000LL};
+    struct timespec ts;
+
+    TIMEVAL_TO_TIMESPEC(&tv, &ts);         
+
+    return ts;
 }

@@ -20,20 +20,40 @@
 
 #include <nc_core.h>
 
-/*
- * A hint to the kernel that is used to size the event backing store
- * of a given epoll instance
- */
-#define EVENT_SIZE_HINT 1024
+#define NC_EVENT_SIZE 1024
+#define EV_READ 0xff
+#define EV_WRITE 0xff00
+#define EV_ERR 0xff0000
 
-int event_init(struct context *ctx, int size);
-void event_deinit(struct context *ctx);
-
-int event_add_out(int ep, struct conn *c);
-int event_del_out(int ep, struct conn *c);
-int event_add_conn(int ep, struct conn *c);
-int event_del_conn(int ep, struct conn *c);
-
-int event_wait(int ep, struct epoll_event *event, int nevent, int timeout);
-
+#ifdef NC_HAVE_KQUEUE
+struct evbase {
+    int                  kq;
+    struct kevent        *changes;   /* list of changes to be made */
+    struct kevent        *kevents;   /* list of events returned from kevent */
+    int                  n_changes;  /* number of changes in our list */
+    int                  n_returned; /* number of events returned from kevent */
+    int                  n_processed;
+    int                  nevent;
+    void (*callback_fp)(void *, uint32_t);
+};
 #endif
+#ifdef NC_HAVE_EPOLL
+struct evbase {
+    int                   ep;
+    int                   nevent;
+    struct epoll_event    *event;
+    void (*callback_fp)(void *, uint32_t);
+};
+#endif
+
+struct evbase *evbase_create(int size, void (*callback_fp)(void *, uint32_t));
+void evbase_destroy(struct evbase *evb);
+
+int event_add_out(struct evbase *evb, struct conn *c);
+int event_del_out(struct evbase *evb, struct conn *c);
+int event_add_conn(struct evbase *evb, struct conn *c);
+int event_del_conn(struct evbase *evb, struct conn *c);
+int event_wait(struct evbase *evb, int timeout);
+int event_add_st(struct evbase *evb, int fd);
+
+#endif /* _NC_EVENT_H */

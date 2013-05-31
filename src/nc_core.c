@@ -28,6 +28,30 @@
 
 static uint32_t ctx_id; /* context generation */
 
+static void
+core_failed_servers_init(struct context *ctx)
+{
+    int i;
+
+    for (i = 0; i < 2; i++) {
+        array_init(&(ctx->failed_servers[i]), 10, sizeof(struct server *));
+    }
+}
+
+static void
+core_failed_servers_deinit(struct context *ctx)
+{
+    uint32_t i, n, nsize;
+    
+    for (i = 0; i < 2; i++) {
+        nsize = array_n(&(ctx->failed_servers[i]));
+        for (n = 0; n < nsize; n++) {
+            array_pop(&(ctx->failed_servers[n]));
+        }
+        array_deinit(&(ctx->failed_servers[n]));
+    }
+}
+
 static struct context *
 core_ctx_create(struct instance *nci)
 {
@@ -42,6 +66,10 @@ core_ctx_create(struct instance *nci)
     ctx->cf = NULL;
     ctx->stats = NULL;
     array_null(&ctx->pool);
+    array_null(&(ctx->failed_servers[0]));
+    array_null(&(ctx->failed_servers[1]));
+    ctx->failed_idx = 0;
+    ctx->fails = &(ctx->failed_servers[0]);
     ctx->ep = -1;
     ctx->nevent = EVENT_SIZE_HINT;
     ctx->max_timeout = nci->stats_interval;
@@ -62,6 +90,9 @@ core_ctx_create(struct instance *nci)
         nc_free(ctx);
         return NULL;
     }
+
+    /* initialize fails_servers */
+    core_failed_servers_init(ctx);
 
     /* create stats per server pool */
     ctx->stats = stats_create(nci->stats_port, nci->stats_addr, nci->stats_interval,
@@ -118,6 +149,7 @@ core_ctx_destroy(struct context *ctx)
     log_debug(LOG_VVERB, "destroy ctx %p id %"PRIu32"", ctx, ctx->id);
     proxy_deinit(ctx);
     server_pool_disconnect(ctx);
+    core_failed_servers_deinit(ctx);
     event_deinit(ctx);
     stats_destroy(ctx->stats);
     server_pool_deinit(&ctx->pool);
@@ -232,6 +264,41 @@ core_error(struct context *ctx, struct conn *conn)
 }
 
 static void
+retry_connection(struct context *ctx)
+{
+    struct array *servers;
+    int idx;
+    struct server *server;
+    int64_t now;
+    uint32_t i, nsize;
+    rstatus_t status;
+
+    servers = ctx->fails;
+    idx = (ctx->failed_idx == 0) ? 1 : 0;
+
+    ctx->failed_idx = idx;
+    ctx->fails = &(ctx->failed_servers[idx]);
+
+    now = nc_usec_now();
+    nsize = array_n(servers);
+    if (nsize == 0) {
+        return;
+    }
+
+    for (i = 0; i < nsize; i++) {
+        server = *(struct server **)array_pop(servers);
+        if (server->next_retry == 0 || server->next_retry < now) {
+            status = server_reconnect(ctx, server);
+            if (status != NC_OK) {
+                add_failed_server(ctx, server);
+            }
+        } else {
+            add_failed_server(ctx, server);
+        }
+    }
+}
+
+static void
 core_timeout(struct context *ctx)
 {
     for (;;) {
@@ -242,7 +309,7 @@ core_timeout(struct context *ctx)
         msg = msg_tmo_min();
         if (msg == NULL) {
             ctx->timeout = ctx->max_timeout;
-            return;
+            break;
         }
 
         /* skip over req that are in-error or done */
@@ -264,7 +331,7 @@ core_timeout(struct context *ctx)
         if (now < then) {
             int delta = (int)(then - now);
             ctx->timeout = MIN(delta, ctx->max_timeout);
-            return;
+            break;
         }
 
         log_debug(LOG_INFO, "req %"PRIu64" on s %d timedout", msg->id, conn->sd);
@@ -274,13 +341,14 @@ core_timeout(struct context *ctx)
 
         core_close(ctx, conn);
     }
+
+    retry_connection(ctx);
 }
 
 static void
 core_core(struct context *ctx, struct conn *conn, uint32_t events)
 {
     rstatus_t status;
-
     log_debug(LOG_VVERB, "event %04"PRIX32" on %c %d", events,
               conn->client ? 'c' : (conn->proxy ? 'p' : 's'), conn->sd);
 
@@ -291,6 +359,8 @@ core_core(struct context *ctx, struct conn *conn, uint32_t events)
         core_error(ctx, conn);
         return;
     }
+
+    conn->restore(ctx, conn);
 
     /* read takes precedence over write */
     if (events & (EPOLLIN | EPOLLHUP)) {

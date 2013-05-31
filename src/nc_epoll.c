@@ -16,66 +16,86 @@
  */
 
 #include <unistd.h>
-#include <sys/epoll.h>
-
 #include <nc_core.h>
 #include <nc_event.h>
 
-int
-event_init(struct context *ctx, int size)
+#ifdef NC_HAVE_EPOLL
+#include <sys/epoll.h>
+
+struct evbase * 
+evbase_create(int nevent, void (*callback_fp)(void *, uint32_t))
 {
+
+    struct evbase *evb;
     int status, ep;
     struct epoll_event *event;
 
-    ASSERT(ctx->ep < 0);
-    ASSERT(ctx->nevent != 0);
-    ASSERT(ctx->event == NULL);
-
-    ep = epoll_create(size);
-    if (ep < 0) {
-        log_error("epoll create of size %d failed: %s", size, strerror(errno));
-        return -1;
+    if (nevent <= 0) {
+        log_error("nevent has to be positive %d", nevent);
+        return NULL;
     }
 
-    event = nc_calloc(ctx->nevent, sizeof(*ctx->event));
+    ep = epoll_create(nevent);
+    if (ep < 0) {
+        log_error("epoll create of size %d failed: %s", nevent, strerror(errno));
+        return NULL;
+    }
+
+    event = nc_calloc(nevent, sizeof(*event));
     if (event == NULL) {
         status = close(ep);
         if (status < 0) {
             log_error("close e %d failed, ignored: %s", ep, strerror(errno));
         }
-        return -1;
+        return NULL;
     }
 
-    ctx->ep = ep;
-    ctx->event = event;
+    evb = nc_alloc(sizeof(*evb));
+    if (evb == NULL) {
+        nc_free(event);
+        status = close(ep);
+        if (status < 0) {
+            log_error("close e %d failed, ignored: %s", ep, strerror(errno));
+        }
+        return NULL;
 
-    log_debug(LOG_INFO, "e %d with nevent %d timeout %d", ctx->ep,
-              ctx->nevent, ctx->timeout);
+    }
 
-    return 0;
+    evb->nevent = nevent;
+    evb->ep = ep;
+    evb->event = event;
+    evb->callback_fp = callback_fp;
+
+    log_debug(LOG_INFO, "e %d with nevent %d", evb->ep,
+              evb->nevent);
+
+    return evb;
 }
 
 void
-event_deinit(struct context *ctx)
+evbase_destroy(struct evbase *evb)
 {
     int status;
 
-    ASSERT(ctx->ep >= 0);
+    if (evb == NULL) return;
 
-    nc_free(ctx->event);
+    ASSERT(evb->ep >= 0);
 
-    status = close(ctx->ep);
+    nc_free(evb->event);
+
+    status = close(evb->ep);
     if (status < 0) {
-        log_error("close e %d failed, ignored: %s", ctx->ep, strerror(errno));
+        log_error("close e %d failed, ignored: %s", evb->ep, strerror(errno));
     }
-    ctx->ep = -1;
+    nc_free(evb);
 }
 
 int
-event_add_out(int ep, struct conn *c)
+event_add_out(struct evbase *evb, struct conn *c)
 {
     int status;
     struct epoll_event event;
+    int ep = evb->ep;
 
     ASSERT(ep > 0);
     ASSERT(c != NULL);
@@ -101,10 +121,11 @@ event_add_out(int ep, struct conn *c)
 }
 
 int
-event_del_out(int ep, struct conn *c)
+event_del_out(struct evbase *evb, struct conn *c)
 {
     int status;
     struct epoll_event event;
+    int ep = evb->ep;
 
     ASSERT(ep > 0);
     ASSERT(c != NULL);
@@ -130,10 +151,11 @@ event_del_out(int ep, struct conn *c)
 }
 
 int
-event_add_conn(int ep, struct conn *c)
+event_add_conn(struct evbase *evb, struct conn *c)
 {
     int status;
     struct epoll_event event;
+    int ep = evb->ep;
 
     ASSERT(ep > 0);
     ASSERT(c != NULL);
@@ -155,9 +177,10 @@ event_add_conn(int ep, struct conn *c)
 }
 
 int
-event_del_conn(int ep, struct conn *c)
+event_del_conn(struct evbase *evb, struct conn *c)
 {
     int status;
+    int ep = evb->ep;
 
     ASSERT(ep > 0);
     ASSERT(c != NULL);
@@ -176,9 +199,14 @@ event_del_conn(int ep, struct conn *c)
 }
 
 int
-event_wait(int ep, struct epoll_event *event, int nevent, int timeout)
+event_wait(struct evbase *evb, int timeout)
 {
-    int nsd;
+    int nsd, i;
+    uint32_t evflags = 0;
+    int ep = evb->ep;
+    struct epoll_event *event = evb->event;
+    int nevent = evb->nevent;
+    void (*callback_fp)(void *, uint32_t) = evb->callback_fp;
 
     ASSERT(ep > 0);
     ASSERT(event != NULL);
@@ -187,6 +215,22 @@ event_wait(int ep, struct epoll_event *event, int nevent, int timeout)
     for (;;) {
         nsd = epoll_wait(ep, event, nevent, timeout);
         if (nsd > 0) {
+            for (i = 0; i < nsd; i++) {
+                struct epoll_event *ev = &evb->event[i];
+
+                evflags = 0;
+                if (ev->events & EPOLLERR)
+                    evflags |= EV_ERR;
+
+                if (ev->events & EPOLLIN)
+                    evflags |= EV_READ;
+
+                if (ev->events & EPOLLOUT)
+                    evflags |= EV_WRITE;
+
+                if (callback_fp != NULL)
+                    (*callback_fp)((void *) ev->data.ptr, evflags);
+            }
             return nsd;
         }
 
@@ -209,6 +253,26 @@ event_wait(int ep, struct epoll_event *event, int nevent, int timeout)
 
         return -1;
     }
-
     NOT_REACHED();
 }
+
+int
+event_add_st(struct evbase *evb, int fd)
+{
+    int status;
+    struct epoll_event ev;
+
+    ev.data.fd = fd;
+    ev.events = EPOLLIN;
+
+    status = epoll_ctl(evb->ep, EPOLL_CTL_ADD, fd, &ev);
+    if (status < 0) {
+        log_error("epoll ctl on e %d sd %d failed: %s", evb->ep, fd,
+                  strerror(errno));
+        return status;
+    }
+    
+    return status;
+}
+
+#endif /* NC_HAVE_EPOLL */

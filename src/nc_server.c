@@ -367,7 +367,7 @@ server_close(struct context *ctx, struct conn *conn)
             msg->err = conn->err;
 
             if (req_done(c_conn, TAILQ_FIRST(&c_conn->omsg_q))) {
-                event_add_out(ctx->ep, msg->owner);
+                event_add_out(ctx->evb, msg->owner);
             }
 
             log_debug(LOG_INFO, "close s %d schedule error for req %"PRIu64" "
@@ -397,7 +397,7 @@ server_close(struct context *ctx, struct conn *conn)
             msg->err = conn->err;
 
             if (req_done(c_conn, TAILQ_FIRST(&c_conn->omsg_q))) {
-                event_add_out(ctx->ep, msg->owner);
+                event_add_out(ctx->evb, msg->owner);
             }
 
             log_debug(LOG_INFO, "close s %d schedule error for req %"PRIu64" "
@@ -476,10 +476,10 @@ server_connect(struct context *ctx, struct server *server, struct conn *conn)
         }
     }
 
-    status = event_add_conn(ctx->ep, conn);
+    status = event_add_conn(ctx->evb, conn);
     if (status != NC_OK) {
-        log_error("event add conn e %d s %d for server '%.*s' failed: %s",
-                  ctx->ep, conn->sd, server->pname.len, server->pname.data,
+        log_error("event add conn s %d for server '%.*s' failed: %s",
+                  conn->sd, server->pname.len, server->pname.data,
                   strerror(errno));
         goto error;
     }

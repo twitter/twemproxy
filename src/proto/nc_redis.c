@@ -84,7 +84,6 @@ redis_arg1(struct msg *r)
     case MSG_REQ_REDIS_GETSET:
     case MSG_REQ_REDIS_INCRBY:
     case MSG_REQ_REDIS_INCRBYFLOAT:
-    case MSG_REQ_REDIS_SET:
     case MSG_REQ_REDIS_SETNX:
 
     case MSG_REQ_REDIS_HEXISTS:
@@ -178,6 +177,7 @@ redis_argn(struct msg *r)
     switch (r->type) {
     case MSG_REQ_REDIS_BITCOUNT:
 
+    case MSG_REQ_REDIS_SET:
     case MSG_REQ_REDIS_HDEL:
     case MSG_REQ_REDIS_HMGET:
     case MSG_REQ_REDIS_HMSET:

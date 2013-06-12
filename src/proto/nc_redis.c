@@ -28,6 +28,7 @@
 static bool
 redis_arg0(struct msg *r)
 {
+
     switch (r->type) {
     case MSG_REQ_REDIS_EXISTS:
     case MSG_REQ_REDIS_PERSIST:
@@ -57,6 +58,8 @@ redis_arg0(struct msg *r)
 
     case MSG_REQ_REDIS_ZCARD:
     case MSG_REQ_REDIS_AUTH:
+
+    case MSG_REQ_REDIS_PING:
         return true;
 
     default:
@@ -101,6 +104,7 @@ redis_arg1(struct msg *r)
     case MSG_REQ_REDIS_ZRANK:
     case MSG_REQ_REDIS_ZREVRANK:
     case MSG_REQ_REDIS_ZSCORE:
+    case MSG_REQ_REDIS_PING:
         return true;
 
     default:
@@ -562,6 +566,11 @@ redis_parse_req(struct msg *r)
                     break;
                 }
 
+                if (str4icmp(m, 'p', 'i', 'n', 'g')) {
+                    r->type = MSG_REQ_REDIS_PING;
+                    break;
+                }
+
                 break;
 
             case 5:
@@ -936,17 +945,22 @@ redis_parse_req(struct msg *r)
             break;
 
         case SW_REQ_TYPE_LF:
-            switch (ch) {
-            case LF:
-                if (redis_argeval(r)) {
-                    state = SW_ARG1_LEN;
-                } else {
-                    state = SW_KEY_LEN;
-                }
-                break;
+            if (r->type == MSG_REQ_REDIS_PING) {
+                goto done; 
+            }
+            else {
+                switch (ch) {
+                case LF:
+                    if (redis_argeval(r)) {
+                        state = SW_ARG1_LEN;
+                    } else {
+                        state = SW_KEY_LEN;
+                    }
+                    break;
 
-            default:
-                goto error;
+                default:
+                    goto error;
+                }
             }
 
             break;
@@ -1488,7 +1502,7 @@ fragment:
     return;
 
 done:
-    ASSERT(r->type > MSG_UNKNOWN && r->type < MSG_SENTINEL);
+    ASSERT(r->type == MSG_REQ_REDIS_PING || (r->type > MSG_UNKNOWN && r->type < MSG_SENTINEL) );
     r->pos = p + 1;
     ASSERT(r->pos <= b->last);
     r->state = SW_START;

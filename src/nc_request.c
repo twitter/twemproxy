@@ -475,6 +475,17 @@ req_filter(struct context *ctx, struct conn *conn, struct msg *msg)
         return true;
     }
 
+    /*
+     * Hanlde "PING\r\n"
+     *
+     */
+    if (msg->type == MSG_REQ_REDIS_PING) {
+        log_debug(LOG_INFO, "filter ping req %"PRIu64" from c %d", msg->id,
+                  conn->sd);
+        reply(ctx, conn, msg, "+PONG\r\n");
+        return true;
+    }
+
     return false;
 }
 

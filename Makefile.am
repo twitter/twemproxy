@@ -4,4 +4,6 @@ ACLOCAL_AMFLAGS = -I m4
 
 SUBDIRS = contrib src
 
+dist_man_MANS = man/nutcracker.8
+
 EXTRA_DIST = README.md NOTICE LICENSE ChangeLog conf scripts notes

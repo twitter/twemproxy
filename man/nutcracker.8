@@ -1,0 +1,76 @@
+.TH NUTCRACKER 8 "June 13, 2013"
+.SH NAME
+nutcracker \- Fast, light-weight proxy for memcached and Redis
+.SH SYNOPSIS
+.B nutcracker
+.RI [ options ]
+.SH DESCRIPTION
+\fBnutcracker\fP, also known as \fBtwemproxy\fP (pronounced "two-em-proxy"), is
+a fast and lightweight proxy for the memcached and Redis protocols.
+.PP
+It was primarily built to reduce the connection count on backend caching
+servers, but it has a number of features, such as:
+.IP \[bu]
+Maintains persistent server connections to backend servers.
+.IP \[bu]
+Enables pipelining of requests and responses.
+.IP \[bu]
+Supports multiple server pools simultaneously.
+.IP \[bu]
+Shard data automatically across multiple servers.
+.IP \[bu]
+Supports multiple hashing modes including consistent hashing and
+distribution.
+.IP \[bu]
+High-availability by disabling nodes on failures.
+.IP \[bu]
+Observability through stats exposed on stats monitoring port.
+.SH OPTIONS
+.TP
+.BR \-h ", " \-\-help
+Show usage information and exit.
+.TP
+.BR \-V ", " \-\-version
+Show version and exit.
+.TP
+.BR \-t ", " \-\-test-conf
+Test configuration for syntax errors and exit.
+.TP
+.BR \-D ", " \-\-describe-stats
+Print stats description and exit.
+.TP
+.BR \-v ", " \-\-verbosity=\fIN\fP
+Set logging level to \fIN\fP. (default: 5, min: 0, max: 11)
+.TP
+.BR \-o ", " \-\-output=\fIfilename\fP
+Set logging file to \fIfilename\fP.
+.TP
+.BR \-c ", " \-\-conf-file=\fIfilename\fP
+Set configuration file to \fIfilename\fP.
+.TP
+.BR \-s ", " \-\-stats-port=\fIport\fP
+Set stats monitoring port to \fIport\fP.
+(default: 22222)
+.TP
+.BR \-a ", " \-\-stats-addr=\fIaddress\fP
+Set stats monitoring IP to \fIaddress\fP.
+(default: 0.0.0.0)
+.TP
+.BR \-i ", " \-\-stats-interval=\fIinterval\fP
+Set stats aggregation interval in msec to \fIinterval\fP.
+(default: 30000 msec)
+.TP
+.BR \-m ", " \-\-mbuf-size=\fIsize\fP
+Set size of mbuf chunk in bytes to \fIsize\fP. (default: 16384 bytes)
+.TP
+.BR \-d ", " \-\-daemonize
+Run as a daemon.
+.TP
+.BR \-p ", " \-\-pid-file=\fIfilename\fP
+Set pid file to \fIfilename\fP.
+.SH SEE ALSO
+.BR memcached (8),
+.BR redis-server (1)
+.br
+.SH AUTHOR
+nutcracker was written by Twitter, Inc.

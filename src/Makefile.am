@@ -1,4 +1,11 @@
 MAINTAINERCLEANFILES = Makefile.in
+BUILT_SOURCES = cfg-options.h
+CLEANFILES = cfg-options.h
+
+cfg-options.h: Makefile
+	$(AM_V_GEN)echo '#define NC_CONF_PATH "$(sysconfdir)/nutcracker/nutcracker.yml"' >$@
+	@echo '#define NC_LOG_PATH "$(localstatedir)/log/nutcracker/nutcracker.log"' >>$@
+	@echo '#define NC_PID_FILE "$(localstatedir)/run/nutcracker/nutcracker.pid"' >>$@
 
 AM_CPPFLAGS = -D_GNU_SOURCE -D_XOPEN_SOURCE
 AM_CPPFLAGS += -I $(top_srcdir)/src/hashkit
@@ -18,7 +25,7 @@ AM_LDFLAGS = -lm -lpthread -rdynamic
 
 SUBDIRS = hashkit proto event
 
-bin_PROGRAMS = nutcracker
+sbin_PROGRAMS = nutcracker
 
 nutcracker_SOURCES =			\
 	nc_core.c nc_core.h		\

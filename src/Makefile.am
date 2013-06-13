@@ -18,7 +18,7 @@ AM_LDFLAGS = -lm -lpthread -rdynamic
 
 SUBDIRS = hashkit proto event
 
-bin_PROGRAMS = nutcracker
+sbin_PROGRAMS = nutcracker
 
 nutcracker_SOURCES =			\
 	nc_core.c nc_core.h		\

@@ -223,6 +223,7 @@ If you are deploying nutcracker in production, you might consider reading throug
 + [nagios checks](https://github.com/wanelo/nagios-checks/blob/master/check_twemproxy)
 + [circunous](https://github.com/wanelo-chef/nad-checks/blob/master/recipes/twemproxy.rb)
 + [puppet module](https://github.com/wuakitv/puppet-twemproxy)
++ [nutcracker-web](https://github.com/kontera-technologies/nutcracker-web)
 
 ## Users
 + [Pinterest](http://pinterest.com/)
@@ -232,6 +233,7 @@ If you are deploying nutcracker in production, you might consider reading throug
 + [Kiip](http://www.kiip.me/)
 + [Wuaki.tv](https://wuaki.tv/)
 + [Wanelo](http://wanelo.com/)
++ [Kontera-Technologies](http://kontera.com/)
 
 ## Issues and Support
 

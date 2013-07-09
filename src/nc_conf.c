@@ -154,6 +154,7 @@ conf_server_each_transform(void *elem, void *data)
 
     s->next_retry = 0LL;
     s->failure_count = 0;
+    s->fail = FAIL_STATUS_NORMAL;
 
     log_debug(LOG_VERB, "transform to server %"PRIu32" '%.*s'",
               s->idx, s->pname.len, s->pname.data);
@@ -1110,6 +1111,14 @@ conf_pre_validate(struct conf *cf)
 }
 
 static int
+conf_server_pname_cmp(const void *t1, const void *t2)
+{
+    const struct conf_server *s1 = t1, *s2 = t2;
+
+    return string_compare(&s1->pname, &s2->pname);
+}
+
+static int
 conf_server_name_cmp(const void *t1, const void *t2)
 {
     const struct conf_server *s1 = t1, *s2 = t2;
@@ -1152,6 +1161,25 @@ conf_validate_server(struct conf *cf, struct conf_pool *cp)
      * is configured, we only check for duplicate "name" and not for duplicate
      * "host:port:weight"
      */
+    array_sort(&cp->server, conf_server_pname_cmp);
+    for (valid = true, i = 0; i < nserver - 1; i++) {
+        struct conf_server *cs1, *cs2;
+
+        cs1 = array_get(&cp->server, i);
+        cs2 = array_get(&cp->server, i + 1);
+
+        if (string_compare(&cs1->pname, &cs2->pname) == 0) {
+            log_error("conf: pool '%.*s' has servers with same pname '%.*s'",
+                     cp->name.len, cp->name.data, cs1->pname.len,
+                     cs1->pname.data);
+            valid = false;
+            break;
+        }
+    }
+    if (!valid) {
+        return NC_ERROR;
+    }
+
     array_sort(&cp->server, conf_server_name_cmp);
     for (valid = true, i = 0; i < nserver - 1; i++) {
         struct conf_server *cs1, *cs2;

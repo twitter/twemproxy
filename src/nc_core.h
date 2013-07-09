@@ -111,6 +111,11 @@ struct context {
     struct stats       *stats;      /* stats */
 
     struct array       pool;        /* server_pool[] */
+    struct array       failed_servers[2];   /* failed servers */
+    struct array       *fails;              /* ref of current fails server */
+
+    int                failed_idx;           /* current idx for failed servers */
+
     struct evbase      *evb;
     int                max_timeout; /* epoll wait max timeout in msec */
     int                timeout;

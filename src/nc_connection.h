@@ -33,6 +33,7 @@ typedef bool (*conn_active_t)(struct conn *);
 
 typedef void (*conn_ref_t)(struct conn *, void *);
 typedef void (*conn_unref_t)(struct conn *);
+typedef void (*conn_restore_t)(struct context *, struct conn *);
 
 typedef void (*conn_msgq_t)(struct context *, struct conn *, struct msg *);
 
@@ -58,6 +59,7 @@ struct conn {
     conn_send_done_t   send_done;     /* write done handler */
     conn_close_t       close;         /* close handler */
     conn_active_t      active;        /* active? handler */
+    conn_restore_t     restore;       /* restore handler */
 
     conn_ref_t         ref;           /* connection reference handler */
     conn_unref_t       unref;         /* connection unreference handler */
@@ -95,5 +97,7 @@ ssize_t conn_recv(struct conn *conn, void *buf, size_t size);
 ssize_t conn_sendv(struct conn *conn, struct array *sendv, size_t nsend);
 void conn_init(void);
 void conn_deinit(void);
+
+rstatus_t event_add_out_with_conn(struct context *ctx, struct conn *conn, struct msg *msg);
 
 #endif

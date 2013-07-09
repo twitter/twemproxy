@@ -143,8 +143,11 @@ static bool
 rsp_filter(struct context *ctx, struct conn *conn, struct msg *msg)
 {
     struct msg *pmsg;
+    struct server *server;
 
     ASSERT(!conn->client && !conn->proxy);
+
+    server = (struct server *)conn->owner;
 
     if (msg_empty(msg)) {
         ASSERT(conn->rmsg == NULL);
@@ -165,6 +168,13 @@ rsp_filter(struct context *ctx, struct conn *conn, struct msg *msg)
     ASSERT(pmsg->request && !pmsg->done);
 
     if (pmsg->swallow) {
+        if (server->fail == FAIL_STATUS_ERR_TRY_HEARTBEAT) {
+            struct conn *c_conn;
+
+            c_conn = pmsg->owner; 
+            server_restore_from_heartbeat(server, c_conn);
+        }
+
         conn->dequeue_outq(ctx, conn, pmsg);
         pmsg->done = 1;
 

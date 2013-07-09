@@ -59,6 +59,10 @@
  *            //
  */
 
+#define     FAIL_STATUS_NORMAL              0
+#define     FAIL_STATUS_ERR_TRY_CONNECT     1
+#define     FAIL_STATUS_ERR_TRY_HEARTBEAT   2
+
 typedef uint32_t (*hash_t)(const char *, size_t);
 
 struct continuum {
@@ -83,6 +87,7 @@ struct server {
 
     int64_t            next_retry;    /* next retry time in usec */
     uint32_t           failure_count; /* # consecutive failures */
+    int                fail;          /* server fail status */
 };
 
 struct server_pool {
@@ -139,5 +144,9 @@ rstatus_t server_pool_preconnect(struct context *ctx);
 void server_pool_disconnect(struct context *ctx);
 rstatus_t server_pool_init(struct array *server_pool, struct array *conf_pool, struct context *ctx);
 void server_pool_deinit(struct array *server_pool);
+void server_restore(struct context *ctx, struct conn *conn);
+rstatus_t server_reconnect(struct context *ctx, struct server *server);
+void add_failed_server(struct context *ctx, struct server *server);
+void server_restore_from_heartbeat(struct server *server, struct conn *conn);
 
 #endif

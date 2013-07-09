@@ -30,5 +30,6 @@ rstatus_t proxy_each_deinit(void *elem, void *data);
 rstatus_t proxy_init(struct context *ctx);
 void proxy_deinit(struct context *ctx);
 rstatus_t proxy_recv(struct context *ctx, struct conn *conn);
+void proxy_restore(struct context *ctx, struct conn *conn);
 
 #endif

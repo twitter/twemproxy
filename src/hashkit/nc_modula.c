@@ -54,12 +54,8 @@ modula_update(struct server_pool *pool)
         struct server *server = array_get(&pool->server, server_index);
 
         if (pool->auto_eject_hosts) {
-            if (server->next_retry <= now) {
-                server->next_retry = 0LL;
+            if (server->fail == 0) {
                 nlive_server++;
-            } else if (pool->next_rebuild == 0LL ||
-                       server->next_retry < pool->next_rebuild) {
-                pool->next_rebuild = server->next_retry;
             }
         } else {
             nlive_server++;
@@ -68,7 +64,7 @@ modula_update(struct server_pool *pool)
         ASSERT(server->weight > 0);
 
         /* count weight only for live servers */
-        if (!pool->auto_eject_hosts || server->next_retry <= now) {
+        if (!pool->auto_eject_hosts || server->fail == 0) {
             total_weight += server->weight;
         }
     }

@@ -233,7 +233,7 @@ If you are deploying nutcracker in production, you might consider reading throug
 + [Kiip](http://www.kiip.me/)
 + [Wuaki.tv](https://wuaki.tv/)
 + [Wanelo](http://wanelo.com/)
-+ [Kontera-Technologies](http://kontera.com/)
++ [Kontera](http://kontera.com/)
 
 ## Issues and Support
 

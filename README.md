@@ -234,6 +234,7 @@ If you are deploying nutcracker in production, you might consider reading throug
 + [Wuaki.tv](https://wuaki.tv/)
 + [Wanelo](http://wanelo.com/)
 + [Kontera](http://kontera.com/)
++ [Wikimedia](http://www.wikimedia.org/)
 
 ## Issues and Support
 

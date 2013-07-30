@@ -55,7 +55,11 @@ fi
 
 %files
 %defattr(-,root,root,-)
+%if 0%{?rhel} == 6
 /usr/sbin/nutcracker
+%else
+/usr/bin/nutcracker
+%endif
 %{_initrddir}/%{name}
 %{_mandir}/man8/nutcracker.8.gz
 %config(noreplace)%{_sysconfdir}/%{name}/%{name}.yml

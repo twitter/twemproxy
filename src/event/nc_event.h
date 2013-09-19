@@ -20,14 +20,15 @@
 
 #include <nc_core.h>
 
-#define NC_EVENT_SIZE 1024
+#define EVENT_SIZE  1024
 
-#define EV_READ     0x0000ff
-#define EV_WRITE    0x00ff00
-#define EV_ERR      0xff0000
+#define EVENT_READ  0x0000ff
+#define EVENT_WRITE 0x00ff00
+#define EVENT_ERR   0xff0000
 
 #ifdef NC_HAVE_KQUEUE
-struct evbase {
+
+struct event_base {
     int                  kq;
     struct kevent        *changes;   /* list of changes to be made */
     struct kevent        *kevents;   /* list of events returned from kevent */
@@ -37,24 +38,30 @@ struct evbase {
     int                  nevent;
     void (*callback_fp)(void *, uint32_t);
 };
-#endif
-#ifdef NC_HAVE_EPOLL
-struct evbase {
+
+#elif NC_HAVE_EPOLL
+
+struct event_base {
     int                   ep;
     int                   nevent;
     struct epoll_event    *event;
     void (*callback_fp)(void *, uint32_t);
 };
+
+#else
+
+#error missing scalable I/O event notification mechanism
+
 #endif
 
-struct evbase *evbase_create(int size, void (*callback_fp)(void *, uint32_t));
-void evbase_destroy(struct evbase *evb);
+struct event_base *event_base_create(int size, void (*callback_fp)(void *, uint32_t));
+void event_base_destroy(struct event_base *evb);
 
-int event_add_out(struct evbase *evb, struct conn *c);
-int event_del_out(struct evbase *evb, struct conn *c);
-int event_add_conn(struct evbase *evb, struct conn *c);
-int event_del_conn(struct evbase *evb, struct conn *c);
-int event_wait(struct evbase *evb, int timeout);
-int event_add_st(struct evbase *evb, int fd);
+int event_add_out(struct event_base *evb, struct conn *c);
+int event_del_out(struct event_base *evb, struct conn *c);
+int event_add_conn(struct event_base *evb, struct conn *c);
+int event_del_conn(struct event_base *evb, struct conn *c);
+int event_wait(struct event_base *evb, int timeout);
+int event_add_st(struct event_base *evb, int fd);
 
 #endif /* _NC_EVENT_H */

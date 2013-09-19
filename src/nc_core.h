@@ -44,6 +44,8 @@
 #define NC_HAVE_EPOLL 1
 #elif HAVE_KQUEUE
 #define NC_HAVE_KQUEUE 1
+#else
+#error missing scalable I/O event notification mechanism
 #endif
 
 #ifdef HAVE_LITTLE_ENDIAN

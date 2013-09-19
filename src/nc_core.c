@@ -72,7 +72,7 @@ core_ctx_create(struct instance *nci)
     }
 
     /* initialize event handling for client, proxy and server */
-    ctx->evb = evbase_create(NC_EVENT_SIZE, &core_core);
+    ctx->evb = event_base_create(EVENT_SIZE, &core_core);
     if (ctx->evb == NULL) {
         stats_destroy(ctx->stats);
         server_pool_deinit(&ctx->pool);
@@ -85,7 +85,7 @@ core_ctx_create(struct instance *nci)
     status = server_pool_preconnect(ctx);
     if (status != NC_OK) {
         server_pool_disconnect(ctx);
-        evbase_destroy(ctx->evb);
+        event_base_destroy(ctx->evb);
         stats_destroy(ctx->stats);
         server_pool_deinit(&ctx->pool);
         conf_destroy(ctx->cf);
@@ -97,7 +97,7 @@ core_ctx_create(struct instance *nci)
     status = proxy_init(ctx);
     if (status != NC_OK) {
         server_pool_disconnect(ctx);
-        evbase_destroy(ctx->evb);
+        event_base_destroy(ctx->evb);
         stats_destroy(ctx->stats);
         server_pool_deinit(&ctx->pool);
         conf_destroy(ctx->cf);
@@ -116,7 +116,7 @@ core_ctx_destroy(struct context *ctx)
     log_debug(LOG_VVERB, "destroy ctx %p id %"PRIu32"", ctx, ctx->id);
     proxy_deinit(ctx);
     server_pool_disconnect(ctx);
-    evbase_destroy(ctx->evb);
+    event_base_destroy(ctx->evb);
     stats_destroy(ctx->stats);
     server_pool_deinit(&ctx->pool);
     conf_destroy(ctx->cf);
@@ -293,13 +293,13 @@ core_core(void *arg, uint32_t events)
     conn->events = events;
 
     /* error takes precedence over read | write */
-    if (events & EV_ERR) {
+    if (events & EVENT_ERR) {
         core_error(ctx, conn);
         return;
     }
 
     /* read takes precedence over write */
-    if (events & EV_READ) {
+    if (events & EVENT_READ) {
         status = core_recv(ctx, conn);
         if (status != NC_OK || conn->done || conn->err) {
             core_close(ctx, conn);
@@ -307,7 +307,7 @@ core_core(void *arg, uint32_t events)
         }
     }
 
-    if (events & EV_WRITE) {
+    if (events & EVENT_WRITE) {
         status = core_send(ctx, conn);
         if (status != NC_OK || conn->done || conn->err) {
             core_close(ctx, conn);

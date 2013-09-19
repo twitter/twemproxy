@@ -133,7 +133,6 @@ AS_IF([test "x$ac_cv_epoll_works" = "xno" &&
        test "x$ac_cv_kqueue_works" = "xno"],
   [AC_MSG_ERROR([either epoll or kqueue support is required])], [])
 
-
 # Package options
 AC_MSG_CHECKING([whether to enable debug logs and asserts])
 AC_ARG_ENABLE([debug],

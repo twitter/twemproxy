@@ -848,7 +848,7 @@ stats_start_aggregator(struct stats *st)
         return status;
     }
 
-    st->st_evb = evbase_create(1, NULL);
+    st->st_evb = event_base_create(1, NULL);
     if (st->st_evb == NULL) {
         log_error("stats aggregator create failed: %s", strerror(errno));
         return NC_ERROR;
@@ -860,7 +860,7 @@ stats_start_aggregator(struct stats *st)
     status = event_add_st(st->st_evb, st->sd);
     if (status < 0) {
         log_error("stats aggregator create failed: %s", strerror(errno));
-        evbase_destroy(st->st_evb);
+        event_base_destroy(st->st_evb);
         st->st_evb = NULL;
         return NC_ERROR;
     }
@@ -868,7 +868,7 @@ stats_start_aggregator(struct stats *st)
     status = pthread_create(&st->tid, NULL, stats_loop, st);
     if (status < 0) {
         log_error("stats aggregator create failed: %s", strerror(status));
-        evbase_destroy(st->st_evb);
+        event_base_destroy(st->st_evb);
         st->st_evb = NULL;
         return NC_ERROR;
     }
@@ -884,7 +884,7 @@ stats_stop_aggregator(struct stats *st)
     }
 
     close(st->sd);
-    evbase_destroy(st->st_evb);
+    event_base_destroy(st->st_evb);
     st->st_evb = NULL;
 }
 

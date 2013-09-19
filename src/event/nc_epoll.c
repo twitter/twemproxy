@@ -21,10 +21,10 @@
 
 #include <sys/epoll.h>
 
-struct evbase *
-evbase_create(int nevent, void (*callback_fp)(void *, uint32_t))
+struct event_base *
+event_base_create(int nevent, void (*callback_fp)(void *, uint32_t))
 {
-    struct evbase *evb;
+    struct event_base *evb;
     int status, ep;
     struct epoll_event *event;
 
@@ -71,7 +71,7 @@ evbase_create(int nevent, void (*callback_fp)(void *, uint32_t))
 }
 
 void
-evbase_destroy(struct evbase *evb)
+event_base_destroy(struct event_base *evb)
 {
     int status;
 
@@ -91,7 +91,7 @@ evbase_destroy(struct evbase *evb)
 }
 
 int
-event_add_out(struct evbase *evb, struct conn *c)
+event_add_out(struct event_base *evb, struct conn *c)
 {
     int status;
     struct epoll_event event;
@@ -121,7 +121,7 @@ event_add_out(struct evbase *evb, struct conn *c)
 }
 
 int
-event_del_out(struct evbase *evb, struct conn *c)
+event_del_out(struct event_base *evb, struct conn *c)
 {
     int status;
     struct epoll_event event;
@@ -151,7 +151,7 @@ event_del_out(struct evbase *evb, struct conn *c)
 }
 
 int
-event_add_conn(struct evbase *evb, struct conn *c)
+event_add_conn(struct event_base *evb, struct conn *c)
 {
     int status;
     struct epoll_event event;
@@ -177,7 +177,7 @@ event_add_conn(struct evbase *evb, struct conn *c)
 }
 
 int
-event_del_conn(struct evbase *evb, struct conn *c)
+event_del_conn(struct event_base *evb, struct conn *c)
 {
     int status;
     int ep = evb->ep;
@@ -199,7 +199,7 @@ event_del_conn(struct evbase *evb, struct conn *c)
 }
 
 int
-event_wait(struct evbase *evb, int timeout)
+event_wait(struct event_base *evb, int timeout)
 {
     int nsd, i;
     uint32_t events = 0;
@@ -220,15 +220,15 @@ event_wait(struct evbase *evb, int timeout)
 
                 events = 0;
                 if (ev->events & EPOLLERR) {
-                    events |= EV_ERR;
+                    events |= EVENT_ERR;
                 }
 
                 if (ev->events & EPOLLIN) {
-                    events |= EV_READ;
+                    events |= EVENT_READ;
                 }
 
                 if (ev->events & EPOLLOUT) {
-                    events |= EV_WRITE;
+                    events |= EVENT_WRITE;
                 }
 
                 if (callback_fp != NULL) {
@@ -261,7 +261,7 @@ event_wait(struct evbase *evb, int timeout)
 }
 
 int
-event_add_st(struct evbase *evb, int fd)
+event_add_st(struct event_base *evb, int fd)
 {
     int status;
     struct epoll_event ev;

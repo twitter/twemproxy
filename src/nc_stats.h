@@ -100,7 +100,7 @@ struct stats {
     pthread_t           tid;            /* stats aggregator thread */
     int                 sd;             /* stats descriptor */
 
-    struct evbase       *st_evb;
+    struct event_base   *st_evb;
 
     struct string       service_str;    /* service string */
     struct string       service;        /* service */

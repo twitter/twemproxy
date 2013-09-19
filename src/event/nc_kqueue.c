@@ -21,11 +21,11 @@
 
 #include <sys/event.h>
 
-struct evbase *
-evbase_create(int nevent, void (*callback_fp)(void *, uint32_t))
+struct event_base *
+event_base_create(int nevent, void (*callback_fp)(void *, uint32_t))
 {
 
-    struct evbase *evb;
+    struct event_base *evb;
     int status, kq;
     struct kevent *changes, *kevents;
 
@@ -59,7 +59,7 @@ evbase_create(int nevent, void (*callback_fp)(void *, uint32_t))
         return NULL;
     }
 
-    evb = (struct evbase *) nc_alloc(sizeof(*evb));
+    evb = nc_alloc(sizeof(*evb));
     if (evb == NULL) {
         nc_free(changes);
         nc_free(kevents);
@@ -84,7 +84,7 @@ evbase_create(int nevent, void (*callback_fp)(void *, uint32_t))
 }
 
 void
-evbase_destroy(struct evbase *evb)
+event_base_destroy(struct event_base *evb)
 {
     int status;
 
@@ -103,7 +103,7 @@ evbase_destroy(struct evbase *evb)
 }
 
 int
-event_add_out(struct evbase *evb, struct conn *c)
+event_add_out(struct event_base *evb, struct conn *c)
 {
     struct kevent *event;
     int kq = evb->kq;
@@ -127,7 +127,7 @@ event_add_out(struct evbase *evb, struct conn *c)
 }
 
 int
-event_del_out(struct evbase *evb, struct conn *c)
+event_del_out(struct event_base *evb, struct conn *c)
 {
     struct kevent *event;
     int kq = evb->kq;
@@ -151,7 +151,7 @@ event_del_out(struct evbase *evb, struct conn *c)
 }
 
 int
-event_add_conn(struct evbase *evb, struct conn *c)
+event_add_conn(struct event_base *evb, struct conn *c)
 {
     struct kevent *event;
     int kq = evb->kq;
@@ -173,7 +173,7 @@ event_add_conn(struct evbase *evb, struct conn *c)
 }
 
 int
-event_del_conn(struct evbase *evb, struct conn *c)
+event_del_conn(struct event_base *evb, struct conn *c)
 {
     int i;
     struct kevent *event;
@@ -210,7 +210,7 @@ event_del_conn(struct evbase *evb, struct conn *c)
 }
 
 int
-event_wait(struct evbase *evb, int timeout)
+event_wait(struct event_base *evb, int timeout)
 {
     int kq = evb->kq;
     struct timespec ts = nc_millisec_to_timespec(timeout);
@@ -245,15 +245,15 @@ event_wait(struct evbase *evb, int timeout)
                         ev->data == ENOENT) {
                         continue;
                     }
-                    events |= EV_ERR;
+                    events |= EVENT_ERR;
                 }
 
                 if (ev->filter == EVFILT_READ) {
-                    events |= EV_READ;
+                    events |= EVENT_READ;
                 }
 
                 if (ev->filter == EVFILT_WRITE) {
-                    events |= EV_WRITE;
+                    events |= EVENT_WRITE;
                 }
 
                 if (callback_fp != NULL && events != 0) {
@@ -286,7 +286,7 @@ event_wait(struct evbase *evb, int timeout)
 }
 
 int
-event_add_st(struct evbase *evb, int fd)
+event_add_st(struct event_base *evb, int fd)
 {
     struct kevent *ev = &evb->changes[(evb->n_changes)++];
 

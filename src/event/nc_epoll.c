@@ -206,7 +206,6 @@ event_wait(struct event_base *evb, int timeout)
     int ep = evb->ep;
     struct epoll_event *event = evb->event;
     int nevent = evb->nevent;
-    event_cb_t cb = evb->cb;
 
     ASSERT(ep > 0);
     ASSERT(event != NULL);
@@ -231,8 +230,8 @@ event_wait(struct event_base *evb, int timeout)
                     events |= EVENT_WRITE;
                 }
 
-                if (cb != NULL) {
-                    cb(ev->data.ptr, events);
+                if (evb->cb != NULL) {
+                    evb->cb(ev->data.ptr, events);
                 }
             }
             return nsd;

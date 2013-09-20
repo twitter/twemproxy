@@ -25,8 +25,7 @@
 static uint32_t ctx_id; /* context generation */
 
 /* function prototype for use in core_ctx_create() */
-static void
-core_core(void *arg, uint32_t events);
+static void core_core(void *arg, uint32_t events);
 
 static struct context *
 core_ctx_create(struct instance *nci)
@@ -278,14 +277,8 @@ static void
 core_core(void *arg, uint32_t events)
 {
     rstatus_t status;
-    struct conn *conn = (struct conn *) arg;
-    struct context *ctx;
-
-    if ((conn->proxy) || (conn->client)) {
-        ctx = ((struct server_pool *) (conn -> owner)) -> ctx;
-    } else { 
-        ctx = ((struct server_pool *) (((struct server *) (conn -> owner)) -> owner )) -> ctx;
-    }
+    struct conn *conn = arg;
+    struct context *ctx = conn_to_ctx(conn);
 
     log_debug(LOG_VVERB, "event %04"PRIX32" on %c %d", events,
               conn->client ? 'c' : (conn->proxy ? 'p' : 's'), conn->sd);

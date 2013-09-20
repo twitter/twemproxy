@@ -209,14 +209,35 @@ int
 event_wait(struct event_base *evb, int timeout)
 {
     int kq = evb->kq;
-    struct timespec ts = nc_msec_to_timespec(timeout);
-    event_cb_t cb = evb->cb;
+    struct timespec ts, *tsp;
 
     ASSERT(kq > 0);
 
+    /* kevent should block indefinitely if timeout < 0 */
+    if (timeout < 0) {
+        tsp = NULL;
+    } else {
+        tsp = &ts;
+        tsp->tv_sec = timeout / 1000LL;
+        tsp->tv_nsec = (timeout % 1000LL) * 1000000LL;
+    }
+
     for (;;) {
+        /*
+         * kevent() is used both to register new events with kqueue, and to
+         * retrieve any pending events. Changes that should be applied to the
+         * kqueue are given in the change[] and any returned events are placed
+         * in event[], up to the maximum sized allowed by nevent. The number
+         * of entries actually placed in event[] is returned by the kevent()
+         * call and saved in nreturned.
+         *
+         * Events are registered with the system by the application via a
+         * struct kevent, and an event is uniquely identified with the system
+         * by a (kq, ident, filter) tuple. This means that there can be only
+         * one (ident, filter) pair for a given kqueue
+         */
         evb->nreturned = kevent(kq, evb->change, evb->nchange, evb->event,
-                                evb->nevent, &ts);
+                                evb->nevent, tsp);
         evb->nchange = 0;
         if (evb->nreturned > 0) {
             for (evb->nprocessed = 0; evb->nprocessed < evb->nreturned;
@@ -224,18 +245,23 @@ event_wait(struct event_base *evb, int timeout)
                 struct kevent *ev = &evb->event[evb->nprocessed];
                 uint32_t events = 0;
 
+                /*
+                 * If an error occurs while processing an element of the
+                 * change[] and there is enough room in the event[], then the
+                 * event event will be placed in the eventlist with EV_ERROR
+                 * set in flags and the system error(errno) in data.
+                 */
                 if (ev->flags & EV_ERROR) {
                    /*
                     * Error messages that can happen, when a delete fails.
-                    *   EBADF happens when the file descriptor has been
-                    *   closed,
-                    *   ENOENT when the file descriptor was closed and
-                    *   then reopened.
+                    *   EBADF happens when the file descriptor has been closed
+                    *   ENOENT when the file descriptor was closed and then
+                    *   reopened.
                     *   EINVAL for some reasons not understood; EINVAL
                     *   should not be returned ever; but FreeBSD does :-\
-                    * An error is also indicated when a callback deletes
-                    * an event we are still processing.  In that case
-                    * the data field is set to ENOENT.
+                    * An error is also indicated when a callback deletes an
+                    * event we are still processing. In that case the data
+                    * field is set to ENOENT.
                     */
                     if (ev->data == EBADF || ev->data == EINVAL ||
                         ev->data == ENOENT) {
@@ -252,8 +278,8 @@ event_wait(struct event_base *evb, int timeout)
                     events |= EVENT_WRITE;
                 }
 
-                if (cb != NULL && events != 0) {
-                    cb(ev->udata, events);
+                if (evb->cb != NULL && events != 0) {
+                    evb->cb(ev->udata, events);
                 }
             }
             return evb->nreturned;
@@ -261,7 +287,7 @@ event_wait(struct event_base *evb, int timeout)
 
         if (evb->nreturned == 0) {
             if (timeout == -1) {
-               log_error("kqueue on kq %d with %d events and %d timeout "
+               log_error("kevent on kq %d with %d events and %d timeout "
                          "returned no events", kq, evb->nevent, timeout);
                 return -1;
             }
@@ -275,9 +301,9 @@ event_wait(struct event_base *evb, int timeout)
 
         log_error("kevent on kq %d with %d events failed: %s", kq, evb->nevent,
                   strerror(errno));
-
         return -1;
     }
+
     NOT_REACHED();
 }
 

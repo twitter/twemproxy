@@ -622,14 +622,3 @@ nc_unresolve_desc(int sd)
 
     return nc_unresolve_addr(addr, addrlen);
 }
-
-struct timespec
-nc_msec_to_timespec(int msec)
-{
-    struct timeval tv = {msec / 1000LL, (msec % 1000LL) * 1000LL};
-    struct timespec ts;
-
-    TIMEVAL_TO_TIMESPEC(&tv, &ts);
-
-    return ts;
-}

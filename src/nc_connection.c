@@ -79,11 +79,28 @@
  * out_q ensures that we always send back the response of request at the head
  * of the queue, before sending out responses of other completed requests in
  * the queue.
- *
  */
 
 static uint32_t nfree_connq;       /* # free conn q */
 static struct conn_tqh free_connq; /* free conn q */
+
+/*
+ * Return the context associated with this connection.
+ */
+struct context *
+conn_to_ctx(struct conn *conn)
+{
+    struct server_pool *pool;
+
+    if (conn->proxy || conn->client) {
+        pool = conn->owner;
+    } else {
+        struct server *server = conn->owner;
+        pool = server->owner;
+    }
+
+    return pool->ctx;
+}
 
 static struct conn *
 _conn_get(void)

@@ -23,10 +23,6 @@
 #include <fcntl.h>
 #include <netdb.h>
 
-#ifdef NC_HAVE_BACKTRACE
-#include <execinfo.h>
-#endif
-
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -36,6 +32,10 @@
 #include <netinet/tcp.h>
 
 #include <nc_core.h>
+
+#ifdef NC_HAVE_BACKTRACE
+#include <execinfo.h>
+#endif
 
 int
 nc_set_blocking(int sd)

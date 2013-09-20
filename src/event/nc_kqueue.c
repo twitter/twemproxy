@@ -145,7 +145,6 @@ event_del_in(struct event_base *evb, struct conn *c)
     return 0;
 }
 
-
 int
 event_add_out(struct event_base *evb, struct conn *c)
 {
@@ -213,16 +212,16 @@ event_add_conn(struct event_base *evb, struct conn *c)
 int
 event_del_conn(struct event_base *evb, struct conn *c)
 {
-    int i;
     struct kevent *event;
+    int i;
 
     ASSERT(evb->kq > 0);
     ASSERT(c != NULL);
     ASSERT(c->sd > 0);
     ASSERT(evb->nchange < evb->nevent);
 
-    event_del_in(evb, c);
     event_del_out(evb, c);
+    event_del_in(evb, c);
 
     /*
      * Now, eliminate pending events for c->sd (there should be at most one
@@ -270,7 +269,7 @@ event_wait(struct event_base *evb, int timeout)
          * Events are registered with the system by the application via a
          * struct kevent, and an event is uniquely identified with the system
          * by a (kq, ident, filter) tuple. This means that there can be only
-         * one (ident, filter) pair for a given kqueue
+         * one (ident, filter) pair for a given kqueue.
          */
         evb->nreturned = kevent(kq, evb->change, evb->nchange, evb->event,
                                 evb->nevent, tsp);
@@ -280,6 +279,10 @@ event_wait(struct event_base *evb, int timeout)
                 evb->nprocessed++) {
                 struct kevent *ev = &evb->event[evb->nprocessed];
                 uint32_t events = 0;
+
+                log_debug(LOG_VVERB, "kevent %04"PRIX32" with filter %d "
+                          "triggered on sd %d", ev->flags, ev->filter,
+                          ev->ident);
 
                 /*
                  * If an error occurs while processing an element of the

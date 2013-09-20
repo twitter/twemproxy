@@ -81,6 +81,18 @@
 
 - epoll (linux)
 
+  union epoll_data {
+      void *ptr;
+      int fd;
+      uint32_t u32;
+      uint64_t u64;
+  };
+
+  struct epoll_event {
+      uint32_t          events;  /* epoll events */
+      struct epoll_data data;    /* user data variable */
+  };
+
   /* events */
   EPOLLIN       = 0x001,
   EPOLLPRI      = 0x002,
@@ -103,7 +115,16 @@
 
 - kqueue (bsd)
 
-  /* flags */
+  struct kevent {
+      uintptr_t   ident;    /* identifier for this event */
+      int16_t     filter;   /* filter for event */
+      uint16_t    flags;    /* general flags */
+      uint32_t    fflags;   /* filter-specific flags */
+      intptr_t    data;     /* filter-specific data */
+      void        *udata;   /* opaque user data identifier */
+  };
+
+  /* flags / events */
   EV_ADD        = 0x0001    /* action - add event to kq (implies enable) */
   EV_DELETE     = 0x0002    /* action - delete event from kq */
   EV_ENABLE     = 0x0004    /* action - enable event */
@@ -132,3 +153,6 @@
   EVFILT_FS         (-9)    /* Filesystem events */
   EVFILT_USER       (-10)   /* User events */
   EVFILT_VM         (-12)   /* Virtual memory events */
+
+  EV_CLEAR behaves like EPOLLET because it resets the event after it is
+  returned; without this flag, the event would be repeatedly returned

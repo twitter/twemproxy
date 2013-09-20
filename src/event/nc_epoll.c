@@ -232,8 +232,6 @@ event_del_conn(struct event_base *evb, struct conn *c)
 int
 event_wait(struct event_base *evb, int timeout)
 {
-    int nsd, i;
-    uint32_t events = 0;
     int ep = evb->ep;
     struct epoll_event *event = evb->event;
     int nevent = evb->nevent;
@@ -243,12 +241,17 @@ event_wait(struct event_base *evb, int timeout)
     ASSERT(nevent > 0);
 
     for (;;) {
+        int i, nsd;
+
         nsd = epoll_wait(ep, event, nevent, timeout);
         if (nsd > 0) {
             for (i = 0; i < nsd; i++) {
                 struct epoll_event *ev = &evb->event[i];
+                uint32_t events = 0;
 
-                events = 0;
+                log_debug(LOG_VVERB, "epoll %04"PRIX32" triggered on conn %p",
+                          ev->events, ev->data.ptr);
+
                 if (ev->events & EPOLLERR) {
                     events |= EVENT_ERR;
                 }
@@ -287,6 +290,7 @@ event_wait(struct event_base *evb, int timeout)
 
         return -1;
     }
+
     NOT_REACHED();
 }
 

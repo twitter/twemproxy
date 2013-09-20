@@ -28,10 +28,7 @@ event_base_create(int nevent, event_cb_t cb)
     int status, ep;
     struct epoll_event *event;
 
-    if (nevent <= 0) {
-        log_error("nevent has to be positive %d", nevent);
-        return NULL;
-    }
+    ASSERT(nevent > 0);
 
     ep = epoll_create(nevent);
     if (ep < 0) {
@@ -59,13 +56,12 @@ event_base_create(int nevent, event_cb_t cb)
 
     }
 
-    evb->nevent = nevent;
     evb->ep = ep;
     evb->event = event;
+    evb->nevent = nevent;
     evb->cb = cb;
 
-    log_debug(LOG_INFO, "e %d with nevent %d", evb->ep,
-              evb->nevent);
+    log_debug(LOG_INFO, "e %d with nevent %d", evb->ep, evb->nevent);
 
     return evb;
 }
@@ -88,6 +84,41 @@ event_base_destroy(struct event_base *evb)
         log_error("close e %d failed, ignored: %s", evb->ep, strerror(errno));
     }
     nc_free(evb);
+}
+
+int
+event_add_in(struct event_base *evb, struct conn *c)
+{
+    int status;
+    struct epoll_event event;
+    int ep = evb->ep;
+
+    ASSERT(ep > 0);
+    ASSERT(c != NULL);
+    ASSERT(c->sd > 0);
+
+    if (c->recv_active) {
+        return 0;
+    }
+
+    event.events = (uint32_t)(EPOLLIN | EPOLLET);
+    event.data.ptr = c;
+
+    status = epoll_ctl(ep, EPOLL_CTL_MOD, c->sd, &event);
+    if (status < 0) {
+        log_error("epoll ctl on e %d sd %d failed: %s", ep, c->sd,
+                  strerror(errno));
+    } else {
+        c->recv_active = 1;
+    }
+
+    return status;
+}
+
+int
+event_del_in(struct event_base *evb, struct conn *c)
+{
+    return 0;
 }
 
 int

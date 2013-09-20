@@ -64,6 +64,8 @@ struct event_base {
 struct event_base *event_base_create(int size, event_cb_t cb);
 void event_base_destroy(struct event_base *evb);
 
+int event_add_in(struct event_base *evb, struct conn *c);
+int event_del_in(struct event_base *evb, struct conn *c);
 int event_add_out(struct event_base *evb, struct conn *c);
 int event_del_out(struct event_base *evb, struct conn *c);
 int event_add_conn(struct event_base *evb, struct conn *c);

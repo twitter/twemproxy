@@ -81,6 +81,7 @@
 
 - epoll (linux)
 
+  /* events */
   EPOLLIN       = 0x001,
   EPOLLPRI      = 0x002,
   EPOLLOUT      = 0x004,
@@ -94,6 +95,11 @@
   EPOLLRDHUP    = 0x2000,
   EPOLLONESHOT  = (1 << 30),
   EPOLLET       = (1 << 31)
+
+  /* opcodes */
+  EPOLL_CTL_ADD = 1 /* add a file decriptor to the interface */
+  EPOLL_CTL_DEL = 2 /* remove a file decriptor from the interface */
+  EPOLL_CTL_MOD = 3 /* change file decriptor epoll_event structure */
 
 - kqueue (bsd)
 

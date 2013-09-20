@@ -102,6 +102,51 @@ event_base_destroy(struct event_base *evb)
 }
 
 int
+event_add_in(struct event_base *evb, struct conn *c)
+{
+    struct kevent *event;
+
+    ASSERT(evb->kq > 0);
+    ASSERT(c != NULL);
+    ASSERT(c->sd > 0);
+    ASSERT(evb->nchange < evb->nevent);
+
+    if (c->recv_active) {
+        return 0;
+    }
+
+    event = &evb->change[evb->nchange++];
+    EV_SET(event, c->sd, EVFILT_READ, EV_ADD | EV_CLEAR, 0, 0, c);
+
+    c->recv_active = 1;
+
+    return 0;
+}
+
+int
+event_del_in(struct event_base *evb, struct conn *c)
+{
+    struct kevent *event;
+
+    ASSERT(evb->kq > 0);
+    ASSERT(c != NULL);
+    ASSERT(c->sd > 0);
+    ASSERT(evb->nchange < evb->nevent);
+
+    if (!c->recv_active) {
+        return 0;
+    }
+
+    event = &evb->change[evb->nchange++];
+    EV_SET(event, c->sd, EVFILT_READ, EV_DELETE, 0, 0, c);
+
+    c->recv_active = 0;
+
+    return 0;
+}
+
+
+int
 event_add_out(struct event_base *evb, struct conn *c)
 {
     struct kevent *event;
@@ -116,7 +161,7 @@ event_add_out(struct event_base *evb, struct conn *c)
         return 0;
     }
 
-    event = &evb->change[(evb->nchange)++];
+    event = &evb->change[evb->nchange++];
     EV_SET(event, c->sd, EVFILT_WRITE, EV_ADD | EV_CLEAR, 0, 0, c);
 
     c->send_active = 1;
@@ -139,7 +184,7 @@ event_del_out(struct event_base *evb, struct conn *c)
         return 0;
     }
 
-    event = &evb->change[(evb->nchange)++];
+    event = &evb->change[evb->nchange++];
     EV_SET(event, c->sd, EVFILT_WRITE, EV_DELETE, 0, 0, c);
 
     c->send_active = 0;
@@ -159,12 +204,8 @@ event_add_conn(struct event_base *evb, struct conn *c)
     ASSERT(!c->send_active);
     ASSERT(evb->nchange < evb->nevent);
 
-    event = &evb->change[(evb->nchange)++];
-    EV_SET(event, c->sd, EVFILT_READ, EV_ADD | EV_CLEAR, 0, 0, c);
-    c->recv_active = 1;
-
+    event_add_in(evb, c);
     event_add_out(evb, c);
-    c->send_active = 1;
 
     return 0;
 }
@@ -180,13 +221,8 @@ event_del_conn(struct event_base *evb, struct conn *c)
     ASSERT(c->sd > 0);
     ASSERT(evb->nchange < evb->nevent);
 
-    event = &evb->change[(evb->nchange)++];
-    EV_SET(event, c->sd, EVFILT_READ, EV_DELETE, 0, 0, c);
-
+    event_del_in(evb, c);
     event_del_out(evb, c);
-
-    c->recv_active = 0;
-    c->send_active = 0;
 
     /*
      * Now, eliminate pending events for c->sd (there should be at most one
@@ -310,7 +346,7 @@ event_wait(struct event_base *evb, int timeout)
 int
 event_add_st(struct event_base *evb, int fd)
 {
-    struct kevent *ev = &evb->change[(evb->nchange)++];
+    struct kevent *ev = &evb->change[evb->nchange++];
 
     EV_SET(ev, fd, EVFILT_READ, EV_ADD | EV_CLEAR, 0, 0, NULL);
 

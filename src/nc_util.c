@@ -624,12 +624,12 @@ nc_unresolve_desc(int sd)
 }
 
 struct timespec
-nc_millisec_to_timespec (int n_millisec)
+nc_msec_to_timespec(int msec)
 {
-    struct timeval tv = {n_millisec/1000LL, (n_millisec%1000LL)*1000LL};
+    struct timeval tv = {msec / 1000LL, (msec % 1000LL) * 1000LL};
     struct timespec ts;
 
-    TIMEVAL_TO_TIMESPEC(&tv, &ts);         
+    TIMEVAL_TO_TIMESPEC(&tv, &ts);
 
     return ts;
 }

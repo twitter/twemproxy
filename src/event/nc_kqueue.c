@@ -22,26 +22,22 @@
 #include <sys/event.h>
 
 struct event_base *
-event_base_create(int nevent, void (*callback_fp)(void *, uint32_t))
+event_base_create(int nevent, event_cb_t cb)
 {
-
     struct event_base *evb;
     int status, kq;
-    struct kevent *changes, *kevents;
+    struct kevent *change, *event;
 
-    if (nevent <= 0) {
-        log_error("nevent has to be positive %d", nevent);
+    ASSERT(nevent > 0);
+
+    kq = kqueue();
+    if (kq < 0) {
+        log_error("kqueue failed: %s", strerror(errno));
         return NULL;
     }
 
-    /* Initialize the kernel queue */
-    if ((kq = kqueue()) == -1) {
-        log_error("kernel queue create failed: %s", kq, strerror(errno));
-        return NULL;
-    }
-
-    changes = nc_calloc(nevent, sizeof(*changes));
-    if (changes == NULL) {
+    change = nc_calloc(nevent, sizeof(*change));
+    if (change == NULL) {
         status = close(kq);
         if (status < 0) {
             log_error("close kq %d failed, ignored: %s", kq, strerror(errno));
@@ -49,9 +45,9 @@ event_base_create(int nevent, void (*callback_fp)(void *, uint32_t))
         return NULL;
     }
 
-    kevents = nc_calloc(nevent, sizeof(*kevents));
-    if (kevents == NULL) {
-        nc_free(changes);
+    event = nc_calloc(nevent, sizeof(*event));
+    if (event == NULL) {
+        nc_free(change);
         status = close(kq);
         if (status < 0) {
             log_error("close kq %d failed, ignored: %s", kq, strerror(errno));
@@ -61,8 +57,8 @@ event_base_create(int nevent, void (*callback_fp)(void *, uint32_t))
 
     evb = nc_alloc(sizeof(*evb));
     if (evb == NULL) {
-        nc_free(changes);
-        nc_free(kevents);
+        nc_free(change);
+        nc_free(event);
         status = close(kq);
         if (status < 0) {
             log_error("close kq %d failed, ignored: %s", kq, strerror(errno));
@@ -71,14 +67,15 @@ event_base_create(int nevent, void (*callback_fp)(void *, uint32_t))
     }
 
     evb->kq = kq;
-    evb->changes = changes;
-    evb->kevents  = kevents;
+    evb->change = change;
+    evb->nchange = 0;
+    evb->event = event;
     evb->nevent = nevent;
-    evb->callback_fp = callback_fp;
-    evb->n_changes = 0;
+    evb->nreturned = 0;
+    evb->nprocessed = 0;
+    evb->cb = cb;
 
-    log_debug(LOG_INFO, "kq %d with nevent %d", evb->kq,
-              evb->nevent);
+    log_debug(LOG_INFO, "kq %d with nevent %d", evb->kq, evb->nevent);
 
     return evb;
 }
@@ -88,12 +85,14 @@ event_base_destroy(struct event_base *evb)
 {
     int status;
 
-    if (evb == NULL) return;
+    if (evb == NULL) {
+        return;
+    }
 
     ASSERT(evb->kq >= 0);
 
-    nc_free(evb->changes);
-    nc_free(evb->kevents);
+    nc_free(evb->change);
+    nc_free(evb->event);
 
     status = close(evb->kq);
     if (status < 0) {
@@ -106,20 +105,19 @@ int
 event_add_out(struct event_base *evb, struct conn *c)
 {
     struct kevent *event;
-    int kq = evb->kq;
 
-    ASSERT(kq > 0);
+    ASSERT(evb->kq > 0);
     ASSERT(c != NULL);
     ASSERT(c->sd > 0);
     ASSERT(c->recv_active);
-    ASSERT(evb->n_changes < evb->nevent);
+    ASSERT(evb->nchange < evb->nevent);
 
     if (c->send_active) {
         return 0;
     }
 
-    event = &evb->changes[(evb->n_changes)++];
-    EV_SET(event, c->sd, EVFILT_WRITE, EV_ADD | EV_CLEAR, 0, 0, (void *)c);
+    event = &evb->change[(evb->nchange)++];
+    EV_SET(event, c->sd, EVFILT_WRITE, EV_ADD | EV_CLEAR, 0, 0, c);
 
     c->send_active = 1;
 
@@ -130,20 +128,19 @@ int
 event_del_out(struct event_base *evb, struct conn *c)
 {
     struct kevent *event;
-    int kq = evb->kq;
 
-    ASSERT(kq > 0);
+    ASSERT(evb->kq > 0);
     ASSERT(c != NULL);
     ASSERT(c->sd > 0);
     ASSERT(c->recv_active);
-    ASSERT(evb->n_changes < evb->nevent);
+    ASSERT(evb->nchange < evb->nevent);
 
     if (!c->send_active) {
         return 0;
     }
 
-    event = &evb->changes[(evb->n_changes)++];
-    EV_SET(event, c->sd, EVFILT_WRITE, EV_DELETE, 0, 0, (void *)c);
+    event = &evb->change[(evb->nchange)++];
+    EV_SET(event, c->sd, EVFILT_WRITE, EV_DELETE, 0, 0, c);
 
     c->send_active = 0;
 
@@ -154,16 +151,16 @@ int
 event_add_conn(struct event_base *evb, struct conn *c)
 {
     struct kevent *event;
-    int kq = evb->kq;
 
-    ASSERT(kq > 0);
+    ASSERT(evb->kq > 0);
     ASSERT(c != NULL);
     ASSERT(c->sd > 0);
-    ASSERT(evb->n_changes < evb->nevent);
+    ASSERT(!c->recv_active);
+    ASSERT(!c->send_active);
+    ASSERT(evb->nchange < evb->nevent);
 
-    event = &evb->changes[(evb->n_changes)++];
-    EV_SET(event, c->sd, EVFILT_READ, EV_ADD | EV_CLEAR, 0, 0, (void *)c);
-
+    event = &evb->change[(evb->nchange)++];
+    EV_SET(event, c->sd, EVFILT_READ, EV_ADD | EV_CLEAR, 0, 0, c);
     c->recv_active = 1;
 
     event_add_out(evb, c);
@@ -177,15 +174,14 @@ event_del_conn(struct event_base *evb, struct conn *c)
 {
     int i;
     struct kevent *event;
-    int kq = evb->kq;
 
-    ASSERT(kq > 0);
+    ASSERT(evb->kq > 0);
     ASSERT(c != NULL);
     ASSERT(c->sd > 0);
-    ASSERT(evb->n_changes < evb->nevent);
+    ASSERT(evb->nchange < evb->nevent);
 
-    event = &evb->changes[(evb->n_changes)++];
-    EV_SET(event, c->sd, EVFILT_READ, EV_DELETE, 0, 0, (void *)c);
+    event = &evb->change[(evb->nchange)++];
+    EV_SET(event, c->sd, EVFILT_READ, EV_DELETE, 0, 0, c);
 
     event_del_out(evb, c);
 
@@ -197,8 +193,8 @@ event_del_conn(struct event_base *evb, struct conn *c)
      * other event). This is important because we will close c->sd and free
      * c when we return.
      */
-    for (i = evb->n_processed + 1; i < evb->n_returned; i++) {
-        struct kevent *ev = &evb->kevents[i];
+    for (i = evb->nprocessed + 1; i < evb->nreturned; i++) {
+        struct kevent *ev = &evb->event[i];
         if (ev->ident == (uintptr_t)c->sd) {
             ev->flags = 0;
             ev->filter = 0;
@@ -213,19 +209,19 @@ int
 event_wait(struct event_base *evb, int timeout)
 {
     int kq = evb->kq;
-    struct timespec ts = nc_millisec_to_timespec(timeout);
-    void (*callback_fp)(void *, uint32_t) = evb->callback_fp;
+    struct timespec ts = nc_msec_to_timespec(timeout);
+    event_cb_t cb = evb->cb;
 
     ASSERT(kq > 0);
 
     for (;;) {
-        evb->n_returned = kevent(kq, evb->changes, evb->n_changes, evb->kevents,
-                                 evb->nevent, &ts);
-        evb->n_changes = 0;
-        if (evb->n_returned > 0) {
-            for (evb->n_processed = 0; evb->n_processed < evb->n_returned;
-                evb->n_processed++) {
-                struct kevent *ev = &evb->kevents[evb->n_processed];
+        evb->nreturned = kevent(kq, evb->change, evb->nchange, evb->event,
+                                evb->nevent, &ts);
+        evb->nchange = 0;
+        if (evb->nreturned > 0) {
+            for (evb->nprocessed = 0; evb->nprocessed < evb->nreturned;
+                evb->nprocessed++) {
+                struct kevent *ev = &evb->event[evb->nprocessed];
                 uint32_t events = 0;
 
                 if (ev->flags & EV_ERROR) {
@@ -256,14 +252,14 @@ event_wait(struct event_base *evb, int timeout)
                     events |= EVENT_WRITE;
                 }
 
-                if (callback_fp != NULL && events != 0) {
-                    (*callback_fp)((void *)(ev->udata), events);
+                if (cb != NULL && events != 0) {
+                    cb(ev->udata, events);
                 }
             }
-            return evb->n_returned;
+            return evb->nreturned;
         }
 
-        if (evb->n_returned == 0) {
+        if (evb->nreturned == 0) {
             if (timeout == -1) {
                log_error("kqueue on kq %d with %d events and %d timeout "
                          "returned no events", kq, evb->nevent, timeout);
@@ -288,7 +284,7 @@ event_wait(struct event_base *evb, int timeout)
 int
 event_add_st(struct event_base *evb, int fd)
 {
-    struct kevent *ev = &evb->changes[(evb->n_changes)++];
+    struct kevent *ev = &evb->change[(evb->nchange)++];
 
     EV_SET(ev, fd, EVFILT_READ, EV_ADD | EV_CLEAR, 0, 0, NULL);
 

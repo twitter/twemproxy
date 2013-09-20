@@ -1,22 +1,6 @@
 - strace
   strace -o strace.txt -ttT -s 1024 -p `pgrep nutcracker`
 
-- epoll
-
-  EPOLLIN     = 0x001,
-  EPOLLPRI    = 0x002,
-  EPOLLOUT    = 0x004,
-  EPOLLERR    = 0x008,
-  EPOLLHUP    = 0x010,
-  EPOLLRDNORM = 0x040,
-  EPOLLRDBAND = 0x080,
-  EPOLLWRNORM = 0x100,
-  EPOLLWRBAND = 0x200,
-  EPOLLMSG    = 0x400,
-  EPOLLRDHUP  = 0x2000,
-  EPOLLONESHOT = (1 << 30),
-  EPOLLET = (1 << 31)
-
 - libyaml (yaml-0.1.4)
 
   - yaml tokens:
@@ -94,3 +78,51 @@
   http://www.cs.utah.edu/dept/old/texinfo/glibc-manual-0.02/library_2.html
   /usr/include/asm-generic/errno-base.h
   /usr/include/asm-generic/errno.h
+
+- epoll (linux)
+
+  EPOLLIN       = 0x001,
+  EPOLLPRI      = 0x002,
+  EPOLLOUT      = 0x004,
+  EPOLLERR      = 0x008,
+  EPOLLHUP      = 0x010,
+  EPOLLRDNORM   = 0x040,
+  EPOLLRDBAND   = 0x080,
+  EPOLLWRNORM   = 0x100,
+  EPOLLWRBAND   = 0x200,
+  EPOLLMSG      = 0x400,
+  EPOLLRDHUP    = 0x2000,
+  EPOLLONESHOT  = (1 << 30),
+  EPOLLET       = (1 << 31)
+
+- kqueue (bsd)
+
+  /* flags */
+  EV_ADD        = 0x0001    /* action - add event to kq (implies enable) */
+  EV_DELETE     = 0x0002    /* action - delete event from kq */
+  EV_ENABLE     = 0x0004    /* action - enable event */
+  EV_DISABLE    = 0x0008    /* action - disable event (not reported) */
+  EV_RECEIPT    = 0x0040    /* action - force EV_ERROR on success, data == 0 */
+
+  EV_ONESHOT    = 0x0010    /* flags - only report one occurrence */
+  EV_CLEAR      = 0x0020    /* flags - clear event state after reporting */
+  EV_DISPATCH   = 0x0080    /* flags - disable event after reporting */
+  EV_SYSFLAGS   = 0xF000    /* flags - reserved by system */
+  EV_FLAG0      = 0x1000    /* flags - filter-specific flag */
+  EV_FLAG1      = 0x2000    /* flags - filter-specific flag */
+
+  EV_EOF        = 0x8000    /* returned values - EOF detected */
+  EV_ERROR      = 0x4000    /* returned values - error, data contains errno */
+
+  /* filters */
+  EVFILT_READ       (-1)    /* readable */
+  EVFILT_WRITE      (-2)    /* writable */
+  EVFILT_AIO        (-3)    /* attached to aio requests */
+  EVFILT_VNODE      (-4)    /* attached to vnodes */
+  EVFILT_PROC       (-5)    /* attached to struct proc */
+  EVFILT_SIGNAL     (-6)    /* attached to struct proc */
+  EVFILT_TIMER      (-7)    /* timers */
+  EVFILT_MACHPORT   (-8)    /* Mach portsets */
+  EVFILT_FS         (-9)    /* Filesystem events */
+  EVFILT_USER       (-10)   /* User events */
+  EVFILT_VM         (-12)   /* Virtual memory events */

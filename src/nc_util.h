@@ -190,7 +190,7 @@ int _scnprintf(char *buf, size_t size, const char *fmt, ...);
 int _vscnprintf(char *buf, size_t size, const char *fmt, va_list args);
 int64_t nc_usec_now(void);
 int64_t nc_msec_now(void);
-struct timespec nc_millisec_to_timespec(int millisec);
+struct timespec nc_msec_to_timespec(int msec);
 
 /*
  * Address resolution for internet (ipv4 and ipv6) and unix domain

@@ -22,7 +22,7 @@
 #include <sys/epoll.h>
 
 struct event_base *
-event_base_create(int nevent, void (*callback_fp)(void *, uint32_t))
+event_base_create(int nevent, event_cb_t cb)
 {
     struct event_base *evb;
     int status, ep;
@@ -62,7 +62,7 @@ event_base_create(int nevent, void (*callback_fp)(void *, uint32_t))
     evb->nevent = nevent;
     evb->ep = ep;
     evb->event = event;
-    evb->callback_fp = callback_fp;
+    evb->cb = cb;
 
     log_debug(LOG_INFO, "e %d with nevent %d", evb->ep,
               evb->nevent);
@@ -206,7 +206,7 @@ event_wait(struct event_base *evb, int timeout)
     int ep = evb->ep;
     struct epoll_event *event = evb->event;
     int nevent = evb->nevent;
-    void (*callback_fp)(void *, uint32_t) = evb->callback_fp;
+    event_cb_t cb = evb->cb;
 
     ASSERT(ep > 0);
     ASSERT(event != NULL);
@@ -231,8 +231,8 @@ event_wait(struct event_base *evb, int timeout)
                     events |= EVENT_WRITE;
                 }
 
-                if (callback_fp != NULL) {
-                    (*callback_fp)((void *) ev->data.ptr, events);
+                if (cb != NULL) {
+                    cb(ev->data.ptr, events);
                 }
             }
             return nsd;

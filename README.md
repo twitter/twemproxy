@@ -40,6 +40,7 @@ To build nutcracker from source with _debug logs enabled_ and _assertions disabl
 + Supports multiple hashing modes including consistent hashing and distribution.
 + Can be configured to disable nodes on failures.
 + Observability through stats exposed on stats monitoring port.
++ Works with Linux, *BSD, OS X and Solaris (SmartOS)
 
 ## Help
 

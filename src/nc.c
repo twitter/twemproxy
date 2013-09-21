@@ -22,6 +22,7 @@
 #include <getopt.h>
 #include <fcntl.h>
 #include <sys/stat.h>
+#include <sys/utsname.h>
 
 #include <nc_core.h>
 #include <nc_conf.h>
@@ -174,7 +175,17 @@ nc_daemonize(int dump_core)
 static void
 nc_print_run(struct instance *nci)
 {
-    loga("nutcracker-%s started on pid %d", NC_VERSION_STRING, nci->pid);
+    int status;
+    struct utsname name;
+
+    status = uname(&name);
+    if (status < 0) {
+        loga("nutcracker-%s started on pid %d", NC_VERSION_STRING, nci->pid);
+    } else {
+        loga("nutcracker-%s compiled for %s %s %s started on pid %d",
+             NC_VERSION_STRING, name.sysname, name.release, name.machine,
+             nci->pid);
+    }
 
     loga("run, rabbit run / dig that hole, forget the sun / "
          "and when at last the work is done / don't sit down / "

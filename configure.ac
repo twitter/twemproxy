@@ -129,9 +129,35 @@ main(int argc, char **argv)
 AS_IF([test "x$ac_cv_kqueue_works" = "xyes"],
   [AC_DEFINE([HAVE_KQUEUE], [1], [Define to 1 if kqueue is supported])], [])
 
+AC_CACHE_CHECK([if event ports works], [ac_cv_evports_works],
+  AC_TRY_RUN([
+#include <stdio.h>
+#include <stdlib.h>
+#include <port.h>
+int
+main(int argc, char **argv)
+{
+    int fd;
+
+    fd = port_create();
+    if (fd < 0) {
+        perror("port_create:");
+        exit(1);
+    }
+    exit(0);
+}
+  ], [ac_cv_evports_works=yes], [ac_cv_evports_works=no]))
+AS_IF([test "x$ac_cv_evports_works" = "xyes"],
+  [AC_DEFINE([HAVE_EVENT_PORTS], [1], [Define to 1 if event ports is supported])], [])
+
 AS_IF([test "x$ac_cv_epoll_works" = "xno" &&
-       test "x$ac_cv_kqueue_works" = "xno"],
-  [AC_MSG_ERROR([either epoll or kqueue support is required])], [])
+       test "x$ac_cv_kqueue_works" = "xno" &&
+       test "x$ac_cv_evports_works" = "xno"],
+  [AC_MSG_ERROR([either epoll or kqueue or event ports support is required])], [])
+
+AM_CONDITIONAL([OS_LINUX], [test "x$ac_cv_epoll_works" = "xyes"])
+AM_CONDITIONAL([OS_BSD], [test "x$ac_cv_kqueue_works" = "xyes"])
+AM_CONDITIONAL([OS_SOLARIS], [test "x$ac_cv_evports_works" = "xyes"])
 
 # Package options
 AC_MSG_CHECKING([whether to enable debug logs and asserts])

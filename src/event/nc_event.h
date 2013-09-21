@@ -56,6 +56,19 @@ struct event_base {
     event_cb_t         cb;      /* event callback */
 };
 
+#elif NC_HAVE_EVENT_PORTS
+
+#include <port.h>
+
+struct event_base {
+    int          evp;     /* event port descriptor */
+
+    port_event_t *event;  /* event[] - events that were triggered */
+    int          nevent;  /* # event */
+
+    event_cb_t   cb;      /* event callback */
+};
+
 #else
 # error missing scalable I/O event notification mechanism
 #endif

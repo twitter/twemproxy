@@ -48,12 +48,12 @@ struct event_base {
 #elif NC_HAVE_EPOLL
 
 struct event_base {
-    int                ep;       /* epoll descriptor */
+    int                ep;      /* epoll descriptor */
 
-    struct epoll_event *event;   /* event[] - events that were triggered */
-    int                nevent;   /* # event */
+    struct epoll_event *event;  /* event[] - events that were triggered */
+    int                nevent;  /* # event */
 
-    event_cb_t         cb;       /* event callback */
+    event_cb_t         cb;      /* event callback */
 };
 
 #else

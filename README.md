@@ -226,6 +226,7 @@ If you are deploying nutcracker in production, you might consider reading throug
 + [puppet module](https://github.com/wuakitv/puppet-twemproxy)
 + [nutcracker-web](https://github.com/kontera-technologies/nutcracker-web)
 + [munin-plugin](https://github.com/eveiga/contrib/tree/nutcracker/plugins/nutcracker)
++ [redis-twemproxy agent](https://github.com/Stono/redis-twemproxy-agent)
 
 ## Users
 + [Pinterest](http://pinterest.com/)

@@ -225,6 +225,7 @@ If you are deploying nutcracker in production, you might consider reading throug
 + [circunous](https://github.com/wanelo-chef/nad-checks/blob/master/recipes/twemproxy.rb)
 + [puppet module](https://github.com/wuakitv/puppet-twemproxy)
 + [nutcracker-web](https://github.com/kontera-technologies/nutcracker-web)
++ [munin-plugin](https://github.com/eveiga/contrib/tree/nutcracker/plugins/nutcracker)
 
 ## Users
 + [Pinterest](http://pinterest.com/)

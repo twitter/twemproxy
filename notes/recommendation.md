@@ -136,6 +136,8 @@ So, on a given server, the cumulative number of times a server is ejected can be
 
 A diff of the above value between two successive time intervals would generate a nice timeseries graph for ejected servers.
 
+You can also graph the timestamp at which any given server was ejected by graphing `server_ejected_at` stat.
+
 ## server_connections: > 1
 
 By design, twemproxy multiplexes several client connections over few server connections. It is important to note that **"read my last write"** constraint doesn't necessarily hold true when twemproxy is configured with `server_connections: > 1`. 

@@ -193,6 +193,11 @@ event_del_conn(struct event_base *evb, struct conn *c)
     /*
      * Removes the association of an object with a port. The association
      * is also removed if the port gets closed.
+     *
+     * On failure, we check for ENOENT errno because it is likely that we
+     * are deleting this connection after it was returned from the event
+     * loop and before we had a chance of reactivating it by calling
+     * port_associate() on it.
      */
     status = port_dissociate(evp, PORT_SOURCE_FD, c->sd);
     if (status < 0 && errno != ENOENT) {

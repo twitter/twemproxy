@@ -343,24 +343,6 @@ event_wait(struct event_base *evb, int timeout)
     NOT_REACHED();
 }
 
-int
-event_add_st(struct event_base *evb, int fd)
-{
-    int status;
-    int evp = evb->evp;
-
-    ASSERT(evp > 0);
-    ASSERT(fd > 0);
-
-    status = port_associate(evp, PORT_SOURCE_FD, fd, POLLIN, &fd);
-    if (status < 0) {
-        log_error("port associate on evp %d sd %d failed: %s", evp, fd,
-                  strerror(errno));
-    }
-
-    return status;
-}
-
 void
 event_loop_stats(event_stats_cb_t cb, void *arg)
 {

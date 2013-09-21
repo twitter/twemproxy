@@ -30,7 +30,7 @@ autoreconf -fvi
 #Install init script
 %{__install} -p -D -m 0755 scripts/%{name}.init %{buildroot}%{_initrddir}/%{name}
 
-#Install example confog file
+#Install example config file
 %{__install} -p -D -m 0644 conf/%{name}.yml %{buildroot}%{_sysconfdir}/%{name}/%{name}.yml
 
 %post

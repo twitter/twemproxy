@@ -239,6 +239,7 @@ If you are deploying nutcracker in production, you might consider reading throug
 + [Kontera](http://kontera.com/)
 + [Wikimedia](http://www.wikimedia.org/)
 + [Bright](http://www.bright.com/)
++ [56.com](http://www.56.com/)
 
 ## Issues and Support
 

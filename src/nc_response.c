@@ -158,6 +158,11 @@ rsp_filter(struct context *ctx, struct conn *conn, struct msg *msg)
         log_debug(LOG_ERR, "filter stray rsp %"PRIu64" len %"PRIu32" on s %d",
                   msg->id, msg->mlen, conn->sd);
         rsp_put(msg);
+
+        /* this can happen as a result of some server errors like object-too-big.
+           closing the connection is the safest response. */
+        conn->done = 1;
+        log_debug(LOG_NOTICE, "s %d is done", conn->sd);
         return true;
     }
     ASSERT(pmsg->peer == NULL);
@@ -231,8 +236,6 @@ void
 rsp_recv_done(struct context *ctx, struct conn *conn, struct msg *msg,
               struct msg *nmsg)
 {
-    struct msg *rqmsg;
-
     ASSERT(!conn->client && !conn->proxy);
     ASSERT(msg != NULL && conn->rmsg == msg);
     ASSERT(!msg->request);
@@ -241,21 +244,6 @@ rsp_recv_done(struct context *ctx, struct conn *conn, struct msg *msg,
 
     /* enqueue next message (response), if any */
     conn->rmsg = nmsg;
-
-    /* some errors like object-too-big can come while we are still sending the message;
-       if so we must stop sending immediately. */
-    rqmsg = TAILQ_FIRST(&conn->imsg_q);
-    if (rqmsg != NULL && !rqmsg->done && TAILQ_FIRST(&conn->omsg_q) == NULL) {
-        log_debug(LOG_NOTICE, "live request rsp %"PRIu64" len %"PRIu32" on s %d",
-                  msg->id, msg->mlen, conn->sd);
-        log_debug(LOG_ERR, "cancelling req %"PRIu64" len %"PRIu32" on s %d",
-                  rqmsg->id, rqmsg->mlen, conn->sd);
-        req_send_done(ctx, conn, rqmsg);
-        /* Sometimes the server has already closed the connection (SERVER_ERROR); we close
-           here to clean up the state for the next request. */
-        conn->done = 1;
-        log_debug(LOG_NOTICE, "s %d is done", conn->sd);
-    }
 
     if (rsp_filter(ctx, conn, msg)) {
         return;

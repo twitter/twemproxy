@@ -159,10 +159,12 @@ rsp_filter(struct context *ctx, struct conn *conn, struct msg *msg)
                   msg->id, msg->mlen, conn->sd);
         rsp_put(msg);
 
-        /* this can happen as a result of some server errors like object-too-big.
-           closing the connection is the safest response. */
+        /*
+         * This can happen as a result of some server errors like object-too-big.
+         * closing the connection is the safest response.
+         */
+        conn->err = EINVAL;
         conn->done = 1;
-        log_debug(LOG_NOTICE, "s %d is done", conn->sd);
         return true;
     }
     ASSERT(pmsg->peer == NULL);

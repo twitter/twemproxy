@@ -160,8 +160,22 @@ rsp_filter(struct context *ctx, struct conn *conn, struct msg *msg)
         rsp_put(msg);
 
         /*
-         * This can happen as a result of some server errors like object-too-big.
-         * closing the connection is the safest response.
+         * Memcached server can respond with an error response before it has
+         * received the entire request. This is most commonly seen for set
+         * requests that exceed item_size_max. IMO, this behavior of memcached
+         * is incorrect. The right behavior for update requests that are over
+         * item_size_max would be to either:
+         * - close the connection Or,
+         * - read the entire item_size_max data and then send CLIENT_ERROR
+         *
+         * We handle this stray packet scenario in nutcracker by closing the
+         * server connection which would end up sending SERVER_ERROR to all
+         * clients that have requests pending on this server connection. The
+         * fix is aggresive, but not doing so would lead to clients getting
+         * out of sync with the server and as a result clients end up getting
+         * responses that don't correspond to the right request.
+         *
+         * See: https://github.com/twitter/twemproxy/issues/149
          */
         conn->err = EINVAL;
         conn->done = 1;

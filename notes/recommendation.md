@@ -73,6 +73,18 @@ All memory for incoming requests and outgoing responses is allocated in mbuf. Mb
 
 If nutcracker is meant to handle a large number of concurrent client connections, you should set the mbuf size to 512 or 1K bytes.
 
+## How to interpret mbuf-size=N argument?
+
+Every client connection consumes at least one mbuf. To service a request we need two connections (one from client to proxy and another from proxy to server). So we would need two mbufs.
+
+A fragmentable request like 'get foo bar\r\n', which btw gets fragmented to 'get foo\r\n' and 'get bar\r\n' would consume two mbuf for request and two mbuf for response. So a fragmentable request with N fragments needs N * 2 mbufs. The good thing about mbuf is that the memory comes from a reuse pool. Once a mbuf is allocated, it is never freed but just put back into the reuse pool. The bad thing is that once mbuf is allocated it is never freed, since a freed mbuf always goes back to the [reuse pool](https://github.com/twitter/twemproxy/blob/master/src/nc_mbuf.c#L23-L24). This can however be easily fixed if needed by putting a threshold parameter on the reuse pool.
+
+So, if nutcracker is handling say 1K client connections and 100 server connections, it would consume (max(1000, 100) * 2 * mbuf-size) memory for mbuf. If we assume that clients are sending non-pipelined request, then with default mbuf-size of 16K this would in total consume 32M.
+
+Furthermore, if on average every requests has 10 fragments, then the memory consumption would be 320M. Instead of handling 1K client connections, lets say you were handling 10K, then the memory consumption would be 3.2G. Now instead of using a default mbuf-size of 16K, you used 512 bytes, then memory consumption for the same scenario would drop to 1000 * 2 * 512 * 10 = 10M
+
+This is the reason why for 'large number' of connections or for wide multi-get like requests, you want to choose a small value for mbuf-size like 512
+
 ## Maximum Key Length
 The memcache ascii protocol [specification](notes/memcache.txt) limits the maximum length of the key to 250 characters. The key should not include whitespace, or '\r' or '\n' character. For redis, we have no such limitation. However, nutcracker requires the key to be stored in a contiguous memory region. Since all requests and responses in nutcracker are stored in mbuf, the maximum length of the redis key is limited by the size of the maximum available space for data in mbuf (mbuf_data_size()). This means that if you want your redis instances to handle large keys, you might want to choose large mbuf size set using -m or --mbuf-size=N command-line argument.
 

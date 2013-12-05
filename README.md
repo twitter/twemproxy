@@ -99,7 +99,7 @@ nutcracker can be configured through a YAML file specified by the -c or --conf-f
 + **server_connections**: The maximum number of connections that can be opened to each server. By default, we open at most 1 server connection.
 + **auto_eject_hosts**: A boolean value that controls if server should be ejected temporarily when it fails consecutively server_failure_limit times. See [liveness recommendations](notes/recommendation.md#liveness) for information. Defaults to false.
 + **server_retry_timeout**: The timeout value in msec to wait for before retrying on a temporarily ejected server, when auto_eject_host is set to true. Defaults to 30000 msec.
-+ **server_failure_limit**: The number of conseutive failures on a server that would leads to it being temporarily ejected when auto_eject_host is set to true. Defaults to 2.
++ **server_failure_limit**: The number of consecutive failures on a server that would lead to it being temporarily ejected when auto_eject_host is set to true. Defaults to 2.
 + **servers**: A list of server address, port and weight (name:port:weight or ip:port:weight) for this server pool.
 
 
@@ -198,7 +198,7 @@ Nutcracker exposes stats at the granularity of server pool and servers per pool 
       server_connections  "# active server connections"
       requests            "# requests"
       request_bytes       "total request bytes"
-      responses           "# respones"
+      responses           "# responses"
       response_bytes      "total response bytes"
       in_queue            "# requests in incoming queue"
       in_queue_bytes      "current request bytes in incoming queue"
@@ -212,7 +212,7 @@ Logging in nutcracker is only available when nutcracker is built with logging en
 
 Nutcracker enables proxying multiple client connections onto one or few server connections. This architectural setup makes it ideal for pipelining requests and responses and hence saving on the round trip time.
 
-For example, if nutcracker is proxing three client connections onto a single server and we get requests - 'get key\r\n', 'set key 0 0 3\r\nval\r\n' and 'delete key\r\n' on these three connections respectively, nutcracker would try to batch these requests and send them as a single message onto the server connection as 'get key\r\nset key 0 0 3\r\nval\r\ndelete key\r\n'.
+For example, if nutcracker is proxying three client connections onto a single server and we get requests - 'get key\r\n', 'set key 0 0 3\r\nval\r\n' and 'delete key\r\n' on these three connections respectively, nutcracker would try to batch these requests and send them as a single message onto the server connection as 'get key\r\nset key 0 0 3\r\nval\r\ndelete key\r\n'.
 
 Pipelining is the reason why nutcracker ends up doing better in terms of throughput even though it introduces an extra hop between the client and server.
 

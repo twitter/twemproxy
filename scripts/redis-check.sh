@@ -433,6 +433,7 @@ printf '*4\r\n$4\r\nsadd\r\n$4\r\nsfoo\r\n$3\r\nbar\r\n$3\r\nbas\r\n' | socat ${
 printf '*2\r\n$11\r\nsrandmember\r\n$4\r\nsfoo\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
 printf '*2\r\n$11\r\nsrandmember\r\n$4\r\nsfoo\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
 printf '*2\r\n$11\r\nsrandmember\r\n$4\r\nsfoo\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*3\r\n$11\r\nsrandmember\r\n$4\r\nsfoo\r\n$1\r\n2\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
 
 printf '\nsrem\n'
 printf '*2\r\n$3\r\ndel\r\n$4\r\nsfoo\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close

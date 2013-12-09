@@ -290,12 +290,13 @@ server_failure(struct context *ctx, struct server *server)
 
     server->failure_count = 0;
 
+    add_failed_server(ctx, server);
+
     status = server_pool_run(pool);
     if (status != NC_OK) {
         log_error("updating pool %"PRIu32" '%.*s' failed: %s", pool->idx,
                   pool->name.len, pool->name.data, strerror(errno));
     }
-    add_failed_server(ctx, server);
 }
 
 static void

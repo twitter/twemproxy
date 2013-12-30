@@ -1,6 +1,6 @@
 Summary: Twitter's nutcracker redis and memcached proxy
 Name: nutcracker
-Version: 0.2.4
+Version: 0.3.0
 Release: 1
 
 URL: http://code.google.com/p/twemproxy/
@@ -65,6 +65,16 @@ fi
 %config(noreplace)%{_sysconfdir}/%{name}/%{name}.yml
 
 %changelog
+* Fri Dec 20 2013  Manju Rajashekhar  <manj@cs.stanford.edu>
+- twemproxy: version 0.3.0 release
+- SRANDMEMBER support for the optional count argument (mkhq)
+- Handle case where server responds while the request is still being sent (jdi-tagged)
+- event ports (solaris/smartos) support
+- add timestamp when the server was ejected
+- support for set ex/px/nx/xx for redis 2.6.12 and up (ypocat)
+- kqueue (bsd) support (ferenyx)
+- fix parsing redis response to accept integer reply (charsyam)
+      
 * Tue July 30 2013 Tait Clarridge <tait@clarridge.ca>
 - Rebuild SPEC to work with CentOS
 - Added buildrequires if building with mock/koji

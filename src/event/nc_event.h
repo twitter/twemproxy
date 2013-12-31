@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 
-#ifndef _NC_EVENT_H_
-#define _NC_EVENT_H_
+#ifndef NC_EVENT_H_4BC4E9B7B52641CE92BD57D6E39B6C85
+#define NC_EVENT_H_4BC4E9B7B52641CE92BD57D6E39B6C85
 
 #include <nc_core.h>
 

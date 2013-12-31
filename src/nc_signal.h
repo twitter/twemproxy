@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 
-#ifndef _NC_SIGNAL_H_
-#define _NC_SIGNAL_H_
+#ifndef NC_SIGNAL_H_F89A48B8544E49C8BCA89F025BF94E55
+#define NC_SIGNAL_H_F89A48B8544E49C8BCA89F025BF94E55
 
 #include <nc_core.h>
 

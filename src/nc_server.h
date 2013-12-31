@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 
-#ifndef _NC_SERVER_H_
-#define _NC_SERVER_H_
+#ifndef NC_SERVER_H_FFB5CC8CF88A486EA0E6DA81AD51014F
+#define NC_SERVER_H_FFB5CC8CF88A486EA0E6DA81AD51014F
 
 #include <nc_core.h>
 

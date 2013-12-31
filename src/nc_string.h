@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 
-#ifndef _NC_STRING_H_
-#define _NC_STRING_H_
+#ifndef NC_STRING_H_5C551163871C4A70A31613EF877C4B4D
+#define NC_STRING_H_5C551163871C4A70A31613EF877C4B4D
 
 #include <string.h>
 #include <nc_core.h>

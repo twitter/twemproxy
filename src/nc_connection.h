@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 
-#ifndef _NC_CONNECTION_H_
-#define _NC_CONNECTION_H_
+#ifndef NC_CONNECTION_H_4B3EEA545439488AA629242B69A08F0B
+#define NC_CONNECTION_H_4B3EEA545439488AA629242B69A08F0B
 
 #include <nc_core.h>
 

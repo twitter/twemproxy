@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 
-#ifndef _NC_CONF_H_
-#define _NC_CONF_H_
+#ifndef NC_CONF_H_303C826E50F34210968F6BAA45C8C202
+#define NC_CONF_H_303C826E50F34210968F6BAA45C8C202
 
 #include <unistd.h>
 #include <sys/types.h>

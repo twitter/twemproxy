@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 
-#ifndef _NC_CORE_H_
-#define _NC_CORE_H_
+#ifndef NC_CORE_H_A2CCF95F4FF9498790DE979DDA59441A
+#define NC_CORE_H_A2CCF95F4FF9498790DE979DDA59441A
 
 #ifdef HAVE_CONFIG_H
 # include <config.h>

@@ -102,7 +102,7 @@ int
 string_compare(const struct string *s1, const struct string *s2)
 {
     if (s1->len != s2->len) {
-        return s1->len - s2->len > 0 ? 1 : -1;
+        return s1->len > s2->len ? 1 : -1;
     }
 
     return nc_strncmp(s1->data, s2->data, s1->len);

@@ -3,7 +3,7 @@ Name: nutcracker
 Version: 0.3.0
 Release: 1
 
-URL: http://code.google.com/p/twemproxy/
+URL: https://github.com/twitter/twemproxy/
 Source0: %{name}-%{version}.tar.gz
 License: Apache License 2.0
 Group: System Environment/Libraries

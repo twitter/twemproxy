@@ -75,7 +75,7 @@ fi
 - kqueue (bsd) support (ferenyx)
 - fix parsing redis response to accept integer reply (charsyam)
       
-* Tue July 30 2013 Tait Clarridge <tait@clarridge.ca>
+* Tue Jul 30 2013 Tait Clarridge <tait@clarridge.ca>
 - Rebuild SPEC to work with CentOS
 - Added buildrequires if building with mock/koji
 

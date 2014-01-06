@@ -157,7 +157,7 @@ memcache_parse_req(struct msg *r)
     b = STAILQ_LAST(&r->mhdr, mbuf, next);
 
     ASSERT(r->request);
-    ASSERT(!r->redis);
+    ASSERT(r->protocol == MEMCACHE_ASCII);
     ASSERT(state >= SW_START && state < SW_SENTINEL);
     ASSERT(b != NULL);
     ASSERT(b->pos <= b->last);
@@ -742,7 +742,7 @@ memcache_parse_rsp(struct msg *r)
     b = STAILQ_LAST(&r->mhdr, mbuf, next);
 
     ASSERT(!r->request);
-    ASSERT(!r->redis);
+    ASSERT(r->protocol == MEMCACHE_ASCII);
     ASSERT(state >= SW_START && state < SW_SENTINEL);
     ASSERT(b != NULL);
     ASSERT(b->pos <= b->last);
@@ -1181,7 +1181,7 @@ memcache_pre_splitcopy(struct mbuf *mbuf, void *arg)
     struct string gets = string("gets "); /* 'gets ' string */
 
     ASSERT(r->request);
-    ASSERT(!r->redis);
+    ASSERT(r->protocol == MEMCACHE_ASCII);
     ASSERT(mbuf_empty(mbuf));
 
     switch (r->type) {
@@ -1209,7 +1209,7 @@ memcache_post_splitcopy(struct msg *r)
     struct string crlf = string(CRLF);
 
     ASSERT(r->request);
-    ASSERT(!r->redis);
+    ASSERT(r->protocol == MEMCACHE_ASCII);
     ASSERT(!STAILQ_EMPTY(&r->mhdr));
 
     mbuf = STAILQ_LAST(&r->mhdr, mbuf, next);
@@ -1309,4 +1309,27 @@ struct msg *
 memcache_get_terminator(struct msg *msg)
 {
     return msg;
+}
+
+struct msg *
+memcache_generate_error(struct msg *r, err_t err)
+{
+    struct mbuf *mbuf;
+    int n;
+    char *protstr = "SERVER_ERROR";
+    char *errstr = err ? strerror(err) : "unknown";
+
+    r->type = MSG_RSP_MC_SERVER_ERROR;
+
+    mbuf = mbuf_get();
+    if (mbuf == NULL) {
+        return NULL;
+    }
+    mbuf_insert(&r->mhdr, mbuf);
+
+    n = nc_scnprintf(mbuf->last, mbuf_size(mbuf), "%s %s"CRLF, protstr, errstr);
+    mbuf->last += n;
+    r->mlen = (uint32_t)n;
+
+    return r;
 }

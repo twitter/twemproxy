@@ -2133,3 +2133,26 @@ redis_get_terminator(struct msg *msg)
 {
     return msg;
 }
+
+struct msg *
+redis_generate_error(struct msg *r, err_t err)
+{
+    struct mbuf *mbuf;
+    int n;
+    char *protstr = "-ERR";
+    char *errstr = err ? strerror(err) : "unknown";
+
+    r->type = MSG_RSP_REDIS_ERROR;
+
+    mbuf = mbuf_get();
+    if (mbuf == NULL) {
+        return NULL;
+    }
+    mbuf_insert(&r->mhdr, mbuf);
+
+    n = nc_scnprintf(mbuf->last, mbuf_size(mbuf), "%s %s"CRLF, protstr, errstr);
+    mbuf->last += n;
+    r->mlen = (uint32_t)n;
+
+    return r;
+}

@@ -70,6 +70,8 @@ struct conn {
     size_t             recv_bytes;    /* received (read) bytes */
     size_t             send_bytes;    /* sent (written) bytes */
 
+    int                protocol;      /* protocol (redis or memcache) */
+
     uint32_t           events;        /* connection io events */
     err_t              err;           /* connection errno */
     unsigned           recv_active:1; /* recv active? */
@@ -83,13 +85,12 @@ struct conn {
     unsigned           connected:1;   /* connected? */
     unsigned           eof:1;         /* eof? aka passive close? */
     unsigned           done:1;        /* done? aka close? */
-    unsigned           redis:1;       /* redis? */
 };
 
 TAILQ_HEAD(conn_tqh, conn);
 
 struct context *conn_to_ctx(struct conn *conn);
-struct conn *conn_get(void *owner, bool client, bool redis);
+struct conn *conn_get(void *owner, bool client, int protocol);
 struct conn *conn_get_proxy(void *owner);
 void conn_put(struct conn *conn);
 ssize_t conn_recv(struct conn *conn, void *buf, size_t size);

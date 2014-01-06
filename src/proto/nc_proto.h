@@ -145,6 +145,7 @@ rstatus_t memcache_post_splitcopy(struct msg *r);
 void memcache_pre_coalesce(struct msg *r);
 void memcache_post_coalesce(struct msg *r);
 struct msg *memcache_get_terminator(struct msg *r);
+struct msg *memcache_generate_error(struct msg *r, err_t err);
 
 void redis_parse_req(struct msg *r);
 void redis_parse_rsp(struct msg *r);
@@ -153,5 +154,17 @@ rstatus_t redis_post_splitcopy(struct msg *r);
 void redis_pre_coalesce(struct msg *r);
 void redis_post_coalesce(struct msg *r);
 struct msg *redis_get_terminator(struct msg *r);
+struct msg *redis_generate_error(struct msg *r, err_t err);
+
+#define PROTOCOL_CODEC(ACTION) \
+    ACTION( MEMCACHE_ASCII , memcache_ascii  ) \
+    ACTION( REDIS          , redis           ) \
+
+#define DEFINE_ACTION(_protocol, _name) _protocol,
+typedef enum protocol_type {
+    PROTOCOL_CODEC( DEFINE_ACTION )
+    PROTOCOL_SENTINEL
+} protocol_type_t;
+#undef DEFINE_ACTION
 
 #endif

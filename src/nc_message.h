@@ -200,6 +200,8 @@ struct msg {
     uint32_t             nfrag;           /* # fragment */
     uint64_t             frag_id;         /* id of fragmented message */
 
+    int                  protocol;        /* protocol (redis or memcache) */
+
     err_t                err;             /* errno on error? */
     unsigned             error:1;         /* error? */
     unsigned             ferror:1;        /* one or more fragments are in error? */
@@ -211,7 +213,6 @@ struct msg {
     unsigned             first_fragment:1;/* first fragment? */
     unsigned             last_fragment:1; /* last fragment? */
     unsigned             swallow:1;       /* swallow response? */
-    unsigned             redis:1;         /* redis? */
     unsigned             bufferable:1;    /* can be buffered */
     unsigned             broadcastable:1; /* can be broascasted */
 };
@@ -224,10 +225,10 @@ void msg_tmo_delete(struct msg *msg);
 
 void msg_init(void);
 void msg_deinit(void);
-struct msg *msg_get(struct conn *conn, bool request, bool redis);
+struct msg *msg_get(struct conn *conn, bool request, int protocol);
 void msg_put(struct msg *msg);
-struct msg *msg_get_error(bool redis, err_t err);
-struct msg *msg_get_terminator(struct conn *conn, bool request, bool redis);
+struct msg *msg_get_error(int protocol, err_t err);
+struct msg *msg_get_terminator(struct conn *conn, bool request, int protocol);
 void msg_dump(struct msg *msg);
 bool msg_empty(struct msg *msg);
 rstatus_t msg_recv(struct context *ctx, struct conn *conn);

@@ -25,7 +25,7 @@ req_get(struct conn *conn)
 
     ASSERT(conn->client && !conn->proxy);
 
-    msg = msg_get(conn, true, conn->redis);
+    msg = msg_get(conn, true, conn->protocol);
     if (msg == NULL) {
         conn->err = errno;
     }
@@ -610,7 +610,7 @@ req_forward(struct context *ctx, struct conn *c_conn, struct msg *msg)
                 c_conn->enqueue_outq(ctx, c_conn, tmsg);
             }
         } else {
-            tmsg = msg_get_terminator(c_conn, true, c_conn->redis);
+            tmsg = msg_get_terminator(c_conn, true, c_conn->protocol);
             tmsg->swallow = 1;
         }
         s_conn->enqueue_inq(ctx, s_conn, tmsg);

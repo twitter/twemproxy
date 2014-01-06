@@ -41,6 +41,13 @@ static struct string dist_strings[] = {
 };
 #undef DEFINE_ACTION
 
+#define DEFINE_ACTION(_proto, _name) string(#_name),
+static struct string proto_strings[] = {
+    PROTOCOL_CODEC( DEFINE_ACTION )
+    null_string
+};
+#undef DEFINE_ACTION
+
 static struct command conf_commands[] = {
     { string("listen"),
       conf_set_listen,
@@ -71,8 +78,12 @@ static struct command conf_commands[] = {
       offsetof(struct conf_pool, client_connections) },
 
     { string("redis"),
-      conf_set_bool,
-      offsetof(struct conf_pool, redis) },
+      conf_set_protocol,
+      offsetof(struct conf_pool, protocol) },
+
+    { string("protocol"),
+      conf_set_protocol,
+      offsetof(struct conf_pool, protocol) },
 
     { string("preconnect"),
       conf_set_bool,
@@ -183,7 +194,7 @@ conf_pool_init(struct conf_pool *cp, struct string *name)
 
     cp->client_connections = CONF_UNSET_NUM;
 
-    cp->redis = CONF_UNSET_NUM;
+    cp->protocol = CONF_UNSET_PROTOCOL;
     cp->preconnect = CONF_UNSET_NUM;
     cp->auto_eject_hosts = CONF_UNSET_NUM;
     cp->server_connections = CONF_UNSET_NUM;
@@ -268,7 +279,7 @@ conf_pool_each_transform(void *elem, void *data)
     sp->dist_type = cp->distribution;
     sp->hash_tag = cp->hash_tag;
 
-    sp->redis = cp->redis ? 1 : 0;
+    sp->protocol = cp->protocol;
     sp->timeout = cp->timeout;
     sp->backlog = cp->backlog;
 
@@ -326,7 +337,7 @@ conf_dump(struct conf *cf)
         log_debug(LOG_VVERB, "  distribution: %d", cp->distribution);
         log_debug(LOG_VVERB, "  client_connections: %d",
                   cp->client_connections);
-        log_debug(LOG_VVERB, "  redis: %d", cp->redis);
+        log_debug(LOG_VVERB, "  protocol: %d", cp->protocol);
         log_debug(LOG_VVERB, "  preconnect: %d", cp->preconnect);
         log_debug(LOG_VVERB, "  auto_eject_hosts: %d", cp->auto_eject_hosts);
         log_debug(LOG_VVERB, "  server_connections: %d",
@@ -1214,8 +1225,8 @@ conf_validate_pool(struct conf *cf, struct conf_pool *cp)
 
     cp->client_connections = CONF_DEFAULT_CLIENT_CONNECTIONS;
 
-    if (cp->redis == CONF_UNSET_NUM) {
-        cp->redis = CONF_DEFAULT_REDIS;
+    if (cp->protocol == CONF_UNSET_PROTOCOL) {
+        cp->protocol = CONF_DEFAULT_PROTOCOL;
     }
 
     if (cp->preconnect == CONF_UNSET_NUM) {
@@ -1749,4 +1760,56 @@ conf_set_hashtag(struct conf *cf, struct command *cmd, void *conf)
     }
 
     return CONF_OK;
+}
+
+char *
+conf_set_protocol(struct conf *cf, struct command *cmd, void *conf)
+{
+    rstatus_t status;
+    uint8_t *p;
+    protocol_type_t *pp, proto;
+    struct string *value, *proto_str, true_str, false_str;
+
+    p = conf;
+    pp = (protocol_type_t *)(p + cmd->offset);
+
+    value = array_top(&cf->arg);
+
+    proto = CONF_UNSET_PROTOCOL;
+
+    for (proto_str = proto_strings; proto_str->len != 0; proto_str++) {
+        if (string_compare(value, proto_str) != 0) {
+            continue;
+        }
+
+        proto = proto_str - proto_strings;
+
+        break;
+    }
+
+    /* support of redis: directive on top of protocol: one */
+    string_set_text(&true_str, "true");
+    string_set_text(&false_str, "false");
+
+    if (string_compare(value, &true_str) == 0) {
+        proto = REDIS;
+    } else if (string_compare(value, &false_str) == 0) {
+        proto = MEMCACHE_ASCII;
+    }
+
+    if (*pp != CONF_UNSET_PROTOCOL) {
+        if (*pp != proto) {
+            return "is a duplicate. Check for incompatible \"redis:\" and "
+                   "\"protocol:\" directives";
+        } else {
+            return CONF_OK;
+        }
+    }
+    *pp = proto;
+
+    if (*pp != CONF_UNSET_PROTOCOL) {
+        return CONF_OK;
+    }
+
+    return "is not a valid protocol";
 }

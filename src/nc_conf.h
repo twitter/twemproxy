@@ -25,6 +25,7 @@
 
 #include <nc_core.h>
 #include <hashkit/nc_hashkit.h>
+#include <proto/nc_proto.h>
 
 #define CONF_OK             (void *) NULL
 #define CONF_ERROR          (void *) "has an invalid value"
@@ -40,13 +41,14 @@
 #define CONF_UNSET_PTR  NULL
 #define CONF_UNSET_HASH (hash_type_t) -1
 #define CONF_UNSET_DIST (dist_type_t) -1
+#define CONF_UNSET_PROTOCOL (protocol_type_t) -1
 
 #define CONF_DEFAULT_HASH                    HASH_FNV1A_64
 #define CONF_DEFAULT_DIST                    DIST_KETAMA
+#define CONF_DEFAULT_PROTOCOL                MEMCACHE_ASCII
 #define CONF_DEFAULT_TIMEOUT                 -1
 #define CONF_DEFAULT_LISTEN_BACKLOG          512
 #define CONF_DEFAULT_CLIENT_CONNECTIONS      0
-#define CONF_DEFAULT_REDIS                   false
 #define CONF_DEFAULT_PRECONNECT              false
 #define CONF_DEFAULT_AUTO_EJECT_HOSTS        false
 #define CONF_DEFAULT_SERVER_RETRY_TIMEOUT    30 * 1000      /* in msec */
@@ -77,10 +79,10 @@ struct conf_pool {
     hash_type_t        hash;                  /* hash: */
     struct string      hash_tag;              /* hash_tag: */
     dist_type_t        distribution;          /* distribution: */
+    protocol_type_t    protocol;              /* protocol: or redis: */
     int                timeout;               /* timeout: */
     int                backlog;               /* backlog: */
     int                client_connections;    /* client_connections: */
-    int                redis;                 /* redis: */
     int                preconnect;            /* preconnect: */
     int                auto_eject_hosts;      /* auto_eject_hosts: */
     int                server_connections;    /* server_connections: */
@@ -124,6 +126,7 @@ char *conf_set_bool(struct conf *cf, struct command *cmd, void *conf);
 char *conf_set_hash(struct conf *cf, struct command *cmd, void *conf);
 char *conf_set_distribution(struct conf *cf, struct command *cmd, void *conf);
 char *conf_set_hashtag(struct conf *cf, struct command *cmd, void *conf);
+char *conf_set_protocol(struct conf *cf, struct command *cmd, void *conf);
 
 rstatus_t conf_server_each_transform(void *elem, void *data);
 rstatus_t conf_pool_each_transform(void *elem, void *data);

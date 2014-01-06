@@ -301,6 +301,18 @@ msg_get(struct conn *conn, bool request, int protocol)
         msg->post_coalesce = memcache_post_coalesce;
         break;
 
+    case MEMCACHE_BINARY:
+        if (request) {
+            msg->parser = mcdbin_parse_req;
+        } else {
+            msg->parser = mcdbin_parse_rsp;
+        }
+        msg->pre_splitcopy = mcdbin_pre_splitcopy;
+        msg->post_splitcopy = mcdbin_post_splitcopy;
+        msg->pre_coalesce = mcdbin_pre_coalesce;
+        msg->post_coalesce = mcdbin_post_coalesce;
+        break;
+
     case PROTOCOL_SENTINEL:
     default:
         NOT_REACHED();
@@ -332,6 +344,10 @@ msg_get_error(int protocol, err_t err)
 
     case MEMCACHE_ASCII:
         mmsg = memcache_generate_error(msg, err);
+        break;
+
+    case MEMCACHE_BINARY:
+        mmsg = mcdbin_generate_error(msg, err);
         break;
 
     case PROTOCOL_SENTINEL:
@@ -366,6 +382,10 @@ msg_get_terminator(struct conn *conn, bool request, int protocol)
 
     case MEMCACHE_ASCII:
         mmsg = memcache_get_terminator(msg);
+        break;
+
+    case MEMCACHE_BINARY:
+        mmsg = mcdbin_get_terminator(msg);
         break;
 
     case PROTOCOL_SENTINEL:

@@ -46,6 +46,8 @@ typedef enum msg_type {
     MSG_REQ_MC_INCR,                      /* memcache arithmetic request */
     MSG_REQ_MC_DECR,
     MSG_REQ_MC_QUIT,                      /* memcache quit request */
+    MSG_REQ_MC_NOOP,
+    MSG_REQ_MC_GET_AND_TOUCH,
     MSG_RSP_MC_NUM,                       /* memcache arithmetic response */
     MSG_RSP_MC_STORED,                    /* memcache cas and storage response */
     MSG_RSP_MC_NOT_STORED,
@@ -57,6 +59,7 @@ typedef enum msg_type {
     MSG_RSP_MC_ERROR,                     /* memcache error responses */
     MSG_RSP_MC_CLIENT_ERROR,
     MSG_RSP_MC_SERVER_ERROR,
+    MSG_RSP_MC_NOOP,
     MSG_REQ_REDIS_DEL,                    /* redis commands - keys */
     MSG_REQ_REDIS_EXISTS,
     MSG_REQ_REDIS_EXPIRE,

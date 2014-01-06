@@ -5,7 +5,7 @@ m4_define([NC_PATCH], 0)
 m4_define([NC_BUGS], [manj@cs.stanford.edu])
 
 # Initialize autoconf
-AC_PREREQ([2.64])
+AC_PREREQ([2.63])
 AC_INIT([nutcracker], [NC_MAJOR.NC_MINOR.NC_PATCH], [NC_BUGS])
 AC_CONFIG_SRCDIR([src/nc.c])
 AC_CONFIG_AUX_DIR([config])

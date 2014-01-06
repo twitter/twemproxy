@@ -212,6 +212,8 @@ struct msg {
     unsigned             last_fragment:1; /* last fragment? */
     unsigned             swallow:1;       /* swallow response? */
     unsigned             redis:1;         /* redis? */
+    unsigned             bufferable:1;    /* can be buffered */
+    unsigned             broadcastable:1; /* can be broascasted */
 };
 
 TAILQ_HEAD(msg_tqh, msg);
@@ -225,6 +227,7 @@ void msg_deinit(void);
 struct msg *msg_get(struct conn *conn, bool request, bool redis);
 void msg_put(struct msg *msg);
 struct msg *msg_get_error(bool redis, err_t err);
+struct msg *msg_get_terminator(struct conn *conn, bool request, bool redis);
 void msg_dump(struct msg *msg);
 bool msg_empty(struct msg *msg);
 rstatus_t msg_recv(struct context *ctx, struct conn *conn);
@@ -234,7 +237,9 @@ struct msg *req_get(struct conn *conn);
 void req_put(struct msg *msg);
 bool req_done(struct conn *conn, struct msg *msg);
 bool req_error(struct conn *conn, struct msg *msg);
+void req_client_enqueue_imsgq(struct context *ctx, struct conn *conn, struct msg *msg);
 void req_server_enqueue_imsgq(struct context *ctx, struct conn *conn, struct msg *msg);
+void req_client_dequeue_imsgq(struct context *ctx, struct conn *conn, struct msg *msg);
 void req_server_dequeue_imsgq(struct context *ctx, struct conn *conn, struct msg *msg);
 void req_client_enqueue_omsgq(struct context *ctx, struct conn *conn, struct msg *msg);
 void req_server_enqueue_omsgq(struct context *ctx, struct conn *conn, struct msg *msg);
@@ -251,5 +256,7 @@ struct msg *rsp_recv_next(struct context *ctx, struct conn *conn, bool alloc);
 void rsp_recv_done(struct context *ctx, struct conn *conn, struct msg *msg, struct msg *nmsg);
 struct msg *rsp_send_next(struct context *ctx, struct conn *conn);
 void rsp_send_done(struct context *ctx, struct conn *conn, struct msg *msg);
+
+uint64_t get_next_frag_id(void);
 
 #endif

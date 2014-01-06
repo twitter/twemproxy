@@ -144,6 +144,7 @@ void memcache_pre_splitcopy(struct mbuf *mbuf, void *arg);
 rstatus_t memcache_post_splitcopy(struct msg *r);
 void memcache_pre_coalesce(struct msg *r);
 void memcache_post_coalesce(struct msg *r);
+struct msg *memcache_get_terminator(struct msg *r);
 
 void redis_parse_req(struct msg *r);
 void redis_parse_rsp(struct msg *r);
@@ -151,5 +152,6 @@ void redis_pre_splitcopy(struct mbuf *mbuf, void *arg);
 rstatus_t redis_post_splitcopy(struct msg *r);
 void redis_pre_coalesce(struct msg *r);
 void redis_post_coalesce(struct msg *r);
+struct msg *redis_get_terminator(struct msg *r);
 
 #endif

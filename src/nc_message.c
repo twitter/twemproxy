@@ -150,7 +150,7 @@ msg_tmo_insert(struct msg *msg, struct conn *conn)
     ASSERT(msg->request);
     ASSERT(!msg->quit && !msg->noreply);
 
-    timeout = server_timeout(conn);
+    timeout = server_pool_timeout(conn);
     if (timeout <= 0) {
         return;
     }
@@ -256,6 +256,8 @@ done:
     msg->last_fragment = 0;
     msg->swallow = 0;
     msg->redis = 0;
+    msg->bufferable = 0;
+    msg->broadcastable = 0;
 
     return msg;
 }
@@ -332,6 +334,30 @@ msg_get_error(bool redis, err_t err)
 
     log_debug(LOG_VVERB, "get msg %p id %"PRIu64" len %"PRIu32" error '%s'",
               msg, msg->id, msg->mlen, errstr);
+
+    return msg;
+}
+
+struct msg *
+msg_get_terminator(struct conn *conn, bool request, bool redis)
+{
+    struct msg *msg, *mmsg;
+
+    msg = msg_get(conn, request, redis);
+
+    if (redis) {
+        mmsg = redis_get_terminator(msg);
+    } else {
+        mmsg = memcache_get_terminator(msg);
+    }
+    if (mmsg == NULL) {
+        msg_put(msg);
+        return NULL;
+    }
+    ASSERT(mmsg == msg);
+
+    log_debug(LOG_VERB, "get chain-terminator msg %p id %"PRIu64" len %"PRIu32,
+              msg, msg->id, msg->mlen);
 
     return msg;
 }
@@ -527,7 +553,7 @@ msg_fragment(struct context *ctx, struct conn *conn, struct msg *msg)
      *
      */
     if (msg->frag_id == 0) {
-        msg->frag_id = ++frag_id;
+        msg->frag_id = get_next_frag_id();
         msg->first_fragment = 1;
         msg->nfrag = 1;
         msg->frag_owner = msg;
@@ -825,4 +851,10 @@ msg_send(struct context *ctx, struct conn *conn)
     } while (conn->send_ready);
 
     return NC_OK;
+}
+
+uint64_t
+get_next_frag_id(void)
+{
+    return ++frag_id;
 }

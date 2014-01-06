@@ -248,6 +248,7 @@ conf_pool_each_transform(void *elem, void *data)
     TAILQ_INIT(&sp->c_conn_q);
 
     array_null(&sp->server);
+    array_null(&sp->impacted_s_conn);
     sp->ncontinuum = 0;
     sp->nserver_continuum = 0;
     sp->continuum = NULL;
@@ -279,8 +280,14 @@ conf_pool_each_transform(void *elem, void *data)
     sp->auto_eject_hosts = cp->auto_eject_hosts ? 1 : 0;
     sp->preconnect = cp->preconnect ? 1 : 0;
 
+    status = array_init(&sp->impacted_s_conn, array_n(&cp->server), sizeof(struct conn *));
+    if (status != NC_OK) {
+        return status;
+    }
+
     status = server_init(&sp->server, &cp->server, sp);
     if (status != NC_OK) {
+        array_deinit(&sp->impacted_s_conn);
         return status;
     }
 

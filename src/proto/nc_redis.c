@@ -2127,3 +2127,9 @@ redis_post_coalesce(struct msg *r)
         NOT_REACHED();
     }
 }
+
+struct msg *
+redis_get_terminator(struct msg *msg)
+{
+    return msg;
+}

@@ -191,8 +191,8 @@ conn_get(void *owner, bool client, bool redis)
         conn->ref = client_ref;
         conn->unref = client_unref;
 
-        conn->enqueue_inq = NULL;
-        conn->dequeue_inq = NULL;
+        conn->enqueue_inq = req_client_enqueue_imsgq;
+        conn->dequeue_inq = req_client_dequeue_imsgq;
         conn->enqueue_outq = req_client_enqueue_omsgq;
         conn->dequeue_outq = req_client_dequeue_omsgq;
     } else {

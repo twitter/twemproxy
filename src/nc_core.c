@@ -19,6 +19,7 @@
 #include <unistd.h>
 #include <nc_core.h>
 #include <nc_conf.h>
+#include <nc_client.h>
 #include <nc_server.h>
 #include <nc_proxy.h>
 
@@ -266,7 +267,11 @@ core_timeout(struct context *ctx)
         msg_tmo_delete(msg);
         conn->err = ETIMEDOUT;
 
-        core_close(ctx, conn);
+        if (conn->client && !conn->proxy) {
+            client_timeout(ctx, conn);
+        } else {
+            core_close(ctx, conn);
+        }
     }
 }
 

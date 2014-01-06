@@ -1304,3 +1304,9 @@ void
 memcache_post_coalesce(struct msg *r)
 {
 }
+
+struct msg *
+memcache_get_terminator(struct msg *msg)
+{
+    return msg;
+}

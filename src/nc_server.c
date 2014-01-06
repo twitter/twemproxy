@@ -62,20 +62,6 @@ server_unref(struct conn *conn)
               server->pname.len, server->pname.data);
 }
 
-int
-server_timeout(struct conn *conn)
-{
-    struct server *server;
-    struct server_pool *pool;
-
-    ASSERT(!conn->client && !conn->proxy);
-
-    server = conn->owner;
-    pool = server->owner;
-
-    return pool->timeout;
-}
-
 bool
 server_active(struct conn *conn)
 {
@@ -547,6 +533,22 @@ server_ok(struct context *ctx, struct conn *conn)
         server->failure_count = 0;
         server->next_retry = 0LL;
     }
+}
+
+int
+server_pool_timeout(struct conn *conn)
+{
+    struct server *server;
+    struct server_pool *pool;
+
+    if (!conn->client && !conn->proxy) {
+        server = conn->owner;
+        pool = server->owner;
+    } else {
+        pool = conn->owner;
+    }
+
+    return pool->timeout;
 }
 
 static rstatus_t

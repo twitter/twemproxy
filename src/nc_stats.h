@@ -41,7 +41,7 @@
     /* data behavior */                                                                                             \
     ACTION( requests,               STATS_COUNTER,      "# requests")                                               \
     ACTION( request_bytes,          STATS_COUNTER,      "total request bytes")                                      \
-    ACTION( responses,              STATS_COUNTER,      "# respones")                                               \
+    ACTION( responses,              STATS_COUNTER,      "# responses")                                              \
     ACTION( response_bytes,         STATS_COUNTER,      "total response bytes")                                     \
     ACTION( in_queue,               STATS_GAUGE,        "# requests in incoming queue")                             \
     ACTION( in_queue_bytes,         STATS_GAUGE,        "current request bytes in incoming queue")                  \

@@ -1,3 +1,13 @@
+2013-20-12  Manju Rajashekhar  <manj@cs.stanford.edu>
+    * twemproxy: version 0.3.0 release
+      SRANDMEMBER support for the optional count argument (mkhq)
+      Handle case where server responds while the request is still being sent (jdi-tagged)
+      event ports (solaris/smartos) support
+      add timestamp when the server was ejected
+      support for set ex/px/nx/xx for redis 2.6.12 and up (ypocat)
+      kqueue (bsd) support (ferenyx)
+      fix parsing redis response to accept integer reply (charsyam)
+
 2013-23-04  Manju Rajashekhar  <manj@cs.stanford.edu>
     * twemproxy: version 0.2.4 release
       redis keys must be less than mbuf_data_size() in length (fifsky)

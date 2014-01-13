@@ -199,9 +199,9 @@ proxy_each_init(void *elem, void *data)
         return status;
     }
 
-    log_debug(LOG_NOTICE, "p %d listening on '%.*s' in %s pool %"PRIu32" '%.*s'"
+    log_debug(LOG_NOTICE, "p %d listening on '%.*s' in %d pool %"PRIu32" '%.*s'"
               " with %"PRIu32" servers", p->sd, pool->addrstr.len,
-              pool->addrstr.data, pool->redis ? "redis" : "memcache",
+              pool->addrstr.data, pool->protocol,
               pool->idx, pool->name.len, pool->name.data,
               array_n(&pool->server));
 
@@ -294,7 +294,7 @@ proxy_accept(struct context *ctx, struct conn *p)
         break;
     }
 
-    c = conn_get(p->owner, true, p->redis);
+    c = conn_get(p->owner, true, p->protocol);
     if (c == NULL) {
         log_error("get conn for c %d from p %d failed: %s", sd, p->sd,
                   strerror(errno));

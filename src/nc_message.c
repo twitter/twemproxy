@@ -150,7 +150,7 @@ msg_tmo_insert(struct msg *msg, struct conn *conn)
     ASSERT(msg->request);
     ASSERT(!msg->quit && !msg->noreply);
 
-    timeout = server_timeout(conn);
+    timeout = server_pool_timeout(conn);
     if (timeout <= 0) {
         return;
     }
@@ -255,13 +255,15 @@ done:
     msg->first_fragment = 0;
     msg->last_fragment = 0;
     msg->swallow = 0;
-    msg->redis = 0;
+    msg->protocol = -1;
+    msg->bufferable = 0;
+    msg->broadcastable = 0;
 
     return msg;
 }
 
 struct msg *
-msg_get(struct conn *conn, bool request, bool redis)
+msg_get(struct conn *conn, bool request, int protocol)
 {
     struct msg *msg;
 
@@ -272,9 +274,10 @@ msg_get(struct conn *conn, bool request, bool redis)
 
     msg->owner = conn;
     msg->request = request ? 1 : 0;
-    msg->redis = redis ? 1 : 0;
+    msg->protocol = protocol;
 
-    if (redis) {
+    switch (protocol) {
+    case REDIS:
         if (request) {
             msg->parser = redis_parse_req;
         } else {
@@ -284,7 +287,9 @@ msg_get(struct conn *conn, bool request, bool redis)
         msg->post_splitcopy = redis_post_splitcopy;
         msg->pre_coalesce = redis_pre_coalesce;
         msg->post_coalesce = redis_post_coalesce;
-    } else {
+        break;
+
+    case MEMCACHE_ASCII:
         if (request) {
             msg->parser = memcache_parse_req;
         } else {
@@ -294,6 +299,23 @@ msg_get(struct conn *conn, bool request, bool redis)
         msg->post_splitcopy = memcache_post_splitcopy;
         msg->pre_coalesce = memcache_pre_coalesce;
         msg->post_coalesce = memcache_post_coalesce;
+        break;
+
+    case MEMCACHE_BINARY:
+        if (request) {
+            msg->parser = mcdbin_parse_req;
+        } else {
+            msg->parser = mcdbin_parse_rsp;
+        }
+        msg->pre_splitcopy = mcdbin_pre_splitcopy;
+        msg->post_splitcopy = mcdbin_post_splitcopy;
+        msg->pre_coalesce = mcdbin_pre_coalesce;
+        msg->post_coalesce = mcdbin_post_coalesce;
+        break;
+
+    case PROTOCOL_SENTINEL:
+    default:
+        NOT_REACHED();
     }
 
     log_debug(LOG_VVERB, "get msg %p id %"PRIu64" request %d owner sd %d",
@@ -303,35 +325,82 @@ msg_get(struct conn *conn, bool request, bool redis)
 }
 
 struct msg *
-msg_get_error(bool redis, err_t err)
+msg_get_error(int protocol, err_t err)
 {
-    struct msg *msg;
-    struct mbuf *mbuf;
-    int n;
+    struct msg *msg, *mmsg;
     char *errstr = err ? strerror(err) : "unknown";
-    char *protstr = redis ? "-ERR" : "SERVER_ERROR";
 
+    mmsg = NULL;
     msg = _msg_get();
     if (msg == NULL) {
         return NULL;
     }
 
     msg->state = 0;
-    msg->type = MSG_RSP_MC_SERVER_ERROR;
+    switch (protocol) {
+    case REDIS:
+        mmsg = redis_generate_error(msg, err);
+        break;
 
-    mbuf = mbuf_get();
-    if (mbuf == NULL) {
+    case MEMCACHE_ASCII:
+        mmsg = memcache_generate_error(msg, err);
+        break;
+
+    case MEMCACHE_BINARY:
+        mmsg = mcdbin_generate_error(msg, err);
+        break;
+
+    case PROTOCOL_SENTINEL:
+    default:
+        mmsg = NULL;
+        NOT_REACHED();
+    }
+    if (mmsg == NULL) {
         msg_put(msg);
         return NULL;
     }
-    mbuf_insert(&msg->mhdr, mbuf);
-
-    n = nc_scnprintf(mbuf->last, mbuf_size(mbuf), "%s %s"CRLF, protstr, errstr);
-    mbuf->last += n;
-    msg->mlen = (uint32_t)n;
+    ASSERT(mmsg == msg);
 
     log_debug(LOG_VVERB, "get msg %p id %"PRIu64" len %"PRIu32" error '%s'",
               msg, msg->id, msg->mlen, errstr);
+
+    return msg;
+}
+
+struct msg *
+msg_get_terminator(struct conn *conn, bool request, int protocol)
+{
+    struct msg *msg, *mmsg;
+
+    mmsg = NULL;
+    msg = msg_get(conn, request, protocol);
+
+    switch (protocol) {
+    case REDIS:
+        mmsg = redis_get_terminator(msg);
+        break;
+
+    case MEMCACHE_ASCII:
+        mmsg = memcache_get_terminator(msg);
+        break;
+
+    case MEMCACHE_BINARY:
+        mmsg = mcdbin_get_terminator(msg);
+        break;
+
+    case PROTOCOL_SENTINEL:
+    default:
+        mmsg = NULL;
+        NOT_REACHED();
+    }
+    if (mmsg == NULL) {
+        msg_put(msg);
+        return NULL;
+    }
+    ASSERT(mmsg == msg);
+
+    log_debug(LOG_VERB, "get chain-terminator msg %p id %"PRIu64" len %"PRIu32,
+              msg, msg->id, msg->mlen);
 
     return msg;
 }
@@ -436,7 +505,7 @@ msg_parsed(struct context *ctx, struct conn *conn, struct msg *msg)
         return NC_ENOMEM;
     }
 
-    nmsg = msg_get(msg->owner, msg->request, conn->redis);
+    nmsg = msg_get(msg->owner, msg->request, conn->protocol);
     if (nmsg == NULL) {
         mbuf_put(nbuf);
         return NC_ENOMEM;
@@ -474,7 +543,7 @@ msg_fragment(struct context *ctx, struct conn *conn, struct msg *msg)
         return status;
     }
 
-    nmsg = msg_get(msg->owner, msg->request, msg->redis);
+    nmsg = msg_get(msg->owner, msg->request, msg->protocol);
     if (nmsg == NULL) {
         mbuf_put(nbuf);
         return NC_ENOMEM;
@@ -527,7 +596,7 @@ msg_fragment(struct context *ctx, struct conn *conn, struct msg *msg)
      *
      */
     if (msg->frag_id == 0) {
-        msg->frag_id = ++frag_id;
+        msg->frag_id = get_next_frag_id();
         msg->first_fragment = 1;
         msg->nfrag = 1;
         msg->frag_owner = msg;
@@ -825,4 +894,10 @@ msg_send(struct context *ctx, struct conn *conn)
     } while (conn->send_ready);
 
     return NC_OK;
+}
+
+uint64_t
+get_next_frag_id(void)
+{
+    return ++frag_id;
 }

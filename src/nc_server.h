@@ -100,6 +100,8 @@ struct server_pool {
     uint32_t           nlive_server;         /* # live server */
     int64_t            next_rebuild;         /* next distribution rebuild time in usec */
 
+    struct array       impacted_s_conn;     /* server conn[] */
+
     struct string      name;                 /* pool name (ref in conf_pool) */
     struct string      addrstr;              /* pool address (ref in conf_pool) */
     uint16_t           port;                 /* port */
@@ -110,6 +112,7 @@ struct server_pool {
     int                key_hash_type;        /* key hash type (hash_type_t) */
     hash_t             key_hash;             /* key hasher */
     struct string      hash_tag;             /* key hash tag (ref in conf_pool) */
+    int                protocol;             /* protocol (redis or memcache) */
     int                timeout;              /* timeout in msec */
     int                backlog;              /* listen backlog */
     uint32_t           client_connections;   /* maximum # client connection */
@@ -118,12 +121,10 @@ struct server_pool {
     uint32_t           server_failure_limit; /* server failure limit */
     unsigned           auto_eject_hosts:1;   /* auto_eject_hosts? */
     unsigned           preconnect:1;         /* preconnect? */
-    unsigned           redis:1;              /* redis? */
 };
 
 void server_ref(struct conn *conn, void *owner);
 void server_unref(struct conn *conn);
-int server_timeout(struct conn *conn);
 bool server_active(struct conn *conn);
 rstatus_t server_init(struct array *server, struct array *conf_server, struct server_pool *sp);
 void server_deinit(struct array *server);
@@ -133,6 +134,7 @@ void server_close(struct context *ctx, struct conn *conn);
 void server_connected(struct context *ctx, struct conn *conn);
 void server_ok(struct context *ctx, struct conn *conn);
 
+int server_pool_timeout(struct conn *conn);
 struct conn *server_pool_conn(struct context *ctx, struct server_pool *pool, uint8_t *key, uint32_t keylen);
 rstatus_t server_pool_run(struct server_pool *pool);
 rstatus_t server_pool_preconnect(struct context *ctx);

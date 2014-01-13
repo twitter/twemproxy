@@ -46,6 +46,8 @@ typedef enum msg_type {
     MSG_REQ_MC_INCR,                      /* memcache arithmetic request */
     MSG_REQ_MC_DECR,
     MSG_REQ_MC_QUIT,                      /* memcache quit request */
+    MSG_REQ_MC_NOOP,
+    MSG_REQ_MC_GET_AND_TOUCH,
     MSG_RSP_MC_NUM,                       /* memcache arithmetic response */
     MSG_RSP_MC_STORED,                    /* memcache cas and storage response */
     MSG_RSP_MC_NOT_STORED,
@@ -57,6 +59,7 @@ typedef enum msg_type {
     MSG_RSP_MC_ERROR,                     /* memcache error responses */
     MSG_RSP_MC_CLIENT_ERROR,
     MSG_RSP_MC_SERVER_ERROR,
+    MSG_RSP_MC_NOOP,
     MSG_REQ_REDIS_DEL,                    /* redis commands - keys */
     MSG_REQ_REDIS_EXISTS,
     MSG_REQ_REDIS_EXPIRE,
@@ -200,6 +203,8 @@ struct msg {
     uint32_t             nfrag;           /* # fragment */
     uint64_t             frag_id;         /* id of fragmented message */
 
+    int                  protocol;        /* protocol (redis or memcache) */
+
     err_t                err;             /* errno on error? */
     unsigned             error:1;         /* error? */
     unsigned             ferror:1;        /* one or more fragments are in error? */
@@ -211,7 +216,8 @@ struct msg {
     unsigned             first_fragment:1;/* first fragment? */
     unsigned             last_fragment:1; /* last fragment? */
     unsigned             swallow:1;       /* swallow response? */
-    unsigned             redis:1;         /* redis? */
+    unsigned             bufferable:1;    /* can be buffered */
+    unsigned             broadcastable:1; /* can be broascasted */
 };
 
 TAILQ_HEAD(msg_tqh, msg);
@@ -222,9 +228,10 @@ void msg_tmo_delete(struct msg *msg);
 
 void msg_init(void);
 void msg_deinit(void);
-struct msg *msg_get(struct conn *conn, bool request, bool redis);
+struct msg *msg_get(struct conn *conn, bool request, int protocol);
 void msg_put(struct msg *msg);
-struct msg *msg_get_error(bool redis, err_t err);
+struct msg *msg_get_error(int protocol, err_t err);
+struct msg *msg_get_terminator(struct conn *conn, bool request, int protocol);
 void msg_dump(struct msg *msg);
 bool msg_empty(struct msg *msg);
 rstatus_t msg_recv(struct context *ctx, struct conn *conn);
@@ -234,7 +241,9 @@ struct msg *req_get(struct conn *conn);
 void req_put(struct msg *msg);
 bool req_done(struct conn *conn, struct msg *msg);
 bool req_error(struct conn *conn, struct msg *msg);
+void req_client_enqueue_imsgq(struct context *ctx, struct conn *conn, struct msg *msg);
 void req_server_enqueue_imsgq(struct context *ctx, struct conn *conn, struct msg *msg);
+void req_client_dequeue_imsgq(struct context *ctx, struct conn *conn, struct msg *msg);
 void req_server_dequeue_imsgq(struct context *ctx, struct conn *conn, struct msg *msg);
 void req_client_enqueue_omsgq(struct context *ctx, struct conn *conn, struct msg *msg);
 void req_server_enqueue_omsgq(struct context *ctx, struct conn *conn, struct msg *msg);
@@ -251,5 +260,7 @@ struct msg *rsp_recv_next(struct context *ctx, struct conn *conn, bool alloc);
 void rsp_recv_done(struct context *ctx, struct conn *conn, struct msg *msg, struct msg *nmsg);
 struct msg *rsp_send_next(struct context *ctx, struct conn *conn);
 void rsp_send_done(struct context *ctx, struct conn *conn, struct msg *msg);
+
+uint64_t get_next_frag_id(void);
 
 #endif

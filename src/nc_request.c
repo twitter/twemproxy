@@ -25,7 +25,7 @@ req_get(struct conn *conn)
 
     ASSERT(conn->client && !conn->proxy);
 
-    msg = msg_get(conn, true, conn->redis);
+    msg = msg_get(conn, true, conn->protocol);
     if (msg == NULL) {
         conn->err = errno;
     }
@@ -226,6 +226,19 @@ ferror:
 }
 
 void
+req_client_enqueue_imsgq(struct context *ctx, struct conn *conn, struct msg *msg)
+{
+    ASSERT(msg->request);
+    ASSERT(conn->client && !conn->proxy);
+
+    if (!msg->noreply) {
+        msg_tmo_insert(msg, conn);
+    }
+
+    TAILQ_INSERT_TAIL(&conn->imsg_q, msg, c_tqe);
+}
+
+void
 req_server_enqueue_imsgq(struct context *ctx, struct conn *conn, struct msg *msg)
 {
     ASSERT(msg->request);
@@ -247,6 +260,19 @@ req_server_enqueue_imsgq(struct context *ctx, struct conn *conn, struct msg *msg
 
     stats_server_incr(ctx, conn->owner, in_queue);
     stats_server_incr_by(ctx, conn->owner, in_queue_bytes, msg->mlen);
+}
+
+void
+req_client_dequeue_imsgq(struct context *ctx, struct conn *conn, struct msg *msg)
+{
+    ASSERT(msg->request);
+    ASSERT(conn->client && !conn->proxy);
+
+    TAILQ_REMOVE(&conn->imsg_q, msg, c_tqe);
+
+    if (!msg->noreply) {
+        msg_tmo_delete(msg);
+    }
 }
 
 void
@@ -363,6 +389,7 @@ req_recv_next(struct context *ctx, struct conn *conn, bool alloc)
 static bool
 req_filter(struct context *ctx, struct conn *conn, struct msg *msg)
 {
+    struct msg *lmsg;
     ASSERT(conn->client && !conn->proxy);
 
     if (msg_empty(msg)) {
@@ -385,6 +412,40 @@ req_filter(struct context *ctx, struct conn *conn, struct msg *msg)
         conn->recv_ready = 0;
         req_put(msg);
         return true;
+    }
+
+    if (msg->bufferable) {
+        log_debug(LOG_VERB, "filter and buffer req %"PRIu64" from c %d",
+                  msg->id, conn->sd);
+        /* Buffered messages are considered fragments of the same request.
+         * The chain terminator can be sent in a separate write by
+         * the client, so the base fragmenting logic can not be applied here */
+        if (TAILQ_EMPTY(&conn->imsg_q)) {
+            msg->frag_id = get_next_frag_id();
+            msg->first_fragment = 1;
+            msg->nfrag = 1;
+            msg->frag_owner = msg;
+        } else {
+            lmsg = TAILQ_LAST(&conn->imsg_q, msg_tqh);
+
+            msg->frag_owner = lmsg->frag_owner;
+            msg->frag_id = msg->frag_owner->frag_id;
+            msg->frag_owner->nfrag++;
+            lmsg->last_fragment = 0;
+            msg->last_fragment = 1;
+        }
+        conn->enqueue_inq(ctx, conn, msg);
+        return true;
+    }
+
+    if (!TAILQ_EMPTY(&conn->imsg_q)) {
+        lmsg = TAILQ_LAST(&conn->imsg_q, msg_tqh);
+
+        msg->frag_owner = lmsg->frag_owner;
+        msg->frag_id = msg->frag_owner->frag_id;
+        msg->frag_owner->nfrag++;
+        lmsg->last_fragment = 0;
+        msg->last_fragment = 1;
     }
 
     return false;
@@ -428,8 +489,8 @@ req_forward_stats(struct context *ctx, struct server *server, struct msg *msg)
     stats_server_incr_by(ctx, server, request_bytes, msg->mlen);
 }
 
-static void
-req_forward(struct context *ctx, struct conn *c_conn, struct msg *msg)
+static struct conn *
+req_forward_msg(struct context *ctx, struct conn *c_conn, struct msg *msg)
 {
     rstatus_t status;
     struct conn *s_conn;
@@ -475,7 +536,7 @@ req_forward(struct context *ctx, struct conn *c_conn, struct msg *msg)
     s_conn = server_pool_conn(ctx, c_conn->owner, key, keylen);
     if (s_conn == NULL) {
         req_forward_error(ctx, c_conn, msg);
-        return;
+        return NULL;
     }
     ASSERT(!s_conn->client && !s_conn->proxy);
 
@@ -485,7 +546,7 @@ req_forward(struct context *ctx, struct conn *c_conn, struct msg *msg)
         if (status != NC_OK) {
             req_forward_error(ctx, c_conn, msg);
             s_conn->err = errno;
-            return;
+            return s_conn;
         }
     }
     s_conn->enqueue_inq(ctx, s_conn, msg);
@@ -495,6 +556,74 @@ req_forward(struct context *ctx, struct conn *c_conn, struct msg *msg)
     log_debug(LOG_VERB, "forward from c %d to s %d req %"PRIu64" len %"PRIu32
               " type %d with key '%.*s'", c_conn->sd, s_conn->sd, msg->id,
               msg->mlen, msg->type, keylen, key);
+
+    return s_conn;
+}
+
+static void
+req_forward(struct context *ctx, struct conn *c_conn, struct msg *msg)
+{
+    struct server_pool *pool;
+    struct conn        *s_conn, **i_conn;
+    struct msg         *b_msg, *nmsg, *tmsg;
+    uint32_t           cidx, nimpacted_conn;
+
+    ASSERT(c_conn->client && !c_conn->proxy);
+
+    pool = c_conn->owner;
+
+    ASSERT(array_n(&pool->impacted_s_conn) == 0);
+
+    /* Flush buffered messages */
+    nimpacted_conn = array_n(&pool->impacted_s_conn);
+    for (b_msg = TAILQ_FIRST(&c_conn->imsg_q); b_msg != NULL; b_msg = nmsg) {
+        nmsg = TAILQ_NEXT(b_msg, c_tqe);
+
+        c_conn->dequeue_inq(ctx, c_conn, b_msg);
+
+        s_conn = req_forward_msg(ctx, c_conn, b_msg);
+
+        if (s_conn == NULL) {
+            continue;
+        }
+        for (cidx = 0; cidx < nimpacted_conn; ++cidx) {
+            i_conn = array_get(&pool->impacted_s_conn, cidx);
+            if (s_conn == *i_conn) {
+                break;
+            }
+        }
+        if (cidx == nimpacted_conn) {
+            i_conn = array_push(&pool->impacted_s_conn);
+            ++nimpacted_conn;
+            *i_conn = s_conn;
+        }
+    }
+
+    /* Terminate unbuffered msg chains */
+    while (nimpacted_conn > 0) {
+        i_conn = array_pop(&pool->impacted_s_conn);
+        --nimpacted_conn;
+        s_conn = *i_conn;
+        if (msg->broadcastable && nimpacted_conn == 0) {
+            tmsg = msg;
+            if (!tmsg->noreply) {
+                c_conn->enqueue_outq(ctx, c_conn, tmsg);
+            }
+        } else {
+            tmsg = msg_get_terminator(c_conn, true, c_conn->protocol);
+            tmsg->swallow = 1;
+        }
+        s_conn->enqueue_inq(ctx, s_conn, tmsg);
+
+        log_debug(LOG_VERB, "forward from c %d to s %d req %"PRIu64" len "
+                  "%"PRIu32" type %d with no key", c_conn->sd, s_conn->sd,
+                  tmsg->id, tmsg->mlen, tmsg->type);
+
+    }
+
+    if (msg->broadcastable == 0) {
+        req_forward_msg(ctx, c_conn, msg);
+    }
 }
 
 void

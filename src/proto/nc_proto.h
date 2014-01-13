@@ -144,6 +144,17 @@ void memcache_pre_splitcopy(struct mbuf *mbuf, void *arg);
 rstatus_t memcache_post_splitcopy(struct msg *r);
 void memcache_pre_coalesce(struct msg *r);
 void memcache_post_coalesce(struct msg *r);
+struct msg *memcache_get_terminator(struct msg *r);
+struct msg *memcache_generate_error(struct msg *r, err_t err);
+
+void mcdbin_parse_req(struct msg *r);
+void mcdbin_parse_rsp(struct msg *r);
+void mcdbin_pre_splitcopy(struct mbuf *mbuf, void *arg);
+rstatus_t mcdbin_post_splitcopy(struct msg *r);
+void mcdbin_pre_coalesce(struct msg *r);
+void mcdbin_post_coalesce(struct msg *r);
+struct msg *mcdbin_get_terminator(struct msg *r);
+struct msg *mcdbin_generate_error(struct msg *r, err_t err);
 
 void redis_parse_req(struct msg *r);
 void redis_parse_rsp(struct msg *r);
@@ -151,5 +162,19 @@ void redis_pre_splitcopy(struct mbuf *mbuf, void *arg);
 rstatus_t redis_post_splitcopy(struct msg *r);
 void redis_pre_coalesce(struct msg *r);
 void redis_post_coalesce(struct msg *r);
+struct msg *redis_get_terminator(struct msg *r);
+struct msg *redis_generate_error(struct msg *r, err_t err);
+
+#define PROTOCOL_CODEC(ACTION) \
+    ACTION( MEMCACHE_ASCII , memcache_ascii  ) \
+    ACTION( MEMCACHE_BINARY, memcache_binary ) \
+    ACTION( REDIS          , redis           ) \
+
+#define DEFINE_ACTION(_protocol, _name) _protocol,
+typedef enum protocol_type {
+    PROTOCOL_CODEC( DEFINE_ACTION )
+    PROTOCOL_SENTINEL
+} protocol_type_t;
+#undef DEFINE_ACTION
 
 #endif

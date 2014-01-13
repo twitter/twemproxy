@@ -149,6 +149,31 @@ client_close(struct context *ctx, struct conn *conn)
         req_put(msg);
     }
 
+    for (msg = TAILQ_FIRST(&conn->imsg_q); msg != NULL; msg = nmsg) {
+        nmsg = TAILQ_NEXT(msg, c_tqe);
+
+        /* dequeue the message (request) from client inq */
+        conn->dequeue_inq(ctx, conn, msg);
+
+        if (msg->swallow || msg->noreply) {
+            log_debug(LOG_INFO, "close c %d swallow req %"PRIu64" len %"PRIu32
+                      " type %d", conn->sd, msg->id, msg->mlen, msg->type);
+            req_put(msg);
+        } else {
+            ASSERT(msg->owner == conn);
+
+            msg->done = 1;
+            msg->error = 1;
+            msg->err = conn->err;
+
+            conn->enqueue_outq(ctx, conn, msg);
+            log_debug(LOG_INFO, "close c %d schedule error for req %"PRIu64" "
+                      "len %"PRIu32" type %d%c %s", conn->sd, msg->id,
+                      msg->mlen, msg->type, conn->err ? ':' : ' ',
+                      conn->err ? strerror(conn->err) : " ");
+        }
+    }
+
     ASSERT(conn->smsg == NULL);
     ASSERT(TAILQ_EMPTY(&conn->imsg_q));
 
@@ -186,4 +211,31 @@ client_close(struct context *ctx, struct conn *conn)
     conn->sd = -1;
 
     conn_put(conn);
+}
+
+void
+client_timeout(struct context *ctx, struct conn *conn)
+{
+    rstatus_t status;
+    struct msg *msg, *nmsg, *pmsg;
+
+    ASSERT(conn->client && !conn->proxy);
+
+    for (msg = TAILQ_FIRST(&conn->imsg_q); msg != NULL; msg = nmsg) {
+        nmsg = TAILQ_NEXT(msg, c_tqe);
+
+        conn->dequeue_inq(ctx, conn, msg);
+
+        msg->done = 1;
+        msg->error = 1;
+        msg->err = ETIMEDOUT;
+
+        conn->enqueue_outq(ctx, conn, msg);
+        if (req_done(conn, TAILQ_FIRST(&conn->omsg_q))) {
+            status = event_add_out(ctx->evb, conn);
+            if (status != NC_OK) {
+                conn->err = errno;
+            }
+        }
+    }
 }

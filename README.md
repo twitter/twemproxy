@@ -241,6 +241,7 @@ If you are deploying nutcracker in production, you might consider reading throug
 + [Bright](http://www.bright.com/)
 + [56.com](http://www.56.com/)
 + [Snapchat](http://www.snapchat.com/)
++ [Digg](http://digg.com/)
 
 ## Issues and Support
 

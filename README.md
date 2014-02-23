@@ -242,6 +242,7 @@ If you are deploying nutcracker in production, you might consider reading throug
 + [56.com](http://www.56.com/)
 + [Snapchat](http://www.snapchat.com/)
 + [Digg](http://digg.com/)
++ [Gawkermedia](http://advertising.gawker.com/)
 
 ## Issues and Support
 

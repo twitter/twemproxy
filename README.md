@@ -227,6 +227,7 @@ If you are deploying nutcracker in production, you might consider reading throug
 + [nutcracker-web](https://github.com/kontera-technologies/nutcracker-web)
 + [munin-plugin](https://github.com/eveiga/contrib/tree/nutcracker/plugins/nutcracker)
 + [redis-twemproxy agent](https://github.com/Stono/redis-twemproxy-agent)
++ [sensu-metrics](https://github.com/sensu/sensu-community-plugins/blob/master/plugins/twemproxy/twemproxy-metrics.rb)
 
 ## Users
 + [Pinterest](http://pinterest.com/)
@@ -243,6 +244,7 @@ If you are deploying nutcracker in production, you might consider reading throug
 + [Snapchat](http://www.snapchat.com/)
 + [Digg](http://digg.com/)
 + [Gawkermedia](http://advertising.gawker.com/)
++ [3scale.net](http://3scale.net)
 
 ## Issues and Support
 

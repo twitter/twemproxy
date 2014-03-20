@@ -228,6 +228,7 @@ If you are deploying nutcracker in production, you might consider reading throug
 + [munin-plugin](https://github.com/eveiga/contrib/tree/nutcracker/plugins/nutcracker)
 + [redis-twemproxy agent](https://github.com/Stono/redis-twemproxy-agent)
 + [sensu-metrics](https://github.com/sensu/sensu-community-plugins/blob/master/plugins/twemproxy/twemproxy-metrics.rb)
++ [redis-mgr](https://github.com/idning/redis-mgr)
 
 ## Users
 + [Pinterest](http://pinterest.com/)

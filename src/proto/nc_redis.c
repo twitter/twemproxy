@@ -2008,6 +2008,7 @@ redis_pre_coalesce(struct msg *r)
         /* do nothing, if not a response to a fragmented request */
         return;
     }
+    pr->frag_owner->nfrag_done ++;
 
     switch (r->type) {
     case MSG_RSP_REDIS_INTEGER:

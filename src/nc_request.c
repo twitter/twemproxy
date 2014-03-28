@@ -135,6 +135,12 @@ req_done(struct conn *conn, struct msg *msg)
         return true;
     }
 
+    /*loga("ning req_done(): msg->nfrag: %d, msg->nfrag_done:%d", msg->nfrag, msg->nfrag_done);*/
+    /*msg_dump(msg);*/
+    if(msg->nfrag_done < msg->nfrag){
+        return false;
+    }
+
     /* check all fragments of the given request vector are done */
 
     for (pmsg = msg, cmsg = TAILQ_PREV(msg, msg_tqh, c_tqe);

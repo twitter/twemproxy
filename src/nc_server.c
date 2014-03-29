@@ -608,8 +608,8 @@ server_pool_hash(struct server_pool *pool, uint8_t *key, uint32_t keylen)
     return pool->key_hash((char *)key, keylen);
 }
 
-static struct server *
-server_pool_server(struct server_pool *pool, uint8_t *key, uint32_t keylen)
+uint32_t
+server_pool_idx(struct server_pool *pool, uint8_t *key, uint32_t keylen)
 {
     struct server *server;
     uint32_t hash, idx;
@@ -634,10 +634,20 @@ server_pool_server(struct server_pool *pool, uint8_t *key, uint32_t keylen)
 
     default:
         NOT_REACHED();
-        return NULL;
+        return -1;
     }
     ASSERT(idx < array_n(&pool->server));
+    return idx;
+}
 
+static struct server *
+server_pool_server(struct server_pool *pool, uint8_t *key, uint32_t keylen)
+{
+    struct server *server;
+    uint32_t idx;
+
+    idx = server_pool_idx(pool, key, keylen);
+    ASSERT(idx >= 0);
     server = array_get(&pool->server, idx);
 
     log_debug(LOG_VERB, "key '%.*s' on dist %d maps to server '%.*s'", keylen,

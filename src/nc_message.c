@@ -17,6 +17,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <ctype.h>
 
 #include <sys/uio.h>
 
@@ -242,6 +243,7 @@ done:
     msg->end = NULL;
 
     msg->frag_owner = NULL;
+    msg->frag_seq = NULL;
     msg->nfrag = 0;
     msg->nfrag_done = 0;
     msg->frag_id = 0;
@@ -374,9 +376,13 @@ msg_put(struct msg *msg)
 }
 
 void
-msg_dump(struct msg *msg)
+msg_dump(struct msg *msg, int level)
 {
     struct mbuf *mbuf;
+
+    if (log_loggable(level) == 0) {
+        return;
+    }
 
     loga("msg dump id %"PRIu64" request %d len %"PRIu32" type %d done %d "
          "error %d (err %d)", msg->id, msg->request, msg->mlen, msg->type,
@@ -390,7 +396,16 @@ msg_dump(struct msg *msg)
         q = mbuf->last;
         len = q - p;
 
-        loga_hexdump(p, len, "mbuf with %ld bytes of data", len);
+        loga_hexdump(p, len, "mbuf [%p] with %ld bytes of data", p, len);
+    }
+}
+
+void
+msg_reset_mbufs(struct msg *msg)
+{
+    struct mbuf *mbuf;
+    STAILQ_FOREACH(mbuf, &msg->mhdr, next) {
+        mbuf->pos = mbuf->last = mbuf->start;
     }
 }
 
@@ -431,11 +446,191 @@ msg_empty(struct msg *msg)
     return msg->mlen == 0 ? true : false;
 }
 
+static uint32_t
+key_to_idx(struct server_pool *pool, uint8_t *key, uint32_t keylen){
+    //hash_tag
+    if (!string_empty(&pool->hash_tag)) {
+        struct string *tag = &pool->hash_tag;
+        uint8_t *tag_start, *tag_end;
+
+        tag_start = nc_strchr(key, key + keylen, tag->data[0]);
+        if (tag_start != NULL) {
+            tag_end = nc_strchr(tag_start + 1, key + keylen, tag->data[1]);
+            if (tag_end != NULL) {
+                key = tag_start + 1;
+                keylen = (uint32_t)(tag_end - key);
+            }
+        }
+    }
+    return server_pool_idx(pool, key, keylen);
+}
+
+/*
+ * parse next key in mget request, update
+ * r->key_start
+ * r->key_end
+ * */
+static rstatus_t
+msg_fragment_mget_update_keypos(struct msg *r, struct mbuf ** in_buf){
+    struct mbuf *buf;
+    uint8_t * p;
+    uint32_t len = 0;
+    uint32_t keylen = 0;
+
+    for(buf = STAILQ_FIRST(&r->mhdr); buf->pos >= buf->last; buf = STAILQ_FIRST(&r->mhdr)){
+        mbuf_remove(&r->mhdr, buf);
+        mbuf_put(buf);
+    }
+
+    p = buf->pos;
+    ASSERT(*p == '$');
+    p ++;
+
+    len = 0;
+    for (; p < buf->last && isdigit(*p); p++) {
+        len = len * 10 + (uint32_t)(*p - '0');
+    }
+    keylen = len;
+    len += (uint32_t)CRLF_LEN * 2;
+    len += (uint32_t)(p - buf->pos);
+
+    if(mbuf_length(buf) < len){ //key no in this buf, remove it.
+        len -= mbuf_length(buf);
+        mbuf_remove(&r->mhdr, buf);
+        mbuf_put(buf);
+
+        buf = STAILQ_FIRST(&r->mhdr);
+    }
+
+    r->key_end = buf->pos + len - CRLF_LEN;
+    r->key_start = r->key_end - keylen; //TODO, check
+    buf->pos += len;
+    return NC_OK;
+}
+
+static rstatus_t
+msg_fragment_mget(struct context *ctx, struct conn *conn, struct msg *msg){
+    struct server_pool *pool;
+    struct mbuf *mbuf, *sub_msg_mbuf;
+    struct msg ** sub_msgs;
+    uint32_t i;
+
+    ASSERT(conn->client && !conn->proxy);
+    ASSERT(conn->owner != NULL);
+
+    //init sub_msgs and msg->frag_seq
+    pool = conn->owner;
+    sub_msgs = nc_alloc(pool->ncontinuum * sizeof(void *) );
+    for(i = 0; i < pool->ncontinuum; i++){
+        sub_msgs[i] = msg_get(msg->owner, msg->request, conn->redis);
+    }
+    msg->frag_seq = nc_alloc(sizeof(struct msg *) * msg->narg); //the point for each key, point to sub_msgs elements
+
+    mbuf = STAILQ_FIRST(&msg->mhdr);
+    mbuf->pos = mbuf->start;
+
+    for(i = 0; i< 3; i++){              //eat *narg\r\n$4\r\nMGET\r\n
+        for(;*(mbuf->pos) != '\n';){
+            mbuf->pos ++;
+        }
+        mbuf->pos ++;
+    }
+
+    msg->frag_id = ++frag_id;
+    msg->first_fragment = 1;
+    msg->nfrag = 0;
+    msg->frag_owner = msg;
+
+    for(i = 1; i < msg->narg; i++){ //for each  key
+        msg_fragment_mget_update_keypos(msg, &mbuf);
+
+        uint8_t * key = msg->key_start;
+        uint32_t keylen = (uint32_t)(msg->key_end - msg->key_start);
+        uint32_t idx = key_to_idx(pool, key, keylen);
+        struct msg *sub_msg = sub_msgs[idx];
+
+        msg->frag_seq[i] = sub_msgs[idx];
+
+        sub_msg->narg ++;
+
+        if (STAILQ_EMPTY(&sub_msg->mhdr)
+                || mbuf_size(STAILQ_LAST(&sub_msg->mhdr, mbuf, next)) < keylen + CRLF_LEN + CRLF_LEN + 6 ){ //6 is $ len (key <= 64k, so len less then 5)
+            sub_msg_mbuf = mbuf_get();
+            if (sub_msg_mbuf == NULL) {
+                nc_free(sub_msgs);
+                return NC_ENOMEM;
+            }
+            mbuf_insert(&sub_msg->mhdr, sub_msg_mbuf);
+        }else{
+            sub_msg_mbuf = STAILQ_LAST(&sub_msg->mhdr, mbuf, next);
+        }
+
+        uint8_t * p = sub_msg_mbuf ->last;
+
+        sub_msg_mbuf->last += nc_snprintf(sub_msg_mbuf->last, mbuf_size(sub_msg_mbuf), "$%d\r\n", keylen);
+        sub_msg->key_start = sub_msg_mbuf->last;   //update key_start
+        mbuf_copy(sub_msg_mbuf, key, keylen);
+        sub_msg->key_end = sub_msg_mbuf->last;     //update key_start
+        sub_msg_mbuf->last += nc_snprintf(sub_msg_mbuf->last, mbuf_size(sub_msg_mbuf), "\r\n");
+
+        sub_msg->mlen += (uint32_t)(sub_msg_mbuf->last - p);
+    }
+
+    msg_reset_mbufs(msg);
+    //rewrite the orig msg to a PING cmd
+    mbuf = STAILQ_FIRST(&msg->mhdr);
+    mbuf->pos = mbuf->last = mbuf->start;
+
+    nc_memcpy(mbuf->pos, "*1\r\n$4\r\nPING\r\n", 14);
+    mbuf->last = mbuf->start + 14;
+    msg->key_start = mbuf->start + 8;
+    msg->key_end = mbuf->start + 12;
+    msg->mlen = 14;
+
+    conn->recv_done(ctx, conn, msg, NULL);
+
+    for(i = 0; i < pool->ncontinuum; i++){      //prepend mget header, and forward it
+        struct msg* sub_msg = sub_msgs[i];
+        if(STAILQ_EMPTY(&sub_msg->mhdr)){
+            msg_put(sub_msg);
+            continue;
+        }
+
+        sub_msg_mbuf = mbuf_get();
+        if (sub_msg_mbuf == NULL) {
+            nc_free(sub_msgs);
+            return NC_ENOMEM;
+        }
+        sub_msg_mbuf->last += nc_snprintf(sub_msg_mbuf->last, mbuf_size(sub_msg_mbuf), "*%d\r\n$4\r\nmget\r\n",
+                    sub_msg->narg + 1);
+
+        STAILQ_INSERT_HEAD(&sub_msg->mhdr, sub_msg_mbuf, next);
+        sub_msg->type = MSG_REQ_REDIS_MGET;
+        sub_msg->frag_id = msg->frag_id;
+        sub_msg->frag_owner = msg->frag_owner;
+
+        conn->recv_done(ctx, conn, sub_msg, NULL);
+
+        msg->nfrag ++;
+    }
+
+    nc_free(sub_msgs);
+    return NC_OK;
+}
+
 static rstatus_t
 msg_parsed(struct context *ctx, struct conn *conn, struct msg *msg)
 {
-    struct msg *nmsg;
+    struct msg *nmsg; //next msg
     struct mbuf *mbuf, *nbuf;
+
+    if(msg->type == MSG_REQ_REDIS_MGET){
+        rstatus_t status = msg_fragment_mget(ctx, conn, msg);
+        if (status != NC_OK) {
+            return status;
+        }
+        return NC_OK;//TODO.
+    }
 
     mbuf = STAILQ_LAST(&msg->mhdr, mbuf, next);
     if (msg->pos == mbuf->last) {

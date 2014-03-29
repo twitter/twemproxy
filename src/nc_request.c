@@ -135,8 +135,6 @@ req_done(struct conn *conn, struct msg *msg)
         return true;
     }
 
-    /*loga("ning req_done(): msg->nfrag: %d, msg->nfrag_done:%d", msg->nfrag, msg->nfrag_done);*/
-    /*msg_dump(msg);*/
     if(msg->nfrag_done < msg->nfrag){
         return false;
     }
@@ -161,9 +159,9 @@ req_done(struct conn *conn, struct msg *msg)
         }
     }
 
-    if (!pmsg->last_fragment) {
-        return false;
-    }
+    /*if (!pmsg->last_fragment) {*/
+        /*return false;*/
+    /*}*/
 
     /*
      * At this point, all the fragments including the last fragment have
@@ -190,7 +188,7 @@ req_done(struct conn *conn, struct msg *msg)
         nfragment++;
     }
 
-    ASSERT(msg->frag_owner->nfrag == nfragment);
+    /*ASSERT(msg->frag_owner->nfrag == nfragment);*/
 
     msg->post_coalesce(msg->frag_owner);
 
@@ -199,6 +197,7 @@ req_done(struct conn *conn, struct msg *msg)
 
     return true;
 }
+
 
 /*
  * Return true if request is in error, false otherwise
@@ -561,7 +560,7 @@ req_recv_done(struct context *ctx, struct conn *conn, struct msg *msg,
     ASSERT(conn->client && !conn->proxy);
     ASSERT(msg->request);
     ASSERT(msg->owner == conn);
-    ASSERT(conn->rmsg == msg);
+    /*ASSERT(conn->rmsg == msg);*/
     ASSERT(nmsg == NULL || nmsg->request);
 
     /* enqueue next message (request), if any */

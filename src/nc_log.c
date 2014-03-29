@@ -261,6 +261,13 @@ _log_hexdump(const char *file, int line, char *data, int datalen,
         l->nerror++;
     }
 
+    if (len >= size - 1){
+        n = nc_write(l->fd, "\n", 1);
+        if (n < 0) {
+            l->nerror++;
+        }
+    }
+
     errno = errno_save;
 }
 

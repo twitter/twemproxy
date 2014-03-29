@@ -1051,7 +1051,8 @@ redis_parse_req(struct msg *r)
                     if (r->rnarg == 0) {
                         goto done;
                     }
-                    state = SW_FRAGMENT;
+                    state = SW_KEY_LEN;
+                    /*state = SW_FRAGMENT;*/
                 } else if (redis_argeval(r)) {
                     if (r->rnarg == 0) {
                         goto done;
@@ -2060,7 +2061,8 @@ redis_pre_coalesce(struct msg *r)
             STAILQ_INSERT_HEAD(&r->mhdr, mbuf, next);
         }
         break;
-
+    case MSG_RSP_REDIS_STATUS: //this is the orig mget msg, PING-PONG
+        break;
     default:
         /*
          * Valid responses for a fragmented request are MSG_RSP_REDIS_INTEGER or,
@@ -2074,6 +2076,85 @@ redis_pre_coalesce(struct msg *r)
         pr->err = EINVAL;
         break;
     }
+}
+
+/*
+ * copy one response from src to dst
+ * return bytes copied
+ * */
+uint32_t
+redis_copy_bulk(struct msg *dst, struct msg * src){
+    struct mbuf *buf, *nbuf;
+    uint8_t * p;
+    uint32_t len = 0;
+    uint32_t bytes = 0;
+
+    buf = STAILQ_FIRST(&src->mhdr);
+    p = buf->pos;
+    ASSERT(*p == '$');
+    p++;
+
+    if (p[0] == '-' && p[1] == '1'){
+        len = 1 + 2 + CRLF_LEN;
+        p = buf->pos + len;
+    }else{
+        len = 0;
+        for (; p < buf->last && isdigit(*p); p++) {
+            len = len * 10 + (uint32_t)(*p - '0');
+        }
+        len += CRLF_LEN * 2;
+        len += (p - buf->pos);
+    }
+    bytes = len;
+
+    // copy len bytes to dst
+    for(; buf ;){
+        if(mbuf_length(buf) <= len){ //move this buf from src to dst
+            nbuf = STAILQ_NEXT(buf, next);
+            mbuf_remove(&src->mhdr, buf);
+            mbuf_insert(&dst->mhdr, buf);
+            len -= mbuf_length(buf);
+            buf = nbuf;
+        }else{                      //split it
+            nbuf = mbuf_get();
+            if (nbuf == NULL) {
+                return -1; //TODO
+            }
+            mbuf_copy(nbuf, buf->pos, len);
+            mbuf_insert(&dst->mhdr, nbuf);
+            buf->pos += len;
+            break;
+        }
+    }
+    return bytes;
+}
+
+void
+redis_post_coalesce_mget(struct msg *request) {
+    struct msg *response = request->peer;
+    struct msg *sub_msg;
+    struct mbuf * mbuf;
+    int len;
+    int i;
+
+    mbuf = STAILQ_FIRST(&response->mhdr);
+    mbuf->last = mbuf->pos = mbuf->start;
+
+    len = nc_scnprintf(mbuf->last, mbuf_size(mbuf), "*%d\r\n", request->narg - 1);
+    mbuf->last += len;
+    response->mlen = (uint32_t)len;
+
+    for(i = 1; i < request->narg; i++){ //for each  key
+        sub_msg = request->frag_seq[i]->peer; //get it's peer response
+        len = redis_copy_bulk(response, sub_msg);
+        ASSERT(len>=0);
+        log_debug(LOG_VVERB, "redis_copy_bulk for mget copy bytes: %d", len);
+        response->mlen += len;
+        sub_msg->mlen -= len;
+    }
+
+    nc_free(request->frag_seq);
+    /*msg_dump(response, LOG_VVERB);*/
 }
 
 /*
@@ -2119,9 +2200,14 @@ redis_post_coalesce(struct msg *r)
         mbuf = STAILQ_FIRST(&pr->mhdr);
         ASSERT(mbuf_empty(mbuf));
 
-        n = nc_scnprintf(mbuf->last, mbuf_size(mbuf), "*%d\r\n", r->nfrag);
+        n = nc_scnprintf(mbuf->last, mbuf_size(mbuf), "*%d\r\n", r->narg - 1);
         mbuf->last += n;
         pr->mlen += (uint32_t)n;
+        pr->mlen = (uint32_t)n;
+        break;
+
+    case MSG_RSP_REDIS_STATUS: //this is the orig mget msg, PING-PONG
+        redis_post_coalesce_mget(r);
         break;
 
     default:

@@ -1,3 +1,6 @@
+# pyc
+*.pyc
+
 # Compiled Object files
 *.lo
 *.o

@@ -47,8 +47,28 @@ def test_mget(cnt=1000):
         assert(None == vals[i])
 
 def test_many_mget():
-    for i in range(1, 10000, 17):
+    for i in range(1, 1000, 17):
         test_mget(i)
     pass
 
+
+def test_large_mget(cnt=5):
+    r = redis.StrictRedis(host, port)
+
+    kv = {}
+    for i in range(cnt):
+        kv['kkk-%s' % i] = os.urandom(1024*1024*8)
+
+    #insert
+    for i in range(cnt):
+        key = 'kkk-%s' % i
+        r.set(key, kv[key])
+
+    keys = ['kkk-%s' % i for i in range(cnt)]
+
+    #mget to check
+    vals = r.mget(keys)
+    for i in range(cnt):
+        key = 'kkk-%s' % i
+        assert(kv[key] == vals[i])
 

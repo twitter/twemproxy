@@ -215,7 +215,7 @@ redis_argn(struct msg *r)
  * Return true, if the redis command is a vector command accepting one or
  * more keys, otherwise return false
  */
-static bool
+bool
 redis_argx(struct msg *r)
 {
     switch (r->type) {
@@ -2130,6 +2130,23 @@ redis_copy_bulk(struct msg *dst, struct msg * src){
 }
 
 void
+redis_post_coalesce_del(struct msg *request) {
+    struct msg *response = request->peer;
+    struct mbuf * mbuf;
+    uint32_t len;
+
+    mbuf = STAILQ_FIRST(&response->mhdr);
+    mbuf->last = mbuf->pos = mbuf->start; //discard PONG
+
+    len = nc_scnprintf(mbuf->last, mbuf_size(mbuf), ":%d\r\n", request->integer);
+    mbuf->last += len;
+    response->mlen += (uint32_t)len;
+
+    nc_free(request->frag_seq);
+
+}
+
+void
 redis_post_coalesce_mget(struct msg *request) {
     struct msg *response = request->peer;
     struct msg *sub_msg;
@@ -2138,7 +2155,7 @@ redis_post_coalesce_mget(struct msg *request) {
     int i;
 
     mbuf = STAILQ_FIRST(&response->mhdr);
-    mbuf->last = mbuf->pos = mbuf->start;
+    mbuf->last = mbuf->pos = mbuf->start; //discard PONG
 
     len = nc_scnprintf(mbuf->last, mbuf_size(mbuf), "*%d\r\n", request->narg - 1);
     mbuf->last += len;
@@ -2200,14 +2217,17 @@ redis_post_coalesce(struct msg *r)
         mbuf = STAILQ_FIRST(&pr->mhdr);
         ASSERT(mbuf_empty(mbuf));
 
-        n = nc_scnprintf(mbuf->last, mbuf_size(mbuf), "*%d\r\n", r->narg - 1);
+        n = nc_scnprintf(mbuf->last, mbuf_size(mbuf), "*%d\r\n", r->nfrag);
         mbuf->last += n;
         pr->mlen += (uint32_t)n;
-        pr->mlen = (uint32_t)n;
         break;
 
     case MSG_RSP_REDIS_STATUS: //this is the orig mget msg, PING-PONG
-        redis_post_coalesce_mget(r);
+        if (r->type == MSG_REQ_REDIS_MGET){
+            redis_post_coalesce_mget(r);
+        }else if (r->type == MSG_REQ_REDIS_DEL){
+            redis_post_coalesce_del(r);
+        }
         break;
 
     default:

@@ -521,7 +521,7 @@ msg_fragment_argx_update_keypos(struct msg *r, struct mbuf ** in_buf){
 }
 
 static rstatus_t
-msg_fragment_argx(struct context *ctx, struct conn *conn, struct msg *msg, struct msg *nmsg){
+msg_fragment_argx(struct context *ctx, struct conn *conn, struct msg *msg, struct msg *nmsg, int key_step){
     struct server_pool *pool;
     struct mbuf *mbuf, *sub_msg_mbuf;
     struct msg ** sub_msgs;
@@ -586,6 +586,24 @@ msg_fragment_argx(struct context *ctx, struct conn *conn, struct msg *msg, struc
         sub_msg_mbuf->last += nc_snprintf(sub_msg_mbuf->last, mbuf_size(sub_msg_mbuf), "\r\n");
 
         sub_msg->mlen += (uint32_t)(sub_msg_mbuf->last - p);
+
+        if(key_step == 1){      //mget,del
+            continue;
+        } else{                  //mset, msetex
+            uint32_t len = redis_copy_bulk(sub_msg, msg);
+            log_debug(LOG_VVERB, "redis_copy_bulk for mset copy bytes: %d", len);
+            i++;
+            sub_msg->narg ++;
+        }
+    }
+
+    if (STAILQ_EMPTY(&msg->mhdr)){
+        mbuf = mbuf_get();
+        if (mbuf == NULL) {
+            nc_free(msg);
+            return NC_ENOMEM;
+        }
+        mbuf_insert(&msg->mhdr, mbuf);
     }
 
     msg_reset_mbufs(msg);
@@ -618,6 +636,12 @@ msg_fragment_argx(struct context *ctx, struct conn *conn, struct msg *msg, struc
                         sub_msg->narg + 1);
         }else if (msg->type == MSG_REQ_REDIS_DEL){
             sub_msg_mbuf->last += nc_snprintf(sub_msg_mbuf->last, mbuf_size(sub_msg_mbuf), "*%d\r\n$3\r\ndel\r\n",
+                        sub_msg->narg + 1);
+        }else if (msg->type == MSG_REQ_REDIS_MSET){
+            sub_msg_mbuf->last += nc_snprintf(sub_msg_mbuf->last, mbuf_size(sub_msg_mbuf), "*%d\r\n$4\r\nmset\r\n",
+                        sub_msg->narg + 1);
+        }else if (msg->type == MSG_REQ_REDIS_MSETNX){
+            sub_msg_mbuf->last += nc_snprintf(sub_msg_mbuf->last, mbuf_size(sub_msg_mbuf), "*%d\r\n$6\r\nmsetnx\r\n",
                         sub_msg->narg + 1);
         }
         sub_msg->mlen += mbuf_length(sub_msg_mbuf);
@@ -672,7 +696,13 @@ msg_parsed(struct context *ctx, struct conn *conn, struct msg *msg)
     }
 
     if(redis_argx(msg)){
-        rstatus_t status = msg_fragment_argx(ctx, conn, msg, nmsg);
+        rstatus_t status = msg_fragment_argx(ctx, conn, msg, nmsg, 1);
+        if (status != NC_OK) {
+            return status;
+        }
+        return NC_OK;//TODO.
+    }else if(redis_arg2x(msg)){
+        rstatus_t status = msg_fragment_argx(ctx, conn, msg, nmsg, 2);
         if (status != NC_OK) {
             return status;
         }

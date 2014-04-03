@@ -231,6 +231,25 @@ redis_argx(struct msg *r)
 }
 
 /*
+ * Return true, if the redis command is a vector command accepting one or
+ * more key-value pairs, otherwise return false
+ */
+bool
+redis_arg2x(struct msg *r)
+{
+    switch (r->type) {
+    case MSG_REQ_REDIS_MSET:
+    case MSG_REQ_REDIS_MSETNX:
+        return true;
+
+    default:
+        break;
+    }
+
+    return false;
+}
+
+/*
  * Return true, if the redis command is either EVAL or EVALSHA. These commands
  * have a special format with exactly 2 arguments, followed by one or more keys,
  * followed by zero or more arguments (the documentation online seems to suggest
@@ -540,6 +559,10 @@ redis_parse_req(struct msg *r)
                     r->type = MSG_REQ_REDIS_MGET;
                     break;
                 }
+                if (str4icmp(m, 'm', 's', 'e', 't')) {
+                    r->type = MSG_REQ_REDIS_MSET;
+                    break;
+                }
 
                 if (str4icmp(m, 'z', 'a', 'd', 'd')) {
                     r->type = MSG_REQ_REDIS_ZADD;
@@ -632,6 +655,10 @@ redis_parse_req(struct msg *r)
                 break;
 
             case 6:
+                if (str6icmp(m, 'm', 's', 'e', 't', 'n', 'x')) {
+                    r->type = MSG_REQ_REDIS_MSETNX;
+                    break;
+                }
                 if (str6icmp(m, 'a', 'p', 'p', 'e', 'n', 'd')) {
                     r->type = MSG_REQ_REDIS_APPEND;
                     break;
@@ -1053,6 +1080,11 @@ redis_parse_req(struct msg *r)
                     }
                     state = SW_KEY_LEN;
                     /*state = SW_FRAGMENT;*/
+                } else if (redis_arg2x(r)) {
+                    if (r->rnarg == 0) {
+                        goto done;
+                    }
+                    state = SW_ARG1_LEN;
                 } else if (redis_argeval(r)) {
                     if (r->rnarg == 0) {
                         goto done;
@@ -1156,6 +1188,11 @@ redis_parse_req(struct msg *r)
                         goto error;
                     }
                     state = SW_ARG2_LEN;
+                } else if (redis_arg2x(r)) {
+                    if (r->rnarg == 0) {
+                        goto done;
+                    }
+                    state = SW_KEY_LEN;
                 } else {
                     goto error;
                 }
@@ -2061,8 +2098,17 @@ redis_pre_coalesce(struct msg *r)
             STAILQ_INSERT_HEAD(&r->mhdr, mbuf, next);
         }
         break;
-    case MSG_RSP_REDIS_STATUS: //this is the orig mget msg, PING-PONG
+
+    case MSG_RSP_REDIS_STATUS:
+        if (pr->type == MSG_REQ_REDIS_MSET || pr->type == MSG_REQ_REDIS_MSETNX){ //MSET segments
+            mbuf = STAILQ_FIRST(&r->mhdr);
+            r->mlen -= mbuf_length(mbuf);
+            mbuf_rewind(mbuf);
+        }else{ //this is the orig mget msg, PING-PONG
+            // do nothing
+        }
         break;
+
     default:
         /*
          * Valid responses for a fragmented request are MSG_RSP_REDIS_INTEGER or,
@@ -2088,6 +2134,11 @@ redis_copy_bulk(struct msg *dst, struct msg * src){
     uint8_t * p;
     uint32_t len = 0;
     uint32_t bytes = 0;
+
+    for(buf = STAILQ_FIRST(&src->mhdr); buf->pos >= buf->last; buf = STAILQ_FIRST(&src->mhdr)){
+        mbuf_remove(&src->mhdr, buf);
+        mbuf_put(buf);
+    }
 
     buf = STAILQ_FIRST(&src->mhdr);
     p = buf->pos;
@@ -2127,6 +2178,22 @@ redis_copy_bulk(struct msg *dst, struct msg * src){
         }
     }
     return bytes;
+}
+
+void
+redis_post_coalesce_msetx(struct msg *request) {
+    struct msg *response = request->peer;
+    struct mbuf * mbuf;
+    uint32_t len;
+
+    mbuf = STAILQ_FIRST(&response->mhdr);
+    mbuf->last = mbuf->pos = mbuf->start; //discard PONG
+
+    len = nc_scnprintf(mbuf->last, mbuf_size(mbuf), "+OK\r\n");
+    mbuf->last += len;
+    response->mlen += (uint32_t)len;
+
+    nc_free(request->frag_seq);
 }
 
 void
@@ -2227,7 +2294,10 @@ redis_post_coalesce(struct msg *r)
             redis_post_coalesce_mget(r);
         }else if (r->type == MSG_REQ_REDIS_DEL){
             redis_post_coalesce_del(r);
+        }else if (r->type == MSG_REQ_REDIS_MSET || r->type == MSG_REQ_REDIS_MSETNX){
+            redis_post_coalesce_msetx(r);
         }
+
         break;
 
     default:

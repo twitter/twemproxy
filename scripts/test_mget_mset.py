@@ -20,21 +20,26 @@ host = os.environ['REDIS_HOST']
 port = int(os.environ['REDIS_PORT'])
 
 
-def test_mget(cnt=1000):
+def test_mget(cnt=10):
     print 'test_many', cnt
     r = redis.StrictRedis(host, port)
 
-    #insert
-    pipe = r.pipeline(transaction=False)
-    for i in range(cnt):
-        pipe.set('kkk-%s'%i, 'vvv-%s'%i)
-    pipe.execute()
+    def insert_by_pipeline():
+        pipe = r.pipeline(transaction=False)
+        for i in range(cnt):
+            pipe.set('kkk-%s'%i, 'vvv-%s'%i)
+        pipe.execute()
 
+    def insert_by_mset():
+        kv = {'kkk-%s' % i :'vvv-%s' % i for i in range(cnt)}
+        ret = r.mset(**kv)
+
+    insert_by_mset()
     keys = ['kkk-%s' % i for i in range(cnt)]
 
     #mget to check
     vals = r.mget(keys)
-    #print vals
+    #print 'vals', vals
     for i in range(cnt):
         assert('vvv-%s'%i == vals[i])
 
@@ -47,28 +52,28 @@ def test_mget(cnt=1000):
         assert(None == vals[i])
 
 def test_many_mget():
-    for i in range(1, 1000, 17):
+    for i in range(1, 10000, 17):
         test_mget(i)
     pass
-
 
 def test_large_mget(cnt=5):
     r = redis.StrictRedis(host, port)
 
     kv = {}
     for i in range(cnt):
-        kv['kkk-%s' % i] = os.urandom(1024*1024*8)
+        kv['kkx-%s' % i] = os.urandom(1024*1024*8)
 
     #insert
     for i in range(cnt):
-        key = 'kkk-%s' % i
+        key = 'kkx-%s' % i
         r.set(key, kv[key])
 
-    keys = ['kkk-%s' % i for i in range(cnt)]
+    keys = ['kkx-%s' % i for i in range(cnt)]
 
     #mget to check
     vals = r.mget(keys)
     for i in range(cnt):
-        key = 'kkk-%s' % i
+        key = 'kkx-%s' % i
         assert(kv[key] == vals[i])
+
 

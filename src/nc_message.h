@@ -80,6 +80,7 @@ typedef enum msg_parse_result {
     ACTION( REQ_REDIS_INCRBY )                                                                      \
     ACTION( REQ_REDIS_INCRBYFLOAT )                                                                 \
     ACTION( REQ_REDIS_MGET )                                                                        \
+    ACTION( REQ_REDIS_MSET )                                                                        \
     ACTION( REQ_REDIS_PSETEX )                                                                      \
     ACTION( REQ_REDIS_RESTORE )                                                                     \
     ACTION( REQ_REDIS_SET )                                                                         \

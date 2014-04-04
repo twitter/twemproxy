@@ -82,6 +82,10 @@ static struct command conf_commands[] = {
       conf_set_bool,
       offsetof(struct conf_pool, auto_eject_hosts) },
 
+    { string("auto_eject_drop"),
+      conf_set_bool,
+      offsetof(struct conf_pool, auto_eject_drop) },
+
     { string("server_connections"),
       conf_set_num,
       offsetof(struct conf_pool, server_connections) },
@@ -154,6 +158,7 @@ conf_server_each_transform(void *elem, void *data)
 
     s->next_retry = 0LL;
     s->failure_count = 0;
+    s->dead = 0;
 
     log_debug(LOG_VERB, "transform to server %"PRIu32" '%.*s'",
               s->idx, s->pname.len, s->pname.data);
@@ -186,6 +191,7 @@ conf_pool_init(struct conf_pool *cp, struct string *name)
     cp->redis = CONF_UNSET_NUM;
     cp->preconnect = CONF_UNSET_NUM;
     cp->auto_eject_hosts = CONF_UNSET_NUM;
+    cp->auto_eject_drop = CONF_UNSET_NUM;
     cp->server_connections = CONF_UNSET_NUM;
     cp->server_retry_timeout = CONF_UNSET_NUM;
     cp->server_failure_limit = CONF_UNSET_NUM;
@@ -277,6 +283,7 @@ conf_pool_each_transform(void *elem, void *data)
     sp->server_retry_timeout = (int64_t)cp->server_retry_timeout * 1000LL;
     sp->server_failure_limit = (uint32_t)cp->server_failure_limit;
     sp->auto_eject_hosts = cp->auto_eject_hosts ? 1 : 0;
+    sp->auto_eject_drop = cp->auto_eject_drop ? 1 : 0;
     sp->preconnect = cp->preconnect ? 1 : 0;
 
     status = server_init(&sp->server, &cp->server, sp);
@@ -322,6 +329,7 @@ conf_dump(struct conf *cf)
         log_debug(LOG_VVERB, "  redis: %d", cp->redis);
         log_debug(LOG_VVERB, "  preconnect: %d", cp->preconnect);
         log_debug(LOG_VVERB, "  auto_eject_hosts: %d", cp->auto_eject_hosts);
+        log_debug(LOG_VVERB, "  auto_eject_drop: %d", cp->auto_eject_drop);
         log_debug(LOG_VVERB, "  server_connections: %d",
                   cp->server_connections);
         log_debug(LOG_VVERB, "  server_retry_timeout: %d",
@@ -1217,6 +1225,10 @@ conf_validate_pool(struct conf *cf, struct conf_pool *cp)
 
     if (cp->auto_eject_hosts == CONF_UNSET_NUM) {
         cp->auto_eject_hosts = CONF_DEFAULT_AUTO_EJECT_HOSTS;
+    }
+
+    if (cp->auto_eject_drop == CONF_UNSET_NUM) {
+        cp->auto_eject_drop = CONF_DEFAULT_AUTO_EJECT_DROP;
     }
 
     if (cp->server_connections == CONF_UNSET_NUM) {

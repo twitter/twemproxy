@@ -286,6 +286,17 @@ proxy_accept(struct context *ctx, struct conn *p)
              * FIXME: On EMFILE or ENFILE mask out IN event on the proxy; mask
              * it back in when some existing connection gets closed
              */
+            
+            /* 
+             * Workaround of https://github.com/twitter/twemproxy/issues/97
+             * Just ignore EMFILE/ENFILE, return NC_OK will enable the server 
+             * continue to run instead of close the server socket
+             */
+            if (errno == EMFILE || errno == ENFILE) {
+                log_debug(LOG_CRIT, "accept on p %d failed: %s", p->sd, strerror(errno));
+                p->recv_ready = 0;
+                return NC_OK;
+            }
 
             log_error("accept on p %d failed: %s", p->sd, strerror(errno));
             return NC_ERROR;

@@ -145,7 +145,6 @@ void
 msg_tmo_insert(struct msg *msg, struct conn *conn)
 {
     struct rbnode *node;
-    struct server *server;
     int timeout;
 
     ASSERT(msg->request);
@@ -154,13 +153,6 @@ msg_tmo_insert(struct msg *msg, struct conn *conn)
     timeout = server_timeout(conn);
     if (timeout <= 0) {
         return;
-    }
-
-    server = conn->owner;
-
-    /* insert already expired */
-    if (server->dead) {
-        timeout = -1;
     }
 
     node = &msg->tmo_rbe;

@@ -678,6 +678,7 @@ server_pool_conn(struct context *ctx, struct server_pool *pool, uint8_t *key,
 
     /* dead and not yet the time to retry */
     if (server->dead && nc_usec_now() < server->next_retry) {
+        errno = ETIMEDOUT;
         return NULL;
     }
 

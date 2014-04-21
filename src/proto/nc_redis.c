@@ -1961,7 +1961,7 @@ void
 redis_pre_splitcopy(struct mbuf *mbuf, void *arg)
 {
     struct msg *r = arg;
-    int n;
+    uint32_t n;
 
     ASSERT(r->request);
     ASSERT(r->narg > 1);
@@ -2100,12 +2100,12 @@ redis_pre_coalesce(struct msg *r)
         break;
 
     case MSG_RSP_REDIS_STATUS:
-        if (pr->type == MSG_REQ_REDIS_MSET || pr->type == MSG_REQ_REDIS_MSETNX){ //MSET segments
+        if (pr->type == MSG_REQ_REDIS_MSET || pr->type == MSG_REQ_REDIS_MSETNX){        /*MSET segments*/
             mbuf = STAILQ_FIRST(&r->mhdr);
             r->mlen -= mbuf_length(mbuf);
             mbuf_rewind(mbuf);
-        }else{ //this is the orig mget msg, PING-PONG
-            // do nothing
+        }else{                                                                          /*this is the orig mget/mset/msetnx msg, (PONG)*/
+            /*do nothing*/
         }
         break;
 
@@ -2158,18 +2158,18 @@ redis_copy_bulk(struct msg *dst, struct msg * src){
     }
     bytes = len;
 
-    // copy len bytes to dst
+    /*copy len bytes to dst*/
     for(; buf ;){
-        if(mbuf_length(buf) <= len){ //move this buf from src to dst
+        if(mbuf_length(buf) <= len){    /*steal this buf from src to dst*/
             nbuf = STAILQ_NEXT(buf, next);
             mbuf_remove(&src->mhdr, buf);
             mbuf_insert(&dst->mhdr, buf);
             len -= mbuf_length(buf);
             buf = nbuf;
-        }else{                      //split it
+        }else{                          /*split it*/
             nbuf = mbuf_get();
             if (nbuf == NULL) {
-                return -1; //TODO
+                return -1;
             }
             mbuf_copy(nbuf, buf->pos, len);
             mbuf_insert(&dst->mhdr, nbuf);
@@ -2187,7 +2187,7 @@ redis_post_coalesce_msetx(struct msg *request) {
     uint32_t len;
 
     mbuf = STAILQ_FIRST(&response->mhdr);
-    mbuf->last = mbuf->pos = mbuf->start; //discard PONG
+    mbuf->last = mbuf->pos = mbuf->start; /*discard PONG*/
 
     len = nc_scnprintf(mbuf->last, mbuf_size(mbuf), "+OK\r\n");
     mbuf->last += len;
@@ -2203,7 +2203,7 @@ redis_post_coalesce_del(struct msg *request) {
     uint32_t len;
 
     mbuf = STAILQ_FIRST(&response->mhdr);
-    mbuf->last = mbuf->pos = mbuf->start; //discard PONG
+    mbuf->last = mbuf->pos = mbuf->start; /*discard PONG*/
 
     len = nc_scnprintf(mbuf->last, mbuf_size(mbuf), ":%d\r\n", request->integer);
     mbuf->last += len;
@@ -2213,23 +2213,23 @@ redis_post_coalesce_del(struct msg *request) {
 
 }
 
-void
+static void
 redis_post_coalesce_mget(struct msg *request) {
     struct msg *response = request->peer;
     struct msg *sub_msg;
     struct mbuf * mbuf;
-    int len;
-    int i;
+    uint32_t len;
+    uint32_t i;
 
     mbuf = STAILQ_FIRST(&response->mhdr);
-    mbuf->last = mbuf->pos = mbuf->start; //discard PONG
+    mbuf->last = mbuf->pos = mbuf->start; /*discard PONG*/
 
     len = nc_scnprintf(mbuf->last, mbuf_size(mbuf), "*%d\r\n", request->narg - 1);
     mbuf->last += len;
     response->mlen = (uint32_t)len;
 
-    for(i = 1; i < request->narg; i++){ //for each  key
-        sub_msg = request->frag_seq[i]->peer; //get it's peer response
+    for(i = 1; i < request->narg; i++){         /*for each  key*/
+        sub_msg = request->frag_seq[i]->peer;   /*get it's peer response*/
         len = redis_copy_bulk(response, sub_msg);
         ASSERT(len>=0);
         log_debug(LOG_VVERB, "redis_copy_bulk for mget copy bytes: %d", len);
@@ -2238,7 +2238,6 @@ redis_post_coalesce_mget(struct msg *request) {
     }
 
     nc_free(request->frag_seq);
-    /*msg_dump(response, LOG_VVERB);*/
 }
 
 /*
@@ -2252,7 +2251,7 @@ redis_post_coalesce(struct msg *r)
 {
     struct msg *pr = r->peer; /* peer response */
     struct mbuf *mbuf;
-    int n;
+    uint32_t n;
 
     ASSERT(r->request && r->first_fragment);
     if (r->error || r->ferror) {
@@ -2289,7 +2288,8 @@ redis_post_coalesce(struct msg *r)
         pr->mlen += (uint32_t)n;
         break;
 
-    case MSG_RSP_REDIS_STATUS: //this is the orig mget msg, PING-PONG
+    case MSG_RSP_REDIS_STATUS:
+        /*this is the orig mget/mset/msetnx msg, (PONG)*/
         if (r->type == MSG_REQ_REDIS_MGET){
             redis_post_coalesce_mget(r);
         }else if (r->type == MSG_REQ_REDIS_DEL){

@@ -448,7 +448,7 @@ msg_empty(struct msg *msg)
 
 static uint32_t
 key_to_idx(struct server_pool *pool, uint8_t *key, uint32_t keylen){
-    //hash_tag
+    /*hash_tag*/
     if (!string_empty(&pool->hash_tag)) {
         struct string *tag = &pool->hash_tag;
         uint8_t *tag_start, *tag_end;
@@ -495,7 +495,7 @@ msg_fragment_argx_update_keypos(struct msg *r, struct mbuf ** in_buf){
     len += (uint32_t)CRLF_LEN * 2;
     len += (uint32_t)(p - buf->pos);
 
-    if(mbuf_length(buf) < len - CRLF_LEN){ //key no in this buf, remove it.
+    if(mbuf_length(buf) < len - CRLF_LEN){ /*key no in this buf, remove it.*/
         len -= mbuf_length(buf);
         mbuf_remove(&r->mhdr, buf);
         mbuf_put(buf);
@@ -508,7 +508,7 @@ msg_fragment_argx_update_keypos(struct msg *r, struct mbuf ** in_buf){
     buf->pos += len - CRLF_LEN;
 
     len = CRLF_LEN;
-    while(mbuf_length(buf) < len){         //eat CRLF
+    while(mbuf_length(buf) < len){         /*eat CRLF*/
         len -= mbuf_length(buf);
         mbuf_remove(&r->mhdr, buf);
         mbuf_put(buf);
@@ -521,27 +521,28 @@ msg_fragment_argx_update_keypos(struct msg *r, struct mbuf ** in_buf){
 }
 
 static rstatus_t
-msg_fragment_argx(struct context *ctx, struct conn *conn, struct msg *msg, struct msg *nmsg, int key_step){
+msg_fragment_argx(struct context *ctx, struct conn *conn, struct msg *msg, struct msg *nmsg, uint32_t key_step){
     struct server_pool *pool;
     struct mbuf *mbuf, *sub_msg_mbuf;
     struct msg ** sub_msgs;
     uint32_t i;
 
+
     ASSERT(conn->client && !conn->proxy);
     ASSERT(conn->owner != NULL);
 
-    //init sub_msgs and msg->frag_seq
+    /*init sub_msgs and msg->frag_seq*/
     pool = conn->owner;
     sub_msgs = nc_alloc(pool->ncontinuum * sizeof(void *) );
     for(i = 0; i < pool->ncontinuum; i++){
         sub_msgs[i] = msg_get(msg->owner, msg->request, conn->redis);
     }
-    msg->frag_seq = nc_alloc(sizeof(struct msg *) * msg->narg); //the point for each key, point to sub_msgs elements
+    msg->frag_seq = nc_alloc(sizeof(struct msg *) * msg->narg); /*the point for each key, point to sub_msgs elements*/
 
     mbuf = STAILQ_FIRST(&msg->mhdr);
     mbuf->pos = mbuf->start;
 
-    for(i = 0; i< 3; i++){              //eat *narg\r\n$4\r\nMGET\r\n
+    for(i = 0; i< 3; i++){                  /*eat *narg\r\n$4\r\nMGET\r\n*/
         for(;*(mbuf->pos) != '\n';){
             mbuf->pos ++;
         }
@@ -553,20 +554,26 @@ msg_fragment_argx(struct context *ctx, struct conn *conn, struct msg *msg, struc
     msg->nfrag = 0;
     msg->frag_owner = msg;
 
-    for(i = 1; i < msg->narg; i++){ //for each  key
-        msg_fragment_argx_update_keypos(msg, &mbuf);
+    for(i = 1; i < msg->narg; i++){         /*for each  key*/
+        uint8_t * key;
+        uint8_t * p;
+        uint32_t keylen;
+        uint32_t idx;
+        struct msg *sub_msg;
+        uint32_t len;
 
-        uint8_t * key = msg->key_start;
-        uint32_t keylen = (uint32_t)(msg->key_end - msg->key_start);
-        uint32_t idx = key_to_idx(pool, key, keylen);
-        struct msg *sub_msg = sub_msgs[idx];
+        msg_fragment_argx_update_keypos(msg, &mbuf);
+        key = msg->key_start;
+        keylen = (uint32_t)(msg->key_end - msg->key_start);
+        idx = key_to_idx(pool, key, keylen);
+        sub_msg = sub_msgs[idx];
 
         msg->frag_seq[i] = sub_msgs[idx];
 
         sub_msg->narg ++;
 
         if (STAILQ_EMPTY(&sub_msg->mhdr)
-                || mbuf_size(STAILQ_LAST(&sub_msg->mhdr, mbuf, next)) < keylen + CRLF_LEN + CRLF_LEN + 6 ){ //6 is $ len (key <= 64k, so len less then 5)
+                || mbuf_size(STAILQ_LAST(&sub_msg->mhdr, mbuf, next)) < keylen + CRLF_LEN + CRLF_LEN + 6 ){ /*6 is $ len (key <= 64k, so len less then 5)*/
             sub_msg_mbuf = mbuf_get();
             if (sub_msg_mbuf == NULL) {
                 nc_free(sub_msgs);
@@ -577,20 +584,20 @@ msg_fragment_argx(struct context *ctx, struct conn *conn, struct msg *msg, struc
             sub_msg_mbuf = STAILQ_LAST(&sub_msg->mhdr, mbuf, next);
         }
 
-        uint8_t * p = sub_msg_mbuf ->last;
+        p = sub_msg_mbuf ->last;
 
         sub_msg_mbuf->last += nc_snprintf(sub_msg_mbuf->last, mbuf_size(sub_msg_mbuf), "$%d\r\n", keylen);
-        sub_msg->key_start = sub_msg_mbuf->last;   //update key_start
+        sub_msg->key_start = sub_msg_mbuf->last;   /*update key_start*/
         mbuf_copy(sub_msg_mbuf, key, keylen);
-        sub_msg->key_end = sub_msg_mbuf->last;     //update key_start
+        sub_msg->key_end = sub_msg_mbuf->last;     /*update key_start*/
         sub_msg_mbuf->last += nc_snprintf(sub_msg_mbuf->last, mbuf_size(sub_msg_mbuf), "\r\n");
 
         sub_msg->mlen += (uint32_t)(sub_msg_mbuf->last - p);
 
-        if(key_step == 1){      //mget,del
+        if(key_step == 1){          /*mget,del*/
             continue;
-        } else{                  //mset, msetex
-            uint32_t len = redis_copy_bulk(sub_msg, msg);
+        } else{                     /*mset, msetex*/
+            len = redis_copy_bulk(sub_msg, msg);
             log_debug(LOG_VVERB, "redis_copy_bulk for mset copy bytes: %d", len);
             i++;
             sub_msg->narg ++;
@@ -607,7 +614,7 @@ msg_fragment_argx(struct context *ctx, struct conn *conn, struct msg *msg, struc
     }
 
     msg_reset_mbufs(msg);
-    //rewrite the orig msg to a PING cmd
+    /*rewrite the orig msg to a PING command*/
     mbuf = STAILQ_FIRST(&msg->mhdr);
     mbuf->pos = mbuf->last = mbuf->start;
 
@@ -619,7 +626,7 @@ msg_fragment_argx(struct context *ctx, struct conn *conn, struct msg *msg, struc
 
     conn->recv_done(ctx, conn, msg, nmsg);
 
-    for(i = 0; i < pool->ncontinuum; i++){      //prepend mget header, and forward it
+    for(i = 0; i < pool->ncontinuum; i++){      /*prepend mget header, and forward it*/
         struct msg* sub_msg = sub_msgs[i];
         if(STAILQ_EMPTY(&sub_msg->mhdr)){
             msg_put(sub_msg);
@@ -662,7 +669,7 @@ msg_fragment_argx(struct context *ctx, struct conn *conn, struct msg *msg, struc
 static rstatus_t
 msg_parsed(struct context *ctx, struct conn *conn, struct msg *msg)
 {
-    struct msg *nmsg; //next msg
+    struct msg *nmsg; /*next msg*/
     struct mbuf *mbuf, *nbuf;
 
     mbuf = STAILQ_LAST(&msg->mhdr, mbuf, next);
@@ -700,13 +707,13 @@ msg_parsed(struct context *ctx, struct conn *conn, struct msg *msg)
         if (status != NC_OK) {
             return status;
         }
-        return NC_OK;//TODO.
+        return NC_OK;
     }else if(redis_arg2x(msg)){
         rstatus_t status = msg_fragment_argx(ctx, conn, msg, nmsg, 2);
         if (status != NC_OK) {
             return status;
         }
-        return NC_OK;//TODO.
+        return NC_OK;
     }else{
         conn->recv_done(ctx, conn, msg, nmsg);
     }

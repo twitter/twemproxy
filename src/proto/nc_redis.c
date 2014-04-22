@@ -2230,6 +2230,9 @@ redis_post_coalesce_mget(struct msg *request) {
 
     for(i = 1; i < request->narg; i++){         /*for each  key*/
         sub_msg = request->frag_seq[i]->peer;   /*get it's peer response*/
+        if(sub_msg == NULL){
+            continue; /*no response because of error, we do nothing and leave it to the req_error() check in rsp_send_next*/
+        }
         len = redis_copy_bulk(response, sub_msg);
         ASSERT(len>=0);
         log_debug(LOG_VVERB, "redis_copy_bulk for mget copy bytes: %d", len);

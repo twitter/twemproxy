@@ -168,6 +168,33 @@ server_deinit(struct array *server)
     array_deinit(server);
 }
 
+void
+server_conn_init(struct conn *conn, struct server *server)
+{
+    ASSERT(!conn->client && conn->connected && (server->owner->database >= 0));
+
+    if (!conn->redis) {
+        return;
+    }
+
+    conn->initializing = true;
+
+    int db, digits, sent;
+    char command[50];
+
+    db = server->owner->database;
+    digits = (db == 0) ? 1 : (floor(log10(db)) + 1);
+
+    sprintf(command, "*2\r\n$6\r\nSELECT\r\n$%d\r\n%d\r\n", digits, db);
+    sent = write(conn->sd, command, strlen(command));
+
+    if (sent < 0) {
+        log_error("can't send 'select %d' command (socket: %d, error no: %d)",
+                  db, conn->sd, strerror(errno));
+        conn->err = errno;
+    }
+ }
+
 struct conn *
 server_conn(struct server *server)
 {
@@ -337,6 +364,8 @@ server_close(struct context *ctx, struct conn *conn)
 
     server_close_stats(ctx, conn->owner, conn->err, conn->eof,
                        conn->connected);
+
+    conn->connected = false;
 
     if (conn->sd < 0) {
         server_failure(ctx, conn->owner);
@@ -527,6 +556,10 @@ server_connected(struct context *ctx, struct conn *conn)
 
     conn->connecting = 0;
     conn->connected = 1;
+
+    if (conn->initialize) {
+        conn->initialize(conn, server);
+    }
 
     log_debug(LOG_INFO, "connected on s %d to server '%.*s'", conn->sd,
               server->pname.len, server->pname.data);

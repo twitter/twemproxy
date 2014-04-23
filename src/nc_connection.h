@@ -36,6 +36,8 @@ typedef void (*conn_unref_t)(struct conn *);
 
 typedef void (*conn_msgq_t)(struct context *, struct conn *, struct msg *);
 
+typedef void (*conn_initialize_t )(struct conn *, struct server *server);
+
 struct conn {
     TAILQ_ENTRY(conn)  conn_tqe;      /* link in server_pool / server / free q */
     void               *owner;        /* connection owner - server_pool / server */
@@ -84,6 +86,9 @@ struct conn {
     unsigned           eof:1;         /* eof? aka passive close? */
     unsigned           done:1;        /* done? aka close? */
     unsigned           redis:1;       /* redis? */
+    unsigned           initializing:1;/* connection initializing state (to track first Redis "SELECT" command) */
+
+    conn_initialize_t  initialize;    /* initialize connection handler */
 };
 
 TAILQ_HEAD(conn_tqh, conn);

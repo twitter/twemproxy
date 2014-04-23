@@ -529,6 +529,19 @@ req_send_next(struct context *ctx, struct conn *conn)
         server_connected(ctx, conn);
     }
 
+    // if the connection is initializing, skip all the rest requests for now,
+    // but still keep them in the queue for further processing if the
+    // initialization succeeds.
+    if (conn->initializing) {
+        return NC_OK;
+    }
+
+    // if the connection is dead for some reason (e.g. it hasn't been initialized
+    // correctly), ignore the request
+    if (!conn->connected) {
+        return NULL;
+    }
+
     nmsg = TAILQ_FIRST(&conn->imsg_q);
     if (nmsg == NULL) {
         /* nothing to send as the server inq is empty */

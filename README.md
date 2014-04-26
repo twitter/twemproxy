@@ -229,6 +229,7 @@ If you are deploying nutcracker in production, you might consider reading throug
 + [redis-twemproxy agent](https://github.com/Stono/redis-twemproxy-agent)
 + [sensu-metrics](https://github.com/sensu/sensu-community-plugins/blob/master/plugins/twemproxy/twemproxy-metrics.rb)
 + [redis-mgr](https://github.com/idning/redis-mgr)
++ [smitty for twemproxy failover](https://github.com/areina/smitty)
 
 ## Users
 + [Pinterest](http://pinterest.com/)

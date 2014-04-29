@@ -366,6 +366,10 @@ server_close(struct context *ctx, struct conn *conn)
 
             msg->done = 1;
             msg->error = 1;
+            if (msg->frag_owner) {
+                msg->frag_owner->nfrag_done++;
+                msg->frag_owner->nfrag_error++;
+            }
             msg->err = conn->err;
 
             if (req_done(c_conn, TAILQ_FIRST(&c_conn->omsg_q))) {
@@ -396,6 +400,10 @@ server_close(struct context *ctx, struct conn *conn)
 
             msg->done = 1;
             msg->error = 1;
+            if (msg->frag_owner) {
+                msg->frag_owner->nfrag_done++;
+                msg->frag_owner->nfrag_error++;
+            }
             msg->err = conn->err;
 
             if (req_done(c_conn, TAILQ_FIRST(&c_conn->omsg_q))) {

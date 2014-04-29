@@ -235,6 +235,8 @@ done:
 
     msg->frag_owner = NULL;
     msg->nfrag = 0;
+    msg->nfrag_done = 0;
+    msg->nfrag_error = 0;
     msg->frag_id = 0;
 
     msg->narg_start = NULL;

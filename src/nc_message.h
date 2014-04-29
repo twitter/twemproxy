@@ -198,6 +198,8 @@ struct msg {
 
     struct msg           *frag_owner;     /* owner of fragment message */
     uint32_t             nfrag;           /* # fragment */
+    uint32_t             nfrag_done;      /* # fragment done */
+    uint32_t             nfrag_error;     /* # fragment error */
     uint64_t             frag_id;         /* id of fragmented message */
 
     err_t                err;             /* errno on error? */

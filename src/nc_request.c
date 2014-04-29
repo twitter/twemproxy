@@ -84,6 +84,11 @@ req_done(struct conn *conn, struct msg *msg)
         return true;
     }
 
+    /* quickly check whether the all fragments are done */
+    if (msg->frag_owner && msg->frag_owner->nfrag_done < msg->frag_owner->nfrag) {
+        return false;
+    }
+
     /* check all fragments of the given request vector are done */
 
     for (pmsg = msg, cmsg = TAILQ_PREV(msg, msg_tqh, c_tqe);
@@ -171,6 +176,11 @@ req_error(struct conn *conn, struct msg *msg)
     if (msg->ferror) {
         /* request has already been marked to be in error */
         return true;
+    }
+
+    /* quickly check whether the all fragments are error */
+    if (msg->frag_owner && msg->frag_owner->nfrag_error == 0) {
+        return false;
     }
 
     /* check if any of the fragments of the given request are in error */
@@ -403,6 +413,10 @@ req_forward_error(struct context *ctx, struct conn *conn, struct msg *msg)
 
     msg->done = 1;
     msg->error = 1;
+    if (msg->frag_owner) {
+        msg->frag_owner->nfrag_done++;
+        msg->frag_owner->nfrag_error++;
+    }
     msg->err = errno;
 
     /* noreply request don't expect any response */

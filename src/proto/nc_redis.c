@@ -2135,12 +2135,16 @@ redis_copy_bulk(struct msg *dst, struct msg * src){
     uint32_t len = 0;
     uint32_t bytes = 0;
 
-    for(buf = STAILQ_FIRST(&src->mhdr); buf->pos >= buf->last; buf = STAILQ_FIRST(&src->mhdr)){
+    for(buf = STAILQ_FIRST(&src->mhdr); buf && (buf->pos >= buf->last); buf = STAILQ_FIRST(&src->mhdr)){
         mbuf_remove(&src->mhdr, buf);
         mbuf_put(buf);
     }
 
     buf = STAILQ_FIRST(&src->mhdr);
+    if (buf == NULL){
+        return 0;
+    }
+
     p = buf->pos;
     ASSERT(*p == '$');
     p++;

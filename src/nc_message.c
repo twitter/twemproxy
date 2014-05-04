@@ -471,7 +471,7 @@ key_to_idx(struct server_pool *pool, uint8_t *key, uint32_t keylen){
  * r->key_end
  * */
 static rstatus_t
-msg_fragment_argx_update_keypos(struct msg *r, struct mbuf ** in_buf){
+msg_fragment_argx_update_keypos(struct msg *r){
     struct mbuf *buf;
     uint8_t * p;
     uint32_t len = 0;
@@ -614,7 +614,7 @@ msg_fragment_argx(struct context *ctx, struct conn *conn, struct msg *msg, struc
         struct msg *sub_msg;
         uint32_t len;
 
-        msg_fragment_argx_update_keypos(msg, &mbuf);
+        msg_fragment_argx_update_keypos(msg);
         key = msg->key_start;
         keylen = (uint32_t)(msg->key_end - msg->key_start);
         idx = key_to_idx(pool, key, keylen);
@@ -700,6 +700,212 @@ msg_fragment_argx(struct context *ctx, struct conn *conn, struct msg *msg, struc
     return NC_OK;
 }
 
+
+
+
+
+/*
+ * parse next key in mget request, update
+ * r->key_start
+ * r->key_end
+ * */
+static rstatus_t
+msg_fragment_retrieval_update_keypos(struct msg *r){
+    struct mbuf *buf;
+    uint8_t * p;
+
+    for(buf = STAILQ_FIRST(&r->mhdr); buf->pos >= buf->last; buf = STAILQ_FIRST(&r->mhdr)){
+        mbuf_remove(&r->mhdr, buf);
+        mbuf_put(buf);
+    }
+
+    p = buf->pos;
+    for (; p < buf->last && isspace(*p); p++) {
+        //eat spaces
+    }
+
+    r->key_start = p;
+    for (; p < buf->last && !isspace(*p); p++) {
+        //read key
+    }
+    r->key_end = p;
+
+    for (; p < buf->last && isspace(*p); p++) {
+        //eat spaces
+    }
+    buf->pos = p;
+    return NC_OK;
+}
+
+static rstatus_t
+msg_append_memcache_key(struct msg *msg, uint8_t * key, uint32_t keylen){
+    struct mbuf *mbuf;
+
+    mbuf = msg_ensure_mbuf(msg, keylen+2);
+    if (mbuf == NULL) {
+        nc_free(msg);
+        return NC_ENOMEM;
+    }
+    msg->key_start = mbuf->last;   /*update key_start*/
+    mbuf_copy(mbuf, key, keylen);
+    msg->mlen += keylen;
+    msg->key_end = mbuf->last;     /*update key_start*/
+
+    mbuf_copy(mbuf, (uint8_t *)" ", 1);
+    msg->mlen += 1;
+    return NC_OK;
+}
+
+static void
+msg_get_reply(struct context *ctx, struct conn *conn, struct msg *smsg) {
+    struct mbuf *mbuf;
+    uint32_t n;
+    struct msg *msg;
+
+    msg = msg_get(conn, true, conn->redis); /*replay*/
+    if (msg == NULL) {
+        conn->err = errno;
+        return;
+    }
+
+    mbuf = get_mbuf(msg);
+    if (mbuf == NULL) {
+        msg_put(msg);
+        return;
+    }
+
+    smsg->peer = msg;
+    msg->peer = smsg;
+    msg->request = 0;
+
+    /*smsg->done = 1;*/
+    /*event_add_out(ctx->ep, conn);*/
+    conn->dequeue_inq(ctx, conn, msg);
+    conn->enqueue_outq(ctx, conn, msg);
+}
+
+static rstatus_t
+msg_fragment_retrieval(struct context *ctx, struct conn *conn, struct msg *msg, struct msg *nmsg){
+    struct server_pool *pool;
+    struct mbuf *mbuf, *sub_msg_mbuf;
+    struct msg ** sub_msgs;
+    uint32_t i;
+
+    ASSERT(conn->client && !conn->proxy);
+    ASSERT(conn->owner != NULL);
+
+    /*init sub_msgs and msg->frag_seq*/
+    pool = conn->owner;
+    sub_msgs = nc_alloc(pool->ncontinuum * sizeof(void *) );
+    for(i = 0; i < pool->ncontinuum; i++){
+        sub_msgs[i] = msg_get(msg->owner, msg->request, conn->redis);
+    }
+
+    log_debug(LOG_VERB, "msg:%p, msg->narg:%d", msg, msg->narg);
+    msg->frag_seq = nc_alloc(sizeof(struct msg *) * msg->narg); /*the point for each key, point to sub_msgs elements*/
+
+    mbuf = STAILQ_FIRST(&msg->mhdr);
+    mbuf->pos = mbuf->start;
+
+    for(;*(mbuf->pos) != ' ';){ /*eat 'get '*/
+        mbuf->pos ++;
+    }
+    mbuf->pos ++;
+
+    msg->frag_id = ++frag_id;
+    msg->first_fragment = 1;
+    msg->nfrag = 0;
+    msg->frag_owner = msg;
+
+    for(i = 1; i < msg->narg; i++){         /*for each  key*/
+        uint8_t * key;
+        uint32_t keylen;
+        uint32_t idx;
+        struct msg *sub_msg;
+        uint32_t len;
+
+        msg_fragment_retrieval_update_keypos(msg);
+        key = msg->key_start;
+        keylen = (uint32_t)(msg->key_end - msg->key_start);
+        idx = key_to_idx(pool, key, keylen);
+        sub_msg = sub_msgs[idx];
+
+        msg->frag_seq[i] = sub_msgs[idx];
+
+        sub_msg->narg ++;
+        if (NC_OK != msg_append_memcache_key(sub_msg, key, keylen)){
+            nc_free(sub_msgs);
+            return NC_ENOMEM;
+        }
+    }
+
+    if (STAILQ_EMPTY(&msg->mhdr)){
+        mbuf = mbuf_get();
+        if (mbuf == NULL) {
+            nc_free(sub_msgs);
+            return NC_ENOMEM;
+        }
+        mbuf_insert(&msg->mhdr, mbuf);
+    }
+
+    msg_reset_mbufs(msg);
+    /*rewrite the orig msg to a get xx command TODO*/
+    mbuf = STAILQ_FIRST(&msg->mhdr);
+    mbuf->pos = mbuf->last = mbuf->start;
+
+    nc_memcpy(mbuf->pos, "get xx\r\n", 8);
+    mbuf->last = mbuf->start + 8;
+    msg->key_start = mbuf->start + 4;
+    msg->key_end = mbuf->start + 6;
+    msg->mlen = 8;
+
+    /*msg_dump(msg, LOG_VERB);*/
+    conn->recv_done(ctx, conn, msg, nmsg);
+
+    for(i = 0; i < pool->ncontinuum; i++){      /*prepend mget header, and forward it*/
+        struct msg* sub_msg = sub_msgs[i];
+        if(STAILQ_EMPTY(&sub_msg->mhdr)){
+            msg_put(sub_msg);
+            continue;
+        }
+
+        /*prepend get/gets (TODO: use a function)*/
+        sub_msg_mbuf = mbuf_get();
+        if (sub_msg_mbuf == NULL) {
+            nc_free(sub_msgs);
+            return NC_ENOMEM;
+        }
+        if (msg->type == MSG_REQ_MC_GET){
+            sub_msg_mbuf->last += nc_snprintf(sub_msg_mbuf->last, mbuf_size(sub_msg_mbuf), "get ");
+        }else if (msg->type == MSG_REQ_MC_GETS){
+            sub_msg_mbuf->last += nc_snprintf(sub_msg_mbuf->last, mbuf_size(sub_msg_mbuf), "gets ");
+        }
+        sub_msg->mlen += mbuf_length(sub_msg_mbuf);
+        STAILQ_INSERT_HEAD(&sub_msg->mhdr, sub_msg_mbuf, next);
+
+        /*append \r\n*/
+        sub_msg_mbuf = mbuf_get();
+        if (sub_msg_mbuf == NULL) {
+            nc_free(sub_msgs);
+            return NC_ENOMEM;
+        }
+        sub_msg_mbuf->last += nc_snprintf(sub_msg_mbuf->last, mbuf_size(sub_msg_mbuf), "\r\n");
+        sub_msg->mlen += mbuf_length(sub_msg_mbuf);
+        STAILQ_INSERT_TAIL(&sub_msg->mhdr, sub_msg_mbuf, next);
+
+        sub_msg->type = msg->type;
+        sub_msg->frag_id = msg->frag_id;
+        sub_msg->frag_owner = msg->frag_owner;
+
+        /*msg_dump(sub_msg, LOG_VERB);*/
+        conn->recv_done(ctx, conn, sub_msg, nmsg);
+        msg->nfrag ++;
+    }
+
+    nc_free(sub_msgs);
+    return NC_OK;
+}
+
 static rstatus_t
 msg_parsed(struct context *ctx, struct conn *conn, struct msg *msg)
 {
@@ -744,6 +950,12 @@ msg_parsed(struct context *ctx, struct conn *conn, struct msg *msg)
         return NC_OK;
     }else if(redis_arg2x(msg)){
         rstatus_t status = msg_fragment_argx(ctx, conn, msg, nmsg, 2);
+        if (status != NC_OK) {
+            return status;
+        }
+        return NC_OK;
+    }else if(memcache_retrieval(msg)){
+        rstatus_t status = msg_fragment_retrieval(ctx, conn, msg, nmsg);
         if (status != NC_OK) {
             return status;
         }
@@ -1097,7 +1309,7 @@ msg_send_chain(struct context *ctx, struct conn *conn, struct msg *msg)
 
     ASSERT(TAILQ_EMPTY(&send_msgq));
 
-    if (n > 0) {
+    if (n >= 0) {
         return NC_OK;
     }
 

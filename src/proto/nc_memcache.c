@@ -73,7 +73,7 @@ memcache_cas(struct msg *r)
  * Return true, if the memcache command is a retrieval command, otherwise
  * return false
  */
-static bool
+bool
 memcache_retrieval(struct msg *r)
 {
     switch (r->type) {
@@ -192,6 +192,7 @@ memcache_parse_req(struct msg *r)
                 m = r->token;
                 r->token = NULL;
                 r->type = MSG_UNKNOWN;
+                r->narg ++;
 
                 switch (p - m) {
 
@@ -307,14 +308,17 @@ memcache_parse_req(struct msg *r)
 
         case SW_SPACES_BEFORE_KEY:
             if (ch != ' ') {
-                r->token = p;
-                r->key_start = p;
+                p = p - 1; /* go back by 1 byte */
+                r->token = NULL;
                 state = SW_KEY;
             }
-
             break;
 
         case SW_KEY:
+            if (r->token == NULL) {
+                r->token = p;
+                r->key_start = p;
+            }
             if (ch == ' ' || ch == CR) {
                 if ((p - r->key_start) > MEMCACHE_MAX_KEY_LENGTH) {
                     log_error("parsed bad req %"PRIu64" of type %d with key "
@@ -323,6 +327,7 @@ memcache_parse_req(struct msg *r)
                               r->key_start, p - r->key_start);
                     goto error;
                 }
+                r->narg ++;
                 r->key_end = p;
                 r->token = NULL;
 
@@ -360,8 +365,10 @@ memcache_parse_req(struct msg *r)
                 break;
 
             default:
-                r->token = p;
-                goto fragment;
+                r->token = NULL;
+                p = p - 1; /* go back by 1 byte */
+                state = SW_KEY;
+                /*goto fragment;*/
             }
 
             break;
@@ -424,7 +431,6 @@ memcache_parse_req(struct msg *r)
                     goto error;
                 }
                 /* vlen_start <- p */
-                r->token = p;
                 r->vlen = (uint32_t)(ch - '0');
                 state = SW_VLEN;
             }
@@ -724,17 +730,17 @@ memcache_parse_rsp(struct msg *r)
         SW_RSP_STR,
         SW_SPACES_BEFORE_KEY,
         SW_KEY,
-        SW_SPACES_BEFORE_FLAGS,
+        SW_SPACES_BEFORE_FLAGS,     //5
         SW_FLAGS,
         SW_SPACES_BEFORE_VLEN,
         SW_VLEN,
         SW_RUNTO_VAL,
-        SW_VAL,
+        SW_VAL,                     //10
         SW_VAL_LF,
         SW_END,
         SW_RUNTO_CRLF,
         SW_CRLF,
-        SW_ALMOST_DONE,
+        SW_ALMOST_DONE,             //15
         SW_SENTINEL
     } state;
 
@@ -795,7 +801,7 @@ memcache_parse_rsp(struct msg *r)
             if (ch == ' ' || ch == CR) {
                 /* type_end <- p - 1 */
                 m = r->token;
-                r->token = NULL;
+                /*r->token = NULL;*/
                 r->type = MSG_UNKNOWN;
 
                 switch (p - m) {
@@ -924,21 +930,9 @@ memcache_parse_rsp(struct msg *r)
             break;
 
         case SW_KEY:
-            if (r->token == NULL) {
-                r->token = p;
-                r->key_start = p;
-            }
-
             if (ch == ' ') {
-                if ((p - r->key_start) > MEMCACHE_MAX_KEY_LENGTH) {
-                    log_error("parsed bad req %"PRIu64" of type %d with key "
-                              "prefix '%.*s...' and length %d that exceeds "
-                              "maximum key length", r->id, r->type, 16,
-                              r->key_start, p - r->key_start);
-                    goto error;
-                }
                 r->key_end = p;
-                r->token = NULL;
+                /*r->token = NULL;*/
                 state = SW_SPACES_BEFORE_FLAGS;
             }
 
@@ -958,7 +952,7 @@ memcache_parse_rsp(struct msg *r)
         case SW_FLAGS:
             if (r->token == NULL) {
                 /* flags_start <- p */
-                r->token = p;
+                /*r->token = p;*/
             }
 
             if (isdigit(ch)) {
@@ -966,7 +960,7 @@ memcache_parse_rsp(struct msg *r)
                 ;
             } else if (ch == ' ') {
                 /* flags_end <- p - 1 */
-                r->token = NULL;
+                /*r->token = NULL;*/
                 state = SW_SPACES_BEFORE_VLEN;
             } else {
                 goto error;
@@ -981,21 +975,18 @@ memcache_parse_rsp(struct msg *r)
                 }
                 p = p - 1; /* go back by 1 byte */
                 state = SW_VLEN;
+                r->vlen = 0;
             }
 
             break;
 
         case SW_VLEN:
-            if (r->token == NULL) {
-                /* vlen_start <- p */
-                r->token = p;
-                r->vlen = (uint32_t)(ch - '0');
-            } else if (isdigit(ch)) {
+            if (isdigit(ch)) {
                 r->vlen = r->vlen * 10 + (uint32_t)(ch - '0');
             } else if (ch == ' ' || ch == CR) {
                 /* vlen_end <- p - 1 */
                 p = p - 1; /* go back by 1 byte */
-                r->token = NULL;
+                /*r->token = NULL;*/
                 state = SW_RUNTO_CRLF;
             } else {
                 goto error;
@@ -1008,6 +999,7 @@ memcache_parse_rsp(struct msg *r)
             case LF:
                 /* val_start <- p + 1 */
                 state = SW_VAL;
+                r->token = NULL;
                 break;
 
             default:
@@ -1041,7 +1033,8 @@ memcache_parse_rsp(struct msg *r)
         case SW_VAL_LF:
             switch (ch) {
             case LF:
-                state = SW_END;
+                /*state = SW_END;*/
+                state = SW_RSP_STR;
                 break;
 
             default:
@@ -1134,6 +1127,9 @@ memcache_parse_rsp(struct msg *r)
     r->state = state;
 
     if (b->last == b->end && r->token != NULL) {
+        if (state <= SW_RUNTO_VAL || state == SW_CRLF || state == SW_ALMOST_DONE){
+            r->state = SW_START;
+        }
         r->pos = r->token;
         r->token = NULL;
         r->result = MSG_PARSE_REPAIR;
@@ -1294,6 +1290,76 @@ memcache_pre_coalesce(struct msg *r)
     }
 }
 
+
+/*
+ * copy one response from src to dst
+ * return bytes copied
+ * */
+uint32_t
+memcache_copy_bulk(struct msg *dst, struct msg * src){
+    struct mbuf *buf, *nbuf;
+    uint8_t * p;
+    uint32_t len = 0;
+    uint32_t bytes = 0;
+    uint32_t i = 0;
+
+    for(buf = STAILQ_FIRST(&src->mhdr); buf && (buf->pos >= buf->last); buf = STAILQ_FIRST(&src->mhdr)){
+        mbuf_remove(&src->mhdr, buf);
+        mbuf_put(buf);
+    }
+
+    buf = STAILQ_FIRST(&src->mhdr);
+    if (buf == NULL){
+        return 0;
+    }
+    p = buf->pos;
+
+    /*get : VALUE key 0 len\r\nv\r\n  */
+    /*gets: VALUE key 0 len cas\r\rnv\r\n  */
+
+    ASSERT(*p == 'V');
+    for(i = 0; i < 3; i++){                  /*  eat 'VALUE key 0 '  */
+        for(;*p != ' ';){
+            p++;
+        }
+        p++;
+    }
+
+    len = 0;
+    for (; p < buf->last && isdigit(*p); p++) {
+        len = len * 10 + (uint32_t)(*p - '0');
+    }
+
+    for (; p < buf->last && ('\r' != *p); p++) { /*eat cas for gets*/
+        ;
+    }
+
+    len += CRLF_LEN * 2;
+    len += (p - buf->pos);
+
+    bytes = len;
+
+    /*copy len bytes to dst*/
+    for(; buf ;){
+        if(mbuf_length(buf) <= len){    /*steal this buf from src to dst*/
+            nbuf = STAILQ_NEXT(buf, next);
+            mbuf_remove(&src->mhdr, buf);
+            mbuf_insert(&dst->mhdr, buf);
+            len -= mbuf_length(buf);
+            buf = nbuf;
+        }else{                          /*split it*/
+            nbuf = mbuf_get();
+            if (nbuf == NULL) {
+                return -1;
+            }
+            mbuf_copy(nbuf, buf->pos, len);
+            mbuf_insert(&dst->mhdr, nbuf);
+            buf->pos += len;
+            break;
+        }
+    }
+    return bytes;
+}
 /*
  * Post-coalesce handler is invoked when the message is a response to
  * the fragmented multi vector request - 'get' or 'gets' and all the
@@ -1301,6 +1367,38 @@ memcache_pre_coalesce(struct msg *r)
  * the fragmented request is consider to be done
  */
 void
-memcache_post_coalesce(struct msg *r)
+memcache_post_coalesce(struct msg *request)
 {
+    struct msg *response = request->peer;
+    struct mbuf * mbuf;
+    uint32_t len;
+    struct msg *sub_msg;
+    uint32_t i;
+
+    msg_reset_mbufs(response);
+
+    for(i = 1; i < request->narg; i++){         /*for each  key*/
+        sub_msg = request->frag_seq[i]->peer;   /*get it's peer response*/
+        if(sub_msg == NULL){
+            continue; /*no response because of error, we do nothing and leave it to the req_error() check in rsp_send_next*/
+        }
+        len = memcache_copy_bulk(response, sub_msg);
+        ASSERT(len>=0);
+        log_debug(LOG_VVERB, "memcache_copy_bulk for mget copy bytes: %d", len);
+        response->mlen += len;
+        sub_msg->mlen -= len;
+    }
+
+
+    /*append END\r\n*/
+    mbuf = mbuf_get();
+    if (mbuf == NULL) {
+        nc_free(request->frag_seq);
+        return NC_ENOMEM;
+    }
+    mbuf->last += nc_snprintf(mbuf->last, mbuf_size(mbuf), "END\r\n");
+    response->mlen += mbuf_length(mbuf);
+    STAILQ_INSERT_TAIL(&response->mhdr, mbuf, next);
+
+    nc_free(request->frag_seq);
 }

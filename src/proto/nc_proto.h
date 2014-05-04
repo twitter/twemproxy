@@ -149,6 +149,8 @@ uint32_t redis_copy_bulk(struct msg *dst, struct msg * src);
 
 bool redis_argx(struct msg *r);
 bool redis_arg2x(struct msg *r);
+bool memcache_retrieval(struct msg *r);
+
 void redis_parse_req(struct msg *r);
 void redis_parse_rsp(struct msg *r);
 void redis_pre_splitcopy(struct mbuf *mbuf, void *arg);

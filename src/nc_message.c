@@ -510,15 +510,69 @@ msg_fragment_argx_update_keypos(struct msg *r, struct mbuf ** in_buf){
     len = CRLF_LEN;
     while(mbuf_length(buf) < len){         /*eat CRLF*/
         len -= mbuf_length(buf);
-        mbuf_remove(&r->mhdr, buf);
-        mbuf_put(buf);
+        buf->pos = buf->last;
 
-        buf = STAILQ_FIRST(&r->mhdr);
+        buf = STAILQ_NEXT(buf, next);
     }
     buf->pos += len;
 
     return NC_OK;
 }
+
+static struct mbuf *
+msg_ensure_mbuf(struct msg *msg, uint32_t len){
+    struct mbuf *mbuf;
+    if (STAILQ_EMPTY(&msg->mhdr)
+            || mbuf_size(STAILQ_LAST(&msg->mhdr, mbuf, next)) < len ){
+        mbuf = mbuf_get();
+        if (mbuf == NULL) {
+            return NULL;
+        }
+        mbuf_insert(&msg->mhdr, mbuf);
+    }else{
+        mbuf = STAILQ_LAST(&msg->mhdr, mbuf, next);
+    }
+    return mbuf;
+}
+
+static rstatus_t
+msg_append_key(struct msg *msg, uint8_t * key, uint32_t keylen){
+    uint32_t len;
+    struct mbuf *mbuf;
+    uint8_t printbuf[32];
+
+    /*1. keylen*/
+    len = (uint32_t)nc_snprintf(printbuf, sizeof(printbuf), "$%d\r\n", keylen);
+    mbuf = msg_ensure_mbuf(msg, len);
+    if (mbuf == NULL) {
+        nc_free(msg);
+        return NC_ENOMEM;
+    }
+    mbuf_copy(mbuf, printbuf, len);
+    msg->mlen += len;
+
+    /*2. key*/
+    mbuf = msg_ensure_mbuf(msg, keylen);
+    if (mbuf == NULL) {
+        nc_free(msg);
+        return NC_ENOMEM;
+    }
+    msg->key_start = mbuf->last;   /*update key_start*/
+    mbuf_copy(mbuf, key, keylen);
+    msg->mlen += keylen;
+    msg->key_end = mbuf->last;     /*update key_start*/
+
+    /*3. CRLF*/
+    mbuf = msg_ensure_mbuf(msg, CRLF_LEN);
+    if (mbuf == NULL) {
+        nc_free(msg);
+        return NC_ENOMEM;
+    }
+    mbuf_copy(mbuf, (uint8_t *)CRLF, CRLF_LEN);
+    msg->mlen += (uint32_t)CRLF_LEN;
+    return NC_OK;
+}
+
 
 static rstatus_t
 msg_fragment_argx(struct context *ctx, struct conn *conn, struct msg *msg, struct msg *nmsg, uint32_t key_step){
@@ -526,7 +580,6 @@ msg_fragment_argx(struct context *ctx, struct conn *conn, struct msg *msg, struc
     struct mbuf *mbuf, *sub_msg_mbuf;
     struct msg ** sub_msgs;
     uint32_t i;
-
 
     ASSERT(conn->client && !conn->proxy);
     ASSERT(conn->owner != NULL);
@@ -556,7 +609,6 @@ msg_fragment_argx(struct context *ctx, struct conn *conn, struct msg *msg, struc
 
     for(i = 1; i < msg->narg; i++){         /*for each  key*/
         uint8_t * key;
-        uint8_t * p;
         uint32_t keylen;
         uint32_t idx;
         struct msg *sub_msg;
@@ -571,28 +623,10 @@ msg_fragment_argx(struct context *ctx, struct conn *conn, struct msg *msg, struc
         msg->frag_seq[i] = sub_msgs[idx];
 
         sub_msg->narg ++;
-
-        if (STAILQ_EMPTY(&sub_msg->mhdr)
-                || mbuf_size(STAILQ_LAST(&sub_msg->mhdr, mbuf, next)) < keylen + CRLF_LEN + CRLF_LEN + 6 ){ /*6 is $ len (key <= 64k, so len less then 5)*/
-            sub_msg_mbuf = mbuf_get();
-            if (sub_msg_mbuf == NULL) {
-                nc_free(sub_msgs);
-                return NC_ENOMEM;
-            }
-            mbuf_insert(&sub_msg->mhdr, sub_msg_mbuf);
-        }else{
-            sub_msg_mbuf = STAILQ_LAST(&sub_msg->mhdr, mbuf, next);
+        if (NC_OK != msg_append_key(sub_msg, key, keylen)){
+            nc_free(sub_msgs);
+            return NC_ENOMEM;
         }
-
-        p = sub_msg_mbuf ->last;
-
-        sub_msg_mbuf->last += nc_snprintf(sub_msg_mbuf->last, mbuf_size(sub_msg_mbuf), "$%d\r\n", keylen);
-        sub_msg->key_start = sub_msg_mbuf->last;   /*update key_start*/
-        mbuf_copy(sub_msg_mbuf, key, keylen);
-        sub_msg->key_end = sub_msg_mbuf->last;     /*update key_start*/
-        sub_msg_mbuf->last += nc_snprintf(sub_msg_mbuf->last, mbuf_size(sub_msg_mbuf), "\r\n");
-
-        sub_msg->mlen += (uint32_t)(sub_msg_mbuf->last - p);
 
         if(key_step == 1){          /*mget,del*/
             continue;
@@ -607,7 +641,7 @@ msg_fragment_argx(struct context *ctx, struct conn *conn, struct msg *msg, struc
     if (STAILQ_EMPTY(&msg->mhdr)){
         mbuf = mbuf_get();
         if (mbuf == NULL) {
-            nc_free(msg);
+            nc_free(sub_msgs);
             return NC_ENOMEM;
         }
         mbuf_insert(&msg->mhdr, mbuf);

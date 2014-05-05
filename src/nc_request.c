@@ -424,7 +424,7 @@ reply(struct context *ctx, struct conn *conn, struct msg *smsg, char *_msg) {
     msg->mlen += (uint32_t)n;
     smsg->done = 1;
 
-    event_add_out(ctx->ep, conn);
+    event_add_out(ctx->evb, conn);
     conn->enqueue_outq(ctx, conn, smsg);
 }
 

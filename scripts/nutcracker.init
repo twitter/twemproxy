@@ -6,10 +6,10 @@
 # config: /etc/sysconfig/nutcracker
 
 # Source function library.
-. /etc/rc.d/init.d/functions
+. /lib/lsb/init-functions
 
 USER="nobody"
-OPTIONS="-d -c /etc/nutcracker/nutcracker.yml"
+OPTIONS="-d -c /etc/nutcracker/nutcracker.yml -o /var/log/nutcracker/nutcracker.log"
 
 if [ -f /etc/sysconfig/nutcracker ];then
     . /etc/sysconfig/nutcracker

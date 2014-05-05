@@ -26,7 +26,7 @@ prog="nutcracker"
 
 start () {
     echo -n $"Starting $prog: "
-    daemon --user ${USER} ${prog} $OPTIONS
+    ${prog} $OPTIONS
     RETVAL=$?
     echo
     [ $RETVAL -eq 0 ] && touch /var/lock/subsys/${prog}

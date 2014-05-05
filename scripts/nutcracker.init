@@ -9,7 +9,7 @@
 . /lib/lsb/init-functions
 
 USER="nobody"
-OPTIONS="-d -c /etc/nutcracker.yml -o /var/log/nutcracker/nutcracker.log"
+OPTIONS="-d -c /etc/nutcracker.yaml -o /var/log/nutcracker/nutcracker.log"
 
 if [ -f /etc/sysconfig/nutcracker ];then
     . /etc/sysconfig/nutcracker

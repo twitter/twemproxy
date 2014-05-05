@@ -14,7 +14,7 @@
  
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 DAEMON=/usr/local/sbin/nutcracker
-DAEMON_ARGS=-d -c /etc/nutcracker.yaml -o /var/log/nutcracker/nutcracker.log -p /var/run/nutcracker.pid
+DAEMON_ARGS="-d -c /etc/nutcracker.yaml -o /var/log/nutcracker/nutcracker.log -p /var/run/nutcracker.pid"
 NAME=nutcracker
 DESC=nutcracker
 PIDFILE=/var/run/nutcracker.pid

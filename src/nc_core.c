@@ -165,7 +165,7 @@ core_recv(struct context *ctx, struct conn *conn)
     return status;
 }
 
-rstatus_t
+static rstatus_t
 core_send(struct context *ctx, struct conn *conn)
 {
     rstatus_t status;

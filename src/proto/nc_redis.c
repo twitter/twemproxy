@@ -2104,8 +2104,6 @@ redis_pre_coalesce(struct msg *r)
             mbuf = STAILQ_FIRST(&r->mhdr);
             r->mlen -= mbuf_length(mbuf);
             mbuf_rewind(mbuf);
-        }else{                                                                          /*this is the orig mget/mset/msetnx msg, (PONG)*/
-            /*do nothing*/
         }
         break;
 
@@ -2191,7 +2189,6 @@ redis_post_coalesce_msetx(struct msg *request) {
     uint32_t len;
 
     mbuf = STAILQ_FIRST(&response->mhdr);
-    mbuf->last = mbuf->pos = mbuf->start; /*discard PONG*/
 
     len = nc_scnprintf(mbuf->last, mbuf_size(mbuf), "+OK\r\n");
     mbuf->last += len;
@@ -2207,7 +2204,6 @@ redis_post_coalesce_del(struct msg *request) {
     uint32_t len;
 
     mbuf = STAILQ_FIRST(&response->mhdr);
-    mbuf->last = mbuf->pos = mbuf->start; /*discard PONG*/
 
     len = nc_scnprintf(mbuf->last, mbuf_size(mbuf), ":%d\r\n", request->integer);
     mbuf->last += len;
@@ -2226,7 +2222,6 @@ redis_post_coalesce_mget(struct msg *request) {
     uint32_t i;
 
     mbuf = STAILQ_FIRST(&response->mhdr);
-    mbuf->last = mbuf->pos = mbuf->start; /*discard PONG*/
 
     len = nc_scnprintf(mbuf->last, mbuf_size(mbuf), "*%d\r\n", request->narg - 1);
     mbuf->last += len;
@@ -2260,54 +2255,18 @@ redis_post_coalesce(struct msg *r)
     struct mbuf *mbuf;
     uint32_t n;
 
+    ASSERT(!pr->request);
     ASSERT(r->request && r->first_fragment);
     if (r->error || r->ferror) {
         /* do nothing, if msg is in error */
         return;
     }
 
-    ASSERT(!pr->request);
-
-    switch (pr->type) {
-    case MSG_RSP_REDIS_INTEGER:
-        /* only redis 'del' fragmented request sends back integer reply */
-        ASSERT(r->type == MSG_REQ_REDIS_DEL);
-
-        mbuf = STAILQ_FIRST(&pr->mhdr);
-
-        ASSERT(pr->mlen == 0);
-        ASSERT(mbuf_empty(mbuf));
-
-        n = nc_scnprintf(mbuf->last, mbuf_size(mbuf), ":%d\r\n", r->integer);
-        mbuf->last += n;
-        pr->mlen += (uint32_t)n;
-        break;
-
-    case MSG_RSP_REDIS_MULTIBULK:
-        /* only redis 'mget' fragmented request sends back multi-bulk reply */
-        ASSERT(r->type == MSG_REQ_REDIS_MGET);
-
-        mbuf = STAILQ_FIRST(&pr->mhdr);
-        ASSERT(mbuf_empty(mbuf));
-
-        n = nc_scnprintf(mbuf->last, mbuf_size(mbuf), "*%d\r\n", r->nfrag);
-        mbuf->last += n;
-        pr->mlen += (uint32_t)n;
-        break;
-
-    case MSG_RSP_REDIS_STATUS:
-        /*this is the orig mget/mset/msetnx msg, (PONG)*/
-        if (r->type == MSG_REQ_REDIS_MGET){
-            redis_post_coalesce_mget(r);
-        }else if (r->type == MSG_REQ_REDIS_DEL){
-            redis_post_coalesce_del(r);
-        }else if (r->type == MSG_REQ_REDIS_MSET || r->type == MSG_REQ_REDIS_MSETNX){
-            redis_post_coalesce_msetx(r);
-        }
-
-        break;
-
-    default:
-        NOT_REACHED();
+    if (r->type == MSG_REQ_REDIS_MGET){
+        redis_post_coalesce_mget(r);
+    }else if (r->type == MSG_REQ_REDIS_DEL){
+        redis_post_coalesce_del(r);
+    }else if (r->type == MSG_REQ_REDIS_MSET || r->type == MSG_REQ_REDIS_MSETNX){
+        redis_post_coalesce_msetx(r);
     }
 }

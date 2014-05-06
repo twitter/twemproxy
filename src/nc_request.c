@@ -135,7 +135,7 @@ req_done(struct conn *conn, struct msg *msg)
         return true;
     }
 
-    if(msg->redis && msg->nfrag_done < msg->nfrag){
+    if(msg->nfrag_done < msg->nfrag){
         return false;
     }
 

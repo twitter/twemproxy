@@ -1233,6 +1233,7 @@ memcache_pre_coalesce(struct msg *r)
         return;
     }
 
+    pr->frag_owner->nfrag_done ++;
     switch (r->type) {
 
     case MSG_RSP_MC_VALUE:
@@ -1375,6 +1376,13 @@ memcache_post_coalesce(struct msg *request)
     struct msg *sub_msg;
     uint32_t i;
 
+    ASSERT(!response->request);
+    ASSERT(request->request && request->first_fragment);
+    if (request->error || request->ferror) {
+        /* do nothing, if msg is in error */
+        return;
+    }
+
     msg_reset_mbufs(response);
 
     for(i = 1; i < request->narg; i++){         /*for each  key*/
@@ -1394,7 +1402,7 @@ memcache_post_coalesce(struct msg *request)
     mbuf = mbuf_get();
     if (mbuf == NULL) {
         nc_free(request->frag_seq);
-        return NC_ENOMEM;
+        return;
     }
     mbuf->last += nc_snprintf(mbuf->last, mbuf_size(mbuf), "END\r\n");
     response->mlen += mbuf_length(mbuf);

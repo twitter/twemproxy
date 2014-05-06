@@ -446,6 +446,52 @@ msg_empty(struct msg *msg)
     return msg->mlen == 0 ? true : false;
 }
 
+static struct mbuf *
+get_mbuf(struct msg *msg)
+{
+    struct mbuf *mbuf;
+
+    mbuf = STAILQ_LAST(&msg->mhdr, mbuf, next);
+    if (mbuf == NULL || mbuf_full(mbuf)) {
+        mbuf = mbuf_get();
+        if (mbuf == NULL) {
+            return NULL;
+        }
+
+        mbuf_insert(&msg->mhdr, mbuf);
+        msg->pos = mbuf->pos;
+    }
+    ASSERT(mbuf->end - mbuf->last > 0);
+    return mbuf;
+}
+
+static void
+msg_make_reply(struct context *ctx, struct conn *conn, struct msg *req) {
+    struct mbuf *mbuf;
+    struct msg *msg;
+
+    msg = msg_get(conn, true, conn->redis); /*replay*/
+    if (msg == NULL) {
+        conn->err = errno;
+        return;
+    }
+
+    mbuf = get_mbuf(msg);
+    if (mbuf == NULL) {
+        msg_put(msg);
+        return;
+    }
+
+    req->peer = msg;
+    msg->peer = req;
+    msg->request = 0;
+
+    req->done = 1;
+    /*event_add_out(ctx->ep, conn);*/
+    /*conn->dequeue_inq(ctx, conn, req);*/
+    conn->enqueue_outq(ctx, conn, req);
+}
+
 static uint32_t
 key_to_idx(struct server_pool *pool, uint8_t *key, uint32_t keylen){
     /*hash_tag*/
@@ -638,27 +684,7 @@ msg_fragment_argx(struct context *ctx, struct conn *conn, struct msg *msg, struc
         }
     }
 
-    if (STAILQ_EMPTY(&msg->mhdr)){
-        mbuf = mbuf_get();
-        if (mbuf == NULL) {
-            nc_free(sub_msgs);
-            return NC_ENOMEM;
-        }
-        mbuf_insert(&msg->mhdr, mbuf);
-    }
-
-    msg_reset_mbufs(msg);
-    /*rewrite the orig msg to a PING command*/
-    mbuf = STAILQ_FIRST(&msg->mhdr);
-    mbuf->pos = mbuf->last = mbuf->start;
-
-    nc_memcpy(mbuf->pos, "*1\r\n$4\r\nPING\r\n", 14);
-    mbuf->last = mbuf->start + 14;
-    msg->key_start = mbuf->start + 8;
-    msg->key_end = mbuf->start + 12;
-    msg->mlen = 14;
-
-    conn->recv_done(ctx, conn, msg, nmsg);
+    msg_make_reply(ctx, conn, msg) ;
 
     for(i = 0; i < pool->ncontinuum; i++){      /*prepend mget header, and forward it*/
         struct msg* sub_msg = sub_msgs[i];
@@ -756,33 +782,6 @@ msg_append_memcache_key(struct msg *msg, uint8_t * key, uint32_t keylen){
     return NC_OK;
 }
 
-static void
-msg_get_reply(struct context *ctx, struct conn *conn, struct msg *smsg) {
-    struct mbuf *mbuf;
-    uint32_t n;
-    struct msg *msg;
-
-    msg = msg_get(conn, true, conn->redis); /*replay*/
-    if (msg == NULL) {
-        conn->err = errno;
-        return;
-    }
-
-    mbuf = get_mbuf(msg);
-    if (mbuf == NULL) {
-        msg_put(msg);
-        return;
-    }
-
-    smsg->peer = msg;
-    msg->peer = smsg;
-    msg->request = 0;
-
-    /*smsg->done = 1;*/
-    /*event_add_out(ctx->ep, conn);*/
-    conn->dequeue_inq(ctx, conn, msg);
-    conn->enqueue_outq(ctx, conn, msg);
-}
 
 static rstatus_t
 msg_fragment_retrieval(struct context *ctx, struct conn *conn, struct msg *msg, struct msg *nmsg){
@@ -822,7 +821,6 @@ msg_fragment_retrieval(struct context *ctx, struct conn *conn, struct msg *msg, 
         uint32_t keylen;
         uint32_t idx;
         struct msg *sub_msg;
-        uint32_t len;
 
         msg_fragment_retrieval_update_keypos(msg);
         key = msg->key_start;
@@ -848,19 +846,8 @@ msg_fragment_retrieval(struct context *ctx, struct conn *conn, struct msg *msg, 
         mbuf_insert(&msg->mhdr, mbuf);
     }
 
-    msg_reset_mbufs(msg);
-    /*rewrite the orig msg to a get xx command TODO*/
-    mbuf = STAILQ_FIRST(&msg->mhdr);
-    mbuf->pos = mbuf->last = mbuf->start;
-
-    nc_memcpy(mbuf->pos, "get xx\r\n", 8);
-    mbuf->last = mbuf->start + 8;
-    msg->key_start = mbuf->start + 4;
-    msg->key_end = mbuf->start + 6;
-    msg->mlen = 8;
-
-    /*msg_dump(msg, LOG_VERB);*/
-    conn->recv_done(ctx, conn, msg, nmsg);
+    /*conn->recv_done(ctx, conn, msg, nmsg);*/
+    msg_make_reply(ctx, conn, msg);
 
     for(i = 0; i < pool->ncontinuum; i++){      /*prepend mget header, and forward it*/
         struct msg* sub_msg = sub_msgs[i];

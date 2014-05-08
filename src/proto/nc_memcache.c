@@ -730,17 +730,17 @@ memcache_parse_rsp(struct msg *r)
         SW_RSP_STR,
         SW_SPACES_BEFORE_KEY,
         SW_KEY,
-        SW_SPACES_BEFORE_FLAGS,     //5
+        SW_SPACES_BEFORE_FLAGS,     /*5*/
         SW_FLAGS,
         SW_SPACES_BEFORE_VLEN,
         SW_VLEN,
         SW_RUNTO_VAL,
-        SW_VAL,                     //10
+        SW_VAL,                     /*10*/
         SW_VAL_LF,
         SW_END,
         SW_RUNTO_CRLF,
         SW_CRLF,
-        SW_ALMOST_DONE,             //15
+        SW_ALMOST_DONE,             /*15*/
         SW_SENTINEL
     } state;
 

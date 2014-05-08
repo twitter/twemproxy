@@ -707,9 +707,6 @@ msg_fragment_argx(struct context *ctx, struct conn *conn, struct msg *msg, struc
         }else if (msg->type == MSG_REQ_REDIS_MSET){
             sub_msg_mbuf->last += nc_snprintf(sub_msg_mbuf->last, mbuf_size(sub_msg_mbuf), "*%d\r\n$4\r\nmset\r\n",
                         sub_msg->narg + 1);
-        }else if (msg->type == MSG_REQ_REDIS_MSETNX){
-            sub_msg_mbuf->last += nc_snprintf(sub_msg_mbuf->last, mbuf_size(sub_msg_mbuf), "*%d\r\n$6\r\nmsetnx\r\n",
-                        sub_msg->narg + 1);
         }
         sub_msg->mlen += mbuf_length(sub_msg_mbuf);
 
@@ -747,17 +744,17 @@ msg_fragment_retrieval_update_keypos(struct msg *r){
 
     p = buf->pos;
     for (; p < buf->last && isspace(*p); p++) {
-        //eat spaces
+        /*eat spaces*/
     }
 
     r->key_start = p;
     for (; p < buf->last && !isspace(*p); p++) {
-        //read key
+        /*read key*/
     }
     r->key_end = p;
 
     for (; p < buf->last && isspace(*p); p++) {
-        //eat spaces
+        /*eat spaces*/
     }
     buf->pos = p;
     return NC_OK;

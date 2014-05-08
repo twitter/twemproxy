@@ -239,7 +239,6 @@ redis_arg2x(struct msg *r)
 {
     switch (r->type) {
     case MSG_REQ_REDIS_MSET:
-    case MSG_REQ_REDIS_MSETNX:
         return true;
 
     default:
@@ -655,10 +654,6 @@ redis_parse_req(struct msg *r)
                 break;
 
             case 6:
-                if (str6icmp(m, 'm', 's', 'e', 't', 'n', 'x')) {
-                    r->type = MSG_REQ_REDIS_MSETNX;
-                    break;
-                }
                 if (str6icmp(m, 'a', 'p', 'p', 'e', 'n', 'd')) {
                     r->type = MSG_REQ_REDIS_APPEND;
                     break;
@@ -2100,7 +2095,7 @@ redis_pre_coalesce(struct msg *r)
         break;
 
     case MSG_RSP_REDIS_STATUS:
-        if (pr->type == MSG_REQ_REDIS_MSET || pr->type == MSG_REQ_REDIS_MSETNX){        /*MSET segments*/
+        if (pr->type == MSG_REQ_REDIS_MSET){        /*MSET segments*/
             mbuf = STAILQ_FIRST(&r->mhdr);
             r->mlen -= mbuf_length(mbuf);
             mbuf_rewind(mbuf);
@@ -2183,7 +2178,7 @@ redis_copy_bulk(struct msg *dst, struct msg * src){
 }
 
 void
-redis_post_coalesce_msetx(struct msg *request) {
+redis_post_coalesce_mset(struct msg *request) {
     struct msg *response = request->peer;
     struct mbuf * mbuf;
     uint32_t len;
@@ -2262,11 +2257,11 @@ redis_post_coalesce(struct msg *r)
         return;
     }
 
-    if (r->type == MSG_REQ_REDIS_MGET){
+    if (r->type == MSG_REQ_REDIS_MGET) {
         redis_post_coalesce_mget(r);
-    }else if (r->type == MSG_REQ_REDIS_DEL){
+    } else if (r->type == MSG_REQ_REDIS_DEL) {
         redis_post_coalesce_del(r);
-    }else if (r->type == MSG_REQ_REDIS_MSET || r->type == MSG_REQ_REDIS_MSETNX){
-        redis_post_coalesce_msetx(r);
+    } else if (r->type == MSG_REQ_REDIS_MSET) {
+        redis_post_coalesce_mset(r);
     }
 }

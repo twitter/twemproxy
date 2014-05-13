@@ -361,7 +361,7 @@ req_recv_next(struct context *ctx, struct conn *conn, bool alloc)
 }
 
 bool
-valid_auth(struct context *ctx, struct conn *conn, struct msg *msg) 
+valid_auth(struct context *ctx, struct conn *conn, struct msg *msg)
 {
     struct server_pool *pool = (struct server_pool *)conn->owner;
 
@@ -380,7 +380,7 @@ valid_auth(struct context *ctx, struct conn *conn, struct msg *msg)
 }
 
 static struct mbuf *
-get_mbuf(struct msg *msg) 
+get_mbuf(struct msg *msg)
 {
     struct mbuf *mbuf;
 
@@ -471,6 +471,14 @@ req_filter(struct context *ctx, struct conn *conn, struct msg *msg)
             reply(ctx, conn, msg, "-ERR operation not permitted\r\n");
         }
 
+        return true;
+    }
+
+    /**
+     * Handle subsequent auth requests
+     */
+    if (msg->type == MSG_REQ_REDIS_AUTH) {
+        reply(ctx, conn, msg, "+OK\r\n");
         return true;
     }
 

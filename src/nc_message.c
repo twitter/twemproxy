@@ -742,7 +742,7 @@ msg_send_chain(struct context *ctx, struct conn *conn, struct msg *msg)
         }
     }
 
-    ASSERT(!TAILQ_EMPTY(&send_msgq) && nsend != 0);
+    /*ASSERT(!TAILQ_EMPTY(&send_msgq) && nsend != 0);*/
 
     conn->smsg = NULL;
 

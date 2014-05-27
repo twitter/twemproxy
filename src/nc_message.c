@@ -746,7 +746,11 @@ msg_send_chain(struct context *ctx, struct conn *conn, struct msg *msg)
 
     conn->smsg = NULL;
 
-    n = conn_sendv(conn, &sendv, nsend);
+    if(!TAILQ_EMPTY(&send_msgq) && nsend != 0){
+        n = conn_sendv(conn, &sendv, nsend);
+    }else{
+        n = 0;
+    }
 
     nsent = n > 0 ? (size_t)n : 0;
 

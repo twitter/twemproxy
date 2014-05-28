@@ -168,6 +168,7 @@ struct msg {
 
     struct mhdr          mhdr;            /* message mbuf header */
     uint32_t             mlen;            /* message length */
+    int64_t              start_usec;      /* request start usec*/
 
     int                  state;           /* current parser state */
     uint8_t              *pos;            /* parser position marker */
@@ -229,6 +230,7 @@ void msg_dump(struct msg *msg);
 bool msg_empty(struct msg *msg);
 rstatus_t msg_recv(struct context *ctx, struct conn *conn);
 rstatus_t msg_send(struct context *ctx, struct conn *conn);
+char * msg_type_str(msg_type_t type);
 
 struct msg *req_get(struct conn *conn);
 void req_put(struct msg *msg);

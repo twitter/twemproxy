@@ -29,6 +29,9 @@ req_get(struct conn *conn)
     if (msg == NULL) {
         conn->err = errno;
     }
+    if (log_loggable(LOG_NOTICE) != 0){
+        msg->start_usec = nc_usec_now();
+    }
 
     return msg;
 }
@@ -37,8 +40,25 @@ void
 req_put(struct msg *msg)
 {
     struct msg *pmsg; /* peer message (response) */
+    int64_t request_time; /*time cost for this request*/
 
     ASSERT(msg->request);
+
+    if (log_loggable(LOG_NOTICE) != 0){  /*notice log*/
+        if (msg->start_usec){
+            if (msg->key_end){
+                *(msg->key_end) = '\0';
+            }
+            request_time = nc_usec_now() - msg->start_usec;
+
+            log_debug(LOG_NOTICE, "req %"PRIu64" done on c %d req_time: %"PRIi64".%03"PRIi64" type: %s "
+                    "narg: %"PRIu32" mlen: %"PRIu32" "
+                    "key0: %s, done: %d, error:%d",
+                    msg->id, msg->owner->sd, request_time/1000, request_time%1000, msg_type_str(msg->type),
+                    msg->narg, msg->mlen,
+                    msg->key_start, msg->done, msg->error);
+        }
+    }
 
     pmsg = msg->peer;
     if (pmsg != NULL) {

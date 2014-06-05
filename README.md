@@ -248,6 +248,7 @@ If you are deploying nutcracker in production, you might consider reading throug
 + [Digg](http://digg.com/)
 + [Gawkermedia](http://advertising.gawker.com/)
 + [3scale.net](http://3scale.net)
++ [Ooyala](http://www.ooyala.com)
 
 ## Issues and Support
 

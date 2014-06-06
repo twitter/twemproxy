@@ -83,6 +83,8 @@
 
 static uint32_t nfree_connq;       /* # free conn q */
 static struct conn_tqh free_connq; /* free conn q */
+static int64_t total_connections;  /* connections counter from start */
+static int curr_connections;       /* current # connections */
 
 /*
  * Return the context associated with this connection.
@@ -153,6 +155,9 @@ _conn_get(void)
     conn->eof = 0;
     conn->done = 0;
     conn->redis = 0;
+
+    total_connections++;
+    curr_connections++;
 
     return conn;
 }
@@ -285,6 +290,8 @@ conn_put(struct conn *conn)
 
     nfree_connq++;
     TAILQ_INSERT_HEAD(&free_connq, conn, conn_tqe);
+
+    curr_connections--;
 }
 
 void
@@ -406,4 +413,16 @@ conn_sendv(struct conn *conn, struct array *sendv, size_t nsend)
     NOT_REACHED();
 
     return NC_ERROR;
+}
+
+int
+conn_curr_connections(void)
+{
+    return curr_connections;
+}
+
+int64_t
+conn_total_connections(void)
+{
+    return total_connections;
 }

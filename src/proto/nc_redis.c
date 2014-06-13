@@ -54,6 +54,8 @@ redis_arg0(struct msg *r)
     case MSG_REQ_REDIS_SMEMBERS:
     case MSG_REQ_REDIS_SPOP:
 
+    case MSG_REQ_REDIS_SELECT:
+
     case MSG_REQ_REDIS_ZCARD:
         return true;
 
@@ -729,6 +731,11 @@ redis_parse_req(struct msg *r)
 
                 if (str6icmp(m, 'z', 's', 'c', 'o', 'r', 'e')) {
                     r->type = MSG_REQ_REDIS_ZSCORE;
+                    break;
+                }
+
+                if (str6icmp(m, 's', 'e', 'l', 'e', 'c', 't')) {
+                    r->type = MSG_REQ_REDIS_SELECT;
                     break;
                 }
 

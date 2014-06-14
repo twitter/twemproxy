@@ -118,6 +118,16 @@ log_loggable(int level)
 }
 
 void
+loga_from_handler(const char *msg)
+{
+    struct logger *l = &logger;
+    if (nc_write(l->fd, msg, strlen(msg)) < 0) {
+        l->nerror++;
+    }
+}
+
+
+void
 _log(const char *file, int line, int panic, const char *fmt, ...)
 {
     struct logger *l = &logger;

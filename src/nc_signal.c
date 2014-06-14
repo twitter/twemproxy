@@ -69,6 +69,7 @@ signal_handler(int signo)
     struct signal *sig;
     void (*action)(void);
     char *actionstr;
+    char msg[128];
     bool done;
 
     for (sig = signals; sig->signo != 0; sig++) {
@@ -119,7 +120,14 @@ signal_handler(int signo)
         NOT_REACHED();
     }
 
-    loga("signal %d (%s) received%s", signo, sig->signame, actionstr);
+    msg[0] = '\0';
+    strcat(msg, "signal ");
+    strcat(msg, sig->signame);
+    strcat(msg, " received");
+    strcat(msg, actionstr);
+    strcat(msg, "\n");
+
+    loga_from_handler(msg);
 
     if (action != NULL) {
         action();

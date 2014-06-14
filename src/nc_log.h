@@ -113,6 +113,7 @@ void log_level_down(void);
 void log_level_set(int level);
 void log_reopen(void);
 int log_loggable(int level);
+void loga_from_handler(const char *msg);
 void _log(const char *file, int line, int panic, const char *fmt, ...);
 void _log_stderr(const char *fmt, ...);
 void _log_hexdump(const char *file, int line, char *data, int datalen, const char *fmt, ...);

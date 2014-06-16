@@ -293,8 +293,20 @@ proxy_accept(struct context *ctx, struct conn *p)
              * continue to run instead of close the server socket
              */
             if (errno == EMFILE || errno == ENFILE) {
-                log_debug(LOG_CRIT, "accept on p %d failed: %s", p->sd, strerror(errno));
+                log_debug(LOG_CRIT, "accept on p %d failed: %s", p->sd,
+                          strerror(errno));
                 p->recv_ready = 0;
+
+                log_debug(LOG_CRIT, "connections status: rlimit nofile %d, "
+                          "used connections: %d, max client connections %d, "
+                          "curr client connections %d", ctx->rlimit_nofile,
+                          conn_curr_connections(), ctx->max_client_connections,
+                          conn_curr_client_connections());
+                /* Since we maintain a safe max_client_connections and check
+                 * it after every accept, we should not reach here.
+                 * So we will panic after this log */
+                log_panic("HIT MAX OPEN FILES, IT SHOULD NOT HAPPEN. ABORT.");
+
                 return NC_OK;
             }
 
@@ -303,6 +315,17 @@ proxy_accept(struct context *ctx, struct conn *p)
         }
 
         break;
+    }
+
+    if (conn_curr_client_connections() >= (int)ctx->max_client_connections) {
+        log_debug(LOG_CRIT, "client connections %d exceed limit %d",
+                  conn_curr_client_connections(),
+                  ctx->max_client_connections);
+        status = close(sd);
+        if (status < 0) {
+            log_error("close c %d failed, ignored: %s", sd, strerror(errno));
+        }
+        return NC_OK;
     }
 
     c = conn_get(p->owner, true, p->redis);

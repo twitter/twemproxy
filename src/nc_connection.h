@@ -98,5 +98,6 @@ void conn_init(void);
 void conn_deinit(void);
 int64_t conn_total_connections(void);
 int conn_curr_connections(void);
+int conn_curr_client_connections(void);
 
 #endif

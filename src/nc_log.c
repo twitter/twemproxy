@@ -74,6 +74,19 @@ log_reopen(void)
     }
 }
 
+/*log current log_level*/
+static void
+log_log_level(void)
+{
+    char buf[128];
+    char msg[] = "set log level to X\n";
+    char levels[] = "0123456789ABCDEF";
+
+    nc_memcpy(buf, msg, sizeof(msg));
+    buf[sizeof(msg)-3] = levels[logger.level];
+    loga_from_handler(buf);
+}
+
 void
 log_level_up(void)
 {
@@ -81,7 +94,7 @@ log_level_up(void)
 
     if (l->level < LOG_PVERB) {
         l->level++;
-        loga("up log level to %d", l->level);
+        log_log_level();
     }
 }
 
@@ -92,7 +105,7 @@ log_level_down(void)
 
     if (l->level > LOG_EMERG) {
         l->level--;
-        loga("down log level to %d", l->level);
+        log_log_level();
     }
 }
 

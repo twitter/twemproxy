@@ -360,6 +360,74 @@ req_recv_next(struct context *ctx, struct conn *conn, bool alloc)
     return msg;
 }
 
+bool
+valid_auth(struct context *ctx, struct conn *conn, struct msg *msg) 
+{
+    struct server_pool *pool = (struct server_pool *)conn->owner;
+
+    if (pool->redis_auth.len > 0) {
+        long keylen = msg->key_end - msg->key_start;
+        if (keylen != pool->redis_auth.len) {
+            return false;
+        }
+
+        if (memcmp(pool->redis_auth.data, msg->key_start, keylen) != 0) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+static struct mbuf *
+get_mbuf(struct msg *msg) 
+{
+    struct mbuf *mbuf;
+
+    mbuf = STAILQ_LAST(&msg->mhdr, mbuf, next);
+    if (mbuf == NULL || mbuf_full(mbuf)) {
+        mbuf = mbuf_get();
+        if (mbuf == NULL) {
+            return NULL;
+        }
+
+        mbuf_insert(&msg->mhdr, mbuf);
+        msg->pos = mbuf->pos;
+    }
+    ASSERT(mbuf->end - mbuf->last > 0);
+    return mbuf;
+}
+
+static void
+reply(struct context *ctx, struct conn *conn, struct msg *smsg, char *_msg) {
+    struct mbuf *mbuf;
+    int n;
+    struct msg *msg = msg_get(conn, true, conn->redis);
+    if (msg == NULL) {
+        conn->err = errno;
+        return;
+    }
+
+    mbuf = get_mbuf(msg);
+    if (mbuf == NULL) {
+        msg_put(msg);
+        return;
+    }
+
+    smsg->peer = msg;
+    msg->peer = smsg;
+    msg->request = 0;
+
+    n = (int)strlen(_msg);
+    memcpy(mbuf->last, _msg, (size_t)n);
+    mbuf->last += n;
+    msg->mlen += (uint32_t)n;
+    smsg->done = 1;
+
+    event_add_out(ctx->ep, conn);
+    conn->enqueue_outq(ctx, conn, smsg);
+}
+
 static bool
 req_filter(struct context *ctx, struct conn *conn, struct msg *msg)
 {
@@ -384,6 +452,25 @@ req_filter(struct context *ctx, struct conn *conn, struct msg *msg)
         conn->eof = 1;
         conn->recv_ready = 0;
         req_put(msg);
+        return true;
+    }
+
+    /*
+     * Hanlde "AUTH requirepass\r\n"
+     *
+     */
+    if (conn->auth && conn->redis) {
+        if (msg->type == MSG_REQ_REDIS_AUTH) {
+            if (valid_auth(ctx, conn, msg)) {
+                conn->auth = 0;
+                reply(ctx, conn, msg, "+OK\r\n");
+            } else {
+                reply(ctx, conn, msg, "-ERR invalid password\r\n");
+            }
+        } else {
+            reply(ctx, conn, msg, "-ERR operation not permitted\r\n");
+        }
+
         return true;
     }
 
@@ -426,6 +513,56 @@ req_forward_stats(struct context *ctx, struct server *server, struct msg *msg)
 
     stats_server_incr(ctx, server, requests);
     stats_server_incr_by(ctx, server, request_bytes, msg->mlen);
+}
+
+static uint32_t
+set_redis_auth_command(struct mbuf *mbuf, struct string *pass)
+{
+#define REDIS_AUTH_COMMAND "*2\r\n$4\r\nAUTH\r\n"
+    int n;
+    char auth[1024];
+    n = nc_snprintf(auth, sizeof(auth), REDIS_AUTH_COMMAND "$%d\r\n%s\r\n",
+                    pass->len, pass->data);
+    memcpy(mbuf->last, auth, (size_t)n);
+    ASSERT((mbuf->last + n) <= mbuf->end);
+
+    return (uint32_t)n;
+}
+
+void
+add_redis_auth_packet(struct context *ctx, struct conn *c_conn, struct conn *s_conn)
+{
+    struct msg *msg;
+    struct mbuf *mbuf;
+    struct server_pool *pool;
+    uint32_t n;
+
+    pool = c_conn->owner;
+
+    if (s_conn->auth == 0 || pool->redis_auth.len == 0) {
+        return;
+    }
+
+    ASSERT(!s_conn->client && !s_conn->proxy);
+    msg = msg_get(c_conn, true, c_conn->redis);
+    if (msg == NULL) {
+        c_conn->err = errno;
+        return;
+    }
+
+    mbuf = get_mbuf(msg);
+    if (mbuf == NULL) {
+        msg_put(msg);
+        return;
+    }
+
+    n = set_redis_auth_command(mbuf, &(pool->redis_auth));
+    mbuf->last += n;
+    msg->mlen += n;
+    msg->swallow = 1;
+
+    s_conn->enqueue_inq(ctx, s_conn, msg);
+    s_conn->auth = 0;
 }
 
 static void
@@ -488,6 +625,11 @@ req_forward(struct context *ctx, struct conn *c_conn, struct msg *msg)
             return;
         }
     }
+
+    if (s_conn->auth && s_conn->redis) {
+        add_redis_auth_packet(ctx, c_conn, s_conn);
+    }
+
     s_conn->enqueue_inq(ctx, s_conn, msg);
 
     req_forward_stats(ctx, s_conn->owner, msg);

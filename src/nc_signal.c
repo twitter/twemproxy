@@ -110,7 +110,7 @@ signal_handler(int signo)
         break;
 
     case SIGSEGV:
-        nc_stacktrace(1);
+        log_stacktrace();
         actionstr = ", core dumping";
         raise(SIGSEGV);
         break;

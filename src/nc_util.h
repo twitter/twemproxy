@@ -185,6 +185,7 @@ ssize_t _nc_recvn(int sd, void *vptr, size_t n);
 
 void nc_assert(const char *cond, const char *file, int line, int panic);
 void nc_stacktrace(int skip_count);
+void nc_stacktrace_fd(int fd);
 
 int _scnprintf(char *buf, size_t size, const char *fmt, ...);
 int _vscnprintf(char *buf, size_t size, const char *fmt, va_list args);

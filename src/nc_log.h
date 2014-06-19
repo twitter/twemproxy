@@ -120,6 +120,7 @@ void log_deinit(void);
 void log_level_up(void);
 void log_level_down(void);
 void log_level_set(int level);
+void log_stacktrace(void);
 void log_reopen(void);
 int log_loggable(int level);
 void _log(const char *file, int line, int panic, const char *fmt, ...);

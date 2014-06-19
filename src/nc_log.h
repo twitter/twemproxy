@@ -78,6 +78,14 @@ struct logger {
     _log_stderr(__VA_ARGS__);                                               \
 } while (0)
 
+#define log_safe(...) do {                                                  \
+    _log_safe(__VA_ARGS__);                                                 \
+} while (0)
+
+#define log_stderr_safe(...) do {                                           \
+    _log_stderr_safe(__VA_ARGS__);                                          \
+} while (0)
+
 #define loga(...) do {                                                      \
     _log(__FILE__, __LINE__, 0, __VA_ARGS__);                               \
 } while (0)
@@ -106,6 +114,7 @@ struct logger {
     }                                                                       \
 } while (0)
 
+
 int log_init(int level, char *filename);
 void log_deinit(void);
 void log_level_up(void);
@@ -113,9 +122,12 @@ void log_level_down(void);
 void log_level_set(int level);
 void log_reopen(void);
 int log_loggable(int level);
-void loga_from_handler(const char *msg);
 void _log(const char *file, int line, int panic, const char *fmt, ...);
+
 void _log_stderr(const char *fmt, ...);
+void _log_safe(const char *fmt, ...);
+void _log_stderr_safe(const char *fmt, ...);
+
 void _log_hexdump(const char *file, int line, char *data, int datalen, const char *fmt, ...);
 
 #endif

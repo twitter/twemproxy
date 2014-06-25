@@ -368,8 +368,8 @@ server_close(struct context *ctx, struct conn *conn)
             msg->error = 1;
             msg->err = conn->err;
 
-            if (msg->frag_owner != NULL){
-                msg->frag_owner->nfrag_done ++;
+            if (msg->frag_owner != NULL) {
+                msg->frag_owner->nfrag_done++;
             }
 
             if (req_done(c_conn, TAILQ_FIRST(&c_conn->omsg_q))) {
@@ -401,8 +401,8 @@ server_close(struct context *ctx, struct conn *conn)
             msg->done = 1;
             msg->error = 1;
             msg->err = conn->err;
-            if (msg->frag_owner != NULL){
-                msg->frag_owner->nfrag_done ++;
+            if (msg->frag_owner != NULL) {
+                msg->frag_owner->nfrag_done++;
             }
 
             if (req_done(c_conn, TAILQ_FIRST(&c_conn->omsg_q))) {
@@ -471,7 +471,7 @@ server_connect(struct context *ctx, struct server *server, struct conn *conn)
     status = nc_set_nonblocking(conn->sd);
     if (status != NC_OK) {
         log_error("set nonblock on s %d for server '%.*s' failed: %s",
-                  conn->sd,  server->pname.len, server->pname.data,
+                  conn->sd, server->pname.len, server->pname.data,
                   strerror(errno));
         goto error;
     }

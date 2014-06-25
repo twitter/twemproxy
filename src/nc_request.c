@@ -135,7 +135,7 @@ req_done(struct conn *conn, struct msg *msg)
         return true;
     }
 
-    if(msg->nfrag_done < msg->nfrag){
+    if (msg->nfrag_done < msg->nfrag) {
         return false;
     }
 
@@ -188,7 +188,7 @@ req_done(struct conn *conn, struct msg *msg)
         nfragment++;
     }
 
-    /*ASSERT(msg->frag_owner->nfrag == nfragment);*/
+    /* ASSERT(msg->frag_owner->nfrag == nfragment); */
 
     msg->post_coalesce(msg->frag_owner);
 
@@ -560,7 +560,7 @@ req_recv_done(struct context *ctx, struct conn *conn, struct msg *msg,
     ASSERT(conn->client && !conn->proxy);
     ASSERT(msg->request);
     ASSERT(msg->owner == conn);
-    /*ASSERT(conn->rmsg == msg);*/
+    /* ASSERT(conn->rmsg == msg); */
     ASSERT(nmsg == NULL || nmsg->request);
 
     /* enqueue next message (request), if any */

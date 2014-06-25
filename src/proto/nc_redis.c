@@ -1420,7 +1420,7 @@ redis_parse_req(struct msg *r)
                 r->rnarg--;
                 r->token = NULL;
                 state = SW_ARGN_LEN_LF;
-            }  else {
+            } else {
                 goto error;
             }
 
@@ -2041,7 +2041,7 @@ redis_pre_coalesce(struct msg *r)
         /* do nothing, if not a response to a fragmented request */
         return;
     }
-    pr->frag_owner->nfrag_done ++;
+    pr->frag_owner->nfrag_done++;
 
     switch (r->type) {
     case MSG_RSP_REDIS_INTEGER:
@@ -2095,7 +2095,7 @@ redis_pre_coalesce(struct msg *r)
         break;
 
     case MSG_RSP_REDIS_STATUS:
-        if (pr->type == MSG_REQ_REDIS_MSET){        /*MSET segments*/
+        if (pr->type == MSG_REQ_REDIS_MSET) {       /*MSET segments*/
             mbuf = STAILQ_FIRST(&r->mhdr);
             r->mlen -= mbuf_length(mbuf);
             mbuf_rewind(mbuf);
@@ -2122,19 +2122,20 @@ redis_pre_coalesce(struct msg *r)
  * return bytes copied
  * */
 uint32_t
-redis_copy_bulk(struct msg *dst, struct msg * src){
+redis_copy_bulk(struct msg *dst, struct msg *src)
+{
     struct mbuf *buf, *nbuf;
-    uint8_t * p;
+    uint8_t *p;
     uint32_t len = 0;
     uint32_t bytes = 0;
 
-    for(buf = STAILQ_FIRST(&src->mhdr); buf && (buf->pos >= buf->last); buf = STAILQ_FIRST(&src->mhdr)){
+    for (buf = STAILQ_FIRST(&src->mhdr); buf && (buf->pos >= buf->last); buf = STAILQ_FIRST(&src->mhdr)) {
         mbuf_remove(&src->mhdr, buf);
         mbuf_put(buf);
     }
 
     buf = STAILQ_FIRST(&src->mhdr);
-    if (buf == NULL){
+    if (buf == NULL) {
         return 0;
     }
 
@@ -2142,10 +2143,10 @@ redis_copy_bulk(struct msg *dst, struct msg * src){
     ASSERT(*p == '$');
     p++;
 
-    if (p[0] == '-' && p[1] == '1'){
+    if (p[0] == '-' && p[1] == '1') {
         len = 1 + 2 + CRLF_LEN;
         p = buf->pos + len;
-    }else{
+    } else {
         len = 0;
         for (; p < buf->last && isdigit(*p); p++) {
             len = len * 10 + (uint32_t)(*p - '0');
@@ -2156,14 +2157,14 @@ redis_copy_bulk(struct msg *dst, struct msg * src){
     bytes = len;
 
     /*copy len bytes to dst*/
-    for(; buf ;){
-        if(mbuf_length(buf) <= len){    /*steal this buf from src to dst*/
+    for (; buf;) {
+        if (mbuf_length(buf) <= len) {   /*steal this buf from src to dst*/
             nbuf = STAILQ_NEXT(buf, next);
             mbuf_remove(&src->mhdr, buf);
             mbuf_insert(&dst->mhdr, buf);
             len -= mbuf_length(buf);
             buf = nbuf;
-        }else{                          /*split it*/
+        } else {                        /*split it*/
             nbuf = mbuf_get();
             if (nbuf == NULL) {
                 return -1;
@@ -2178,9 +2179,10 @@ redis_copy_bulk(struct msg *dst, struct msg * src){
 }
 
 void
-redis_post_coalesce_mset(struct msg *request) {
+redis_post_coalesce_mset(struct msg *request)
+{
     struct msg *response = request->peer;
-    struct mbuf * mbuf;
+    struct mbuf *mbuf;
     uint32_t len;
 
     mbuf = STAILQ_FIRST(&response->mhdr);
@@ -2193,9 +2195,10 @@ redis_post_coalesce_mset(struct msg *request) {
 }
 
 void
-redis_post_coalesce_del(struct msg *request) {
+redis_post_coalesce_del(struct msg *request)
+{
     struct msg *response = request->peer;
-    struct mbuf * mbuf;
+    struct mbuf *mbuf;
     uint32_t len;
 
     mbuf = STAILQ_FIRST(&response->mhdr);
@@ -2205,14 +2208,14 @@ redis_post_coalesce_del(struct msg *request) {
     response->mlen += (uint32_t)len;
 
     nc_free(request->frag_seq);
-
 }
 
 static void
-redis_post_coalesce_mget(struct msg *request) {
+redis_post_coalesce_mget(struct msg *request)
+{
     struct msg *response = request->peer;
     struct msg *sub_msg;
-    struct mbuf * mbuf;
+    struct mbuf *mbuf;
     uint32_t len;
     uint32_t i;
 
@@ -2222,13 +2225,13 @@ redis_post_coalesce_mget(struct msg *request) {
     mbuf->last += len;
     response->mlen = (uint32_t)len;
 
-    for(i = 1; i < request->narg; i++){         /*for each  key*/
-        sub_msg = request->frag_seq[i]->peer;   /*get it's peer response*/
-        if(sub_msg == NULL){
-            continue; /*no response because of error, we do nothing and leave it to the req_error() check in rsp_send_next*/
+    for (i = 1; i < request->narg; i++) {               /*for each  key*/
+        sub_msg = request->frag_seq[i]->peer;           /*get it's peer response*/
+        if (sub_msg == NULL) {
+            continue;                                   /*no response because of error, we do nothing and leave it to the req_error() check in rsp_send_next*/
         }
         len = redis_copy_bulk(response, sub_msg);
-        ASSERT(len>=0);
+        ASSERT(len >= 0);
         log_debug(LOG_VVERB, "redis_copy_bulk for mget copy bytes: %d", len);
         response->mlen += len;
         sub_msg->mlen -= len;

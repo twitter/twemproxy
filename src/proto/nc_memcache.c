@@ -192,7 +192,7 @@ memcache_parse_req(struct msg *r)
                 m = r->token;
                 r->token = NULL;
                 r->type = MSG_UNKNOWN;
-                r->narg ++;
+                r->narg++;
 
                 switch (p - m) {
 
@@ -368,7 +368,7 @@ memcache_parse_req(struct msg *r)
                 r->token = NULL;
                 p = p - 1; /* go back by 1 byte */
                 state = SW_KEY;
-                /*goto fragment;*/
+                /* goto fragment; */
             }
 
             break;
@@ -730,17 +730,17 @@ memcache_parse_rsp(struct msg *r)
         SW_RSP_STR,
         SW_SPACES_BEFORE_KEY,
         SW_KEY,
-        SW_SPACES_BEFORE_FLAGS,     /*5*/
+        SW_SPACES_BEFORE_FLAGS,     /* 5 */
         SW_FLAGS,
         SW_SPACES_BEFORE_VLEN,
         SW_VLEN,
         SW_RUNTO_VAL,
-        SW_VAL,                     /*10*/
+        SW_VAL,                     /* 10 */
         SW_VAL_LF,
         SW_END,
         SW_RUNTO_CRLF,
         SW_CRLF,
-        SW_ALMOST_DONE,             /*15*/
+        SW_ALMOST_DONE,             /* 15 */
         SW_SENTINEL
     } state;
 
@@ -801,7 +801,7 @@ memcache_parse_rsp(struct msg *r)
             if (ch == ' ' || ch == CR) {
                 /* type_end <- p - 1 */
                 m = r->token;
-                /*r->token = NULL;*/
+                /* r->token = NULL; */
                 r->type = MSG_UNKNOWN;
 
                 switch (p - m) {
@@ -932,7 +932,7 @@ memcache_parse_rsp(struct msg *r)
         case SW_KEY:
             if (ch == ' ') {
                 r->key_end = p;
-                /*r->token = NULL;*/
+                /* r->token = NULL; */
                 state = SW_SPACES_BEFORE_FLAGS;
             }
 
@@ -952,7 +952,7 @@ memcache_parse_rsp(struct msg *r)
         case SW_FLAGS:
             if (r->token == NULL) {
                 /* flags_start <- p */
-                /*r->token = p;*/
+                /* r->token = p; */
             }
 
             if (isdigit(ch)) {
@@ -960,7 +960,7 @@ memcache_parse_rsp(struct msg *r)
                 ;
             } else if (ch == ' ') {
                 /* flags_end <- p - 1 */
-                /*r->token = NULL;*/
+                /* r->token = NULL; */
                 state = SW_SPACES_BEFORE_VLEN;
             } else {
                 goto error;
@@ -986,7 +986,7 @@ memcache_parse_rsp(struct msg *r)
             } else if (ch == ' ' || ch == CR) {
                 /* vlen_end <- p - 1 */
                 p = p - 1; /* go back by 1 byte */
-                /*r->token = NULL;*/
+                /* r->token = NULL; */
                 state = SW_RUNTO_CRLF;
             } else {
                 goto error;
@@ -1233,7 +1233,7 @@ memcache_pre_coalesce(struct msg *r)
         return;
     }
 
-    pr->frag_owner->nfrag_done ++;
+    pr->frag_owner->nfrag_done++;
     switch (r->type) {
 
     case MSG_RSP_MC_VALUE:
@@ -1297,20 +1297,21 @@ memcache_pre_coalesce(struct msg *r)
  * return bytes copied
  * */
 uint32_t
-memcache_copy_bulk(struct msg *dst, struct msg * src){
+memcache_copy_bulk(struct msg *dst, struct msg *src)
+{
     struct mbuf *buf, *nbuf;
-    uint8_t * p;
+    uint8_t *p;
     uint32_t len = 0;
     uint32_t bytes = 0;
     uint32_t i = 0;
 
-    for(buf = STAILQ_FIRST(&src->mhdr); buf && (buf->pos >= buf->last); buf = STAILQ_FIRST(&src->mhdr)){
+    for (buf = STAILQ_FIRST(&src->mhdr); buf && (buf->pos >= buf->last); buf = STAILQ_FIRST(&src->mhdr)) {
         mbuf_remove(&src->mhdr, buf);
         mbuf_put(buf);
     }
 
     buf = STAILQ_FIRST(&src->mhdr);
-    if (buf == NULL){
+    if (buf == NULL) {
         return 0;
     }
     p = buf->pos;
@@ -1319,8 +1320,8 @@ memcache_copy_bulk(struct msg *dst, struct msg * src){
     /*gets: VALUE key 0 len cas\r\rnv\r\n  */
 
     ASSERT(*p == 'V');
-    for(i = 0; i < 3; i++){                  /*  eat 'VALUE key 0 '  */
-        for(;*p != ' ';){
+    for (i = 0; i < 3; i++) {                 /*  eat 'VALUE key 0 '  */
+        for (; *p != ' ';) {
             p++;
         }
         p++;
@@ -1341,14 +1342,14 @@ memcache_copy_bulk(struct msg *dst, struct msg * src){
     bytes = len;
 
     /*copy len bytes to dst*/
-    for(; buf ;){
-        if(mbuf_length(buf) <= len){    /*steal this buf from src to dst*/
+    for (; buf;) {
+        if (mbuf_length(buf) <= len) {   /*steal this buf from src to dst*/
             nbuf = STAILQ_NEXT(buf, next);
             mbuf_remove(&src->mhdr, buf);
             mbuf_insert(&dst->mhdr, buf);
             len -= mbuf_length(buf);
             buf = nbuf;
-        }else{                          /*split it*/
+        } else {                        /*split it*/
             nbuf = mbuf_get();
             if (nbuf == NULL) {
                 return -1;
@@ -1371,7 +1372,7 @@ void
 memcache_post_coalesce(struct msg *request)
 {
     struct msg *response = request->peer;
-    struct mbuf * mbuf;
+    struct mbuf *mbuf;
     uint32_t len;
     struct msg *sub_msg;
     uint32_t i;
@@ -1385,13 +1386,13 @@ memcache_post_coalesce(struct msg *request)
 
     msg_reset_mbufs(response);
 
-    for(i = 1; i < request->narg; i++){         /*for each  key*/
-        sub_msg = request->frag_seq[i]->peer;   /*get it's peer response*/
-        if(sub_msg == NULL){
-            continue; /*no response because of error, we do nothing and leave it to the req_error() check in rsp_send_next*/
+    for (i = 1; i < request->narg; i++) {               /*for each  key*/
+        sub_msg = request->frag_seq[i]->peer;           /*get it's peer response*/
+        if (sub_msg == NULL) {
+            continue;                                   /*no response because of error, we do nothing and leave it to the req_error() check in rsp_send_next*/
         }
         len = memcache_copy_bulk(response, sub_msg);
-        ASSERT(len>=0);
+        ASSERT(len >= 0);
         log_debug(LOG_VVERB, "memcache_copy_bulk for mget copy bytes: %d", len);
         response->mlen += len;
         sub_msg->mlen -= len;

@@ -18,6 +18,8 @@
 #include <nc_core.h>
 #include <nc_server.h>
 
+void req_log(struct msg *req);
+
 struct msg *
 req_get(struct conn *conn)
 {
@@ -29,7 +31,6 @@ req_get(struct conn *conn)
     if (msg == NULL) {
         conn->err = errno;
     }
-
     return msg;
 }
 
@@ -39,6 +40,8 @@ req_put(struct msg *msg)
     struct msg *pmsg; /* peer message (response) */
 
     ASSERT(msg->request);
+
+    req_log(msg);
 
     pmsg = msg->peer;
     if (pmsg != NULL) {
@@ -51,6 +54,54 @@ req_put(struct msg *msg)
     msg_tmo_delete(msg);
 
     msg_put(msg);
+}
+
+void
+req_log(struct msg *req)
+{
+    struct msg *rsp;                /* peer message (response) */
+    int64_t request_time;           /* time cost for this request */
+    char *peer_str;                 /* peer client ip:port */
+
+    uint32_t req_len = 0;           /* message length */
+    uint32_t rsp_len = 0;           /* message length */
+
+
+    if (log_loggable(LOG_NOTICE) == 0) {
+        return;
+    }
+
+    if ((req->frag_id) && (req->frag_owner != req)) {      /* a fragment */
+        return;
+    }
+
+    if (req->mlen == 0) {           /* conn close normally */
+        return;
+    }
+
+    rsp = req->peer;
+
+    req_len = req->mlen;
+    if (rsp) {
+        rsp_len = rsp->mlen;
+    }
+
+    if (req->key_end) {
+        *(req->key_end) = '\0';
+    }
+
+    /*
+     * TODO: add backend addr here.
+     */
+    request_time = nc_usec_now() - req->start_ts;
+    peer_str = nc_unresolve_peer_desc(req->owner->sd);
+
+    log_debug(LOG_NOTICE, "notice req %"PRIu64" done on c %d req_time %"PRIi64".%03"PRIi64" type %s "
+            "narg %"PRIu32" req_len %"PRIu32" rsp_len %"PRIu32" "
+            "key0 %s, peer %s done %d, error %d",
+            req->id, req->owner->sd, request_time / 1000, request_time % 1000, msg_type_str(req->type),
+            req->narg, req_len, rsp_len,
+            req->key_start, peer_str, req->done, req->error);
 }
 
 /*

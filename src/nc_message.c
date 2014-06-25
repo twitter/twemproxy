@@ -212,6 +212,7 @@ done:
 
     STAILQ_INIT(&msg->mhdr);
     msg->mlen = 0;
+    msg->start_ts = 0;
 
     msg->state = 0;
     msg->pos = NULL;
@@ -294,6 +295,10 @@ msg_get(struct conn *conn, bool request, bool redis)
         msg->post_splitcopy = memcache_post_splitcopy;
         msg->pre_coalesce = memcache_pre_coalesce;
         msg->post_coalesce = memcache_post_coalesce;
+    }
+
+    if (log_loggable(LOG_NOTICE) != 0) {
+        msg->start_ts = nc_usec_now();
     }
 
     log_debug(LOG_VVERB, "get msg %p id %"PRIu64" request %d owner sd %d",
@@ -826,3 +831,16 @@ msg_send(struct context *ctx, struct conn *conn)
 
     return NC_OK;
 }
+
+#define DEFINE_ACTION(_name) case _name: return (uint8_t *)#_name;
+inline uint8_t *
+msg_type_str(msg_type_t type)
+{
+    switch (type) {
+
+    MSG_TYPE_CODEC(DEFINE_ACTION)
+
+    default: return (uint8_t *)"UNKNOWN";
+    }
+}
+#undef DEFINE_ACTION

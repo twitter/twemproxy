@@ -215,7 +215,7 @@ redis_argn(struct msg *r)
  * Return true, if the redis command is a vector command accepting one or
  * more keys, otherwise return false
  */
-bool
+static bool
 redis_argx(struct msg *r)
 {
     switch (r->type) {
@@ -234,7 +234,7 @@ redis_argx(struct msg *r)
  * Return true, if the redis command is a vector command accepting one or
  * more key-value pairs, otherwise return false
  */
-bool
+static bool
 redis_arg2x(struct msg *r)
 {
     switch (r->type) {
@@ -2024,6 +2024,67 @@ redis_post_splitcopy(struct msg *r)
 }
 
 /*
+ * copy one response from src to dst
+ * return bytes copied
+ * */
+static uint32_t
+redis_copy_bulk(struct msg *dst, struct msg *src)
+{
+    struct mbuf *mbuf, *nbuf;
+    uint8_t *p;
+    uint32_t len = 0;
+    uint32_t bytes = 0;
+
+    for (mbuf = STAILQ_FIRST(&src->mhdr); mbuf && (mbuf->pos >= mbuf->last); mbuf = STAILQ_FIRST(&src->mhdr)) {
+        mbuf_remove(&src->mhdr, mbuf);
+        mbuf_put(mbuf);
+    }
+
+    mbuf = STAILQ_FIRST(&src->mhdr);
+    if (mbuf == NULL) {
+        return 0;
+    }
+
+    p = mbuf->pos;
+    ASSERT(*p == '$');
+    p++;
+
+    if (p[0] == '-' && p[1] == '1') {
+        len = 1 + 2 + CRLF_LEN;
+        p = mbuf->pos + len;
+    } else {
+        len = 0;
+        for (; p < mbuf->last && isdigit(*p); p++) {
+            len = len * 10 + (uint32_t)(*p - '0');
+        }
+        len += CRLF_LEN * 2;
+        len += (p - mbuf->pos);
+    }
+    bytes = len;
+
+    /*copy len bytes to dst*/
+    for (; mbuf;) {
+        if (mbuf_length(mbuf) <= len) {   /*steal this buf from src to dst*/
+            nbuf = STAILQ_NEXT(mbuf, next);
+            mbuf_remove(&src->mhdr, mbuf);
+            mbuf_insert(&dst->mhdr, mbuf);
+            len -= mbuf_length(mbuf);
+            mbuf = nbuf;
+        } else {                        /*split it*/
+            nbuf = mbuf_get();
+            if (nbuf == NULL) {
+                return -1;
+            }
+            mbuf_copy(nbuf, mbuf->pos, len);
+            mbuf_insert(&dst->mhdr, nbuf);
+            mbuf->pos += len;
+            break;
+        }
+    }
+    return bytes;
+}
+
+/*
  * Pre-coalesce handler is invoked when the message is a response to
  * the fragmented multi vector request - 'mget' or 'del' and all the
  * responses to the fragmented request vector hasn't been received
@@ -2118,64 +2179,223 @@ redis_pre_coalesce(struct msg *r)
 }
 
 /*
- * copy one response from src to dst
- * return bytes copied
+ * parse next key in mget request, update
+ * r->key_start
+ * r->key_end
  * */
-uint32_t
-redis_copy_bulk(struct msg *dst, struct msg *src)
+static rstatus_t
+redis_argx_update_keypos(struct msg *r)
 {
-    struct mbuf *buf, *nbuf;
+    struct mbuf *mbuf;
     uint8_t *p;
     uint32_t len = 0;
-    uint32_t bytes = 0;
+    uint32_t keylen = 0;
 
-    for (buf = STAILQ_FIRST(&src->mhdr); buf && (buf->pos >= buf->last); buf = STAILQ_FIRST(&src->mhdr)) {
-        mbuf_remove(&src->mhdr, buf);
-        mbuf_put(buf);
+    for (mbuf = STAILQ_FIRST(&r->mhdr); mbuf && (mbuf->pos >= mbuf->last); mbuf = STAILQ_FIRST(&r->mhdr)) {
+        mbuf_remove(&r->mhdr, mbuf);
+        mbuf_put(mbuf);
     }
 
-    buf = STAILQ_FIRST(&src->mhdr);
-    if (buf == NULL) {
-        return 0;
-    }
-
-    p = buf->pos;
+    p = mbuf->pos;
     ASSERT(*p == '$');
     p++;
 
-    if (p[0] == '-' && p[1] == '1') {
-        len = 1 + 2 + CRLF_LEN;
-        p = buf->pos + len;
-    } else {
-        len = 0;
-        for (; p < buf->last && isdigit(*p); p++) {
-            len = len * 10 + (uint32_t)(*p - '0');
-        }
-        len += CRLF_LEN * 2;
-        len += (p - buf->pos);
+    len = 0;
+    for (; p < mbuf->last && isdigit(*p); p++) {
+        len = len * 10 + (uint32_t)(*p - '0');
     }
-    bytes = len;
 
-    /*copy len bytes to dst*/
-    for (; buf;) {
-        if (mbuf_length(buf) <= len) {   /*steal this buf from src to dst*/
-            nbuf = STAILQ_NEXT(buf, next);
-            mbuf_remove(&src->mhdr, buf);
-            mbuf_insert(&dst->mhdr, buf);
-            len -= mbuf_length(buf);
-            buf = nbuf;
-        } else {                        /*split it*/
-            nbuf = mbuf_get();
-            if (nbuf == NULL) {
-                return -1;
-            }
-            mbuf_copy(nbuf, buf->pos, len);
-            mbuf_insert(&dst->mhdr, nbuf);
-            buf->pos += len;
-            break;
+    keylen = len;
+    len += (uint32_t)CRLF_LEN * 2;
+    len += (uint32_t)(p - mbuf->pos);
+
+    if (mbuf_length(mbuf) < len - CRLF_LEN) { /* key no in this buf, remove it. */
+        len -= mbuf_length(mbuf);
+        mbuf_remove(&r->mhdr, mbuf);
+        mbuf_put(mbuf);
+
+        mbuf = STAILQ_FIRST(&r->mhdr);
+    }
+
+    r->key_end = mbuf->pos + len - CRLF_LEN;
+    r->key_start = r->key_end - keylen;
+    mbuf->pos += len - CRLF_LEN;
+
+    len = CRLF_LEN;
+    while (mbuf_length(mbuf) < len) {        /* eat CRLF */
+        len -= mbuf_length(mbuf);
+        mbuf->pos = mbuf->last;
+
+        mbuf = STAILQ_NEXT(mbuf, next);
+    }
+    mbuf->pos += len;
+
+    return NC_OK;
+}
+
+static rstatus_t
+redis_append_key(struct msg *r, uint8_t *key, uint32_t keylen)
+{
+    uint32_t len;
+    struct mbuf *mbuf;
+    uint8_t printbuf[32];
+
+    /* 1. keylen */
+    len = (uint32_t)nc_snprintf(printbuf, sizeof(printbuf), "$%d\r\n", keylen);
+    mbuf = msg_ensure_mbuf(r, len);
+    if (mbuf == NULL) {
+        nc_free(r);
+        return NC_ENOMEM;
+    }
+    mbuf_copy(mbuf, printbuf, len);
+    r->mlen += len;
+
+    /* 2. key */
+    mbuf = msg_ensure_mbuf(r, keylen);
+    if (mbuf == NULL) {
+        nc_free(r);
+        return NC_ENOMEM;
+    }
+    r->key_start = mbuf->last;   /* update key_start */
+    mbuf_copy(mbuf, key, keylen);
+    r->mlen += keylen;
+    r->key_end = mbuf->last;     /* update key_start */
+
+    /* 3. CRLF */
+    mbuf = msg_ensure_mbuf(r, CRLF_LEN);
+    if (mbuf == NULL) {
+        nc_free(r);
+        return NC_ENOMEM;
+    }
+    mbuf_copy(mbuf, (uint8_t *)CRLF, CRLF_LEN);
+    r->mlen += (uint32_t)CRLF_LEN;
+    return NC_OK;
+}
+
+/**
+ * input a msg, return a msg chain.
+ * ncontinuum is # bucket
+ */
+static rstatus_t
+redis_fragment_argx(struct msg *r, uint32_t ncontinuum, struct msg_tqh *frag_msgq, uint32_t key_step)
+{
+    struct mbuf *mbuf, *sub_msg_mbuf;
+    struct msg **sub_msgs;
+    uint32_t i;
+
+    /* init sub_msgs and msg->frag_seq */
+    sub_msgs = nc_alloc(ncontinuum * sizeof(void *));
+    for (i = 0; i < ncontinuum; i++) {
+        sub_msgs[i] = msg_get(r->owner, r->request, r->redis);
+    }
+    r->frag_seq = nc_alloc(sizeof(struct msg *) * r->narg); /* the point for each key, point to sub_msgs elements */
+
+    mbuf = STAILQ_FIRST(&r->mhdr);
+    mbuf->pos = mbuf->start;
+
+    for (i = 0; i < 3; i++) {                 /* eat *narg\r\n$4\r\nMGET\r\n */
+        for (; *(mbuf->pos) != '\n';) {
+            mbuf->pos++;
+        }
+        mbuf->pos++;
+    }
+
+    r->frag_id = msg_gen_frag_id();
+    r->first_fragment = 1;
+    r->nfrag = 0;
+    r->frag_owner = r;
+
+    for (i = 1; i < r->narg; i++) {        /* for each  key */
+        uint8_t *key;
+        uint32_t keylen;
+        uint32_t idx;
+        struct msg *sub_msg;
+        uint32_t len;
+
+        redis_argx_update_keypos(r);
+        key = r->key_start;
+        keylen = (uint32_t)(r->key_end - r->key_start);
+        idx = msg_backend_idx(r, key, keylen);
+        sub_msg = sub_msgs[idx];
+
+        r->frag_seq[i] = sub_msgs[idx];
+
+        sub_msg->narg++;
+        if (NC_OK != redis_append_key(sub_msg, key, keylen)) {
+            nc_free(sub_msgs);
+            return NC_ENOMEM;
+        }
+
+        if (key_step == 1) {            /* mget,del */
+            continue;
+        } else {                        /* mset, msetex */
+            len = redis_copy_bulk(sub_msg, r);
+            log_debug(LOG_VVERB, "redis_copy_bulk for mset copy bytes: %d", len);
+            i++;
+            sub_msg->narg++;
         }
     }
-    return bytes;
+
+    for (mbuf = STAILQ_FIRST(&r->mhdr); mbuf && (mbuf->pos >= mbuf->last); mbuf = STAILQ_FIRST(&r->mhdr)) {
+        mbuf_remove(&r->mhdr, mbuf);
+        mbuf_put(mbuf);
+    }
+    ASSERT(STAILQ_EMPTY(&r->mhdr));
+
+    for (i = 0; i < ncontinuum; i++) {     /* prepend mget header, and forward it */
+        struct msg *sub_msg = sub_msgs[i];
+        if (STAILQ_EMPTY(&sub_msg->mhdr)) {
+            msg_put(sub_msg);
+            continue;
+        }
+
+        sub_msg_mbuf = mbuf_get();
+        if (sub_msg_mbuf == NULL) {
+            nc_free(sub_msgs);
+            return NC_ENOMEM;
+        }
+        if (r->type == MSG_REQ_REDIS_MGET) {
+            sub_msg_mbuf->last += nc_snprintf(sub_msg_mbuf->last, mbuf_size(sub_msg_mbuf), "*%d\r\n$4\r\nmget\r\n",
+                                              sub_msg->narg + 1);
+        } else if (r->type == MSG_REQ_REDIS_DEL) {
+            sub_msg_mbuf->last += nc_snprintf(sub_msg_mbuf->last, mbuf_size(sub_msg_mbuf), "*%d\r\n$3\r\ndel\r\n",
+                                              sub_msg->narg + 1);
+        } else if (r->type == MSG_REQ_REDIS_MSET) {
+            sub_msg_mbuf->last += nc_snprintf(sub_msg_mbuf->last, mbuf_size(sub_msg_mbuf), "*%d\r\n$4\r\nmset\r\n",
+                                              sub_msg->narg + 1);
+        }
+        sub_msg->mlen += mbuf_length(sub_msg_mbuf);
+
+        sub_msg->type = r->type;
+        sub_msg->frag_id = r->frag_id;
+        sub_msg->frag_owner = r->frag_owner;
+        STAILQ_INSERT_HEAD(&sub_msg->mhdr, sub_msg_mbuf, next);
+
+        TAILQ_INSERT_TAIL(frag_msgq, sub_msg, m_tqe);
+        r->nfrag++;
+    }
+
+    nc_free(sub_msgs);
+    return NC_OK;
+}
+
+rstatus_t
+redis_fragment(struct msg *r, uint32_t ncontinuum, struct msg_tqh *frag_msgq)
+{
+    if (redis_argx(r)) {
+        rstatus_t status = redis_fragment_argx(r, ncontinuum, frag_msgq, 1);
+        if (status != NC_OK) {
+            return status;
+        }
+        return NC_OK;
+    } else if (redis_arg2x(r)) {
+        rstatus_t status = redis_fragment_argx(r, ncontinuum, frag_msgq, 2);
+        if (status != NC_OK) {
+            return status;
+        }
+        return NC_OK;
+    }
+    return NC_OK;
 }
 
 void
@@ -2185,8 +2405,7 @@ redis_post_coalesce_mset(struct msg *request)
     struct mbuf *mbuf;
     uint32_t len;
 
-    mbuf = STAILQ_FIRST(&response->mhdr);
-
+    mbuf = msg_ensure_mbuf(response, 5);
     len = nc_scnprintf(mbuf->last, mbuf_size(mbuf), "+OK\r\n");
     mbuf->last += len;
     response->mlen += (uint32_t)len;
@@ -2201,8 +2420,7 @@ redis_post_coalesce_del(struct msg *request)
     struct mbuf *mbuf;
     uint32_t len;
 
-    mbuf = STAILQ_FIRST(&response->mhdr);
-
+    mbuf = msg_ensure_mbuf(response, 3 + NC_UINT32_MAXLEN);
     len = nc_scnprintf(mbuf->last, mbuf_size(mbuf), ":%d\r\n", request->integer);
     mbuf->last += len;
     response->mlen += (uint32_t)len;
@@ -2219,8 +2437,7 @@ redis_post_coalesce_mget(struct msg *request)
     uint32_t len;
     uint32_t i;
 
-    mbuf = STAILQ_FIRST(&response->mhdr);
-
+    mbuf = msg_ensure_mbuf(response, 3 + NC_UINT32_MAXLEN);
     len = nc_scnprintf(mbuf->last, mbuf_size(mbuf), "*%d\r\n", request->narg - 1);
     mbuf->last += len;
     response->mlen = (uint32_t)len;
@@ -2250,8 +2467,6 @@ void
 redis_post_coalesce(struct msg *r)
 {
     struct msg *pr = r->peer; /* peer response */
-    struct mbuf *mbuf;
-    uint32_t n;
 
     ASSERT(!pr->request);
     ASSERT(r->request && r->first_fragment);

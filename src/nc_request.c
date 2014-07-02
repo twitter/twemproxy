@@ -416,6 +416,26 @@ req_recv_next(struct context *ctx, struct conn *conn, bool alloc)
     return msg;
 }
 
+static void
+req_make_reply(struct context *ctx, struct conn *conn, struct msg *req)
+{
+    struct mbuf *mbuf;
+    struct msg *msg;
+
+    msg = msg_get(conn, true, conn->redis); /* replay */
+    if (msg == NULL) {
+        conn->err = errno;
+        return;
+    }
+
+    req->peer = msg;
+    msg->peer = req;
+    msg->request = 0;
+
+    req->done = 1;
+    conn->enqueue_outq(ctx, conn, req);
+}
+
 static bool
 req_filter(struct context *ctx, struct conn *conn, struct msg *msg)
 {
@@ -557,10 +577,15 @@ void
 req_recv_done(struct context *ctx, struct conn *conn, struct msg *msg,
               struct msg *nmsg)
 {
+    struct server_pool *pool;
+    struct msg_tqh frag_msgq;
+    struct msg *sub_msg;
+    struct msg *tmsg; 			/* tmp next message */
+
     ASSERT(conn->client && !conn->proxy);
     ASSERT(msg->request);
     ASSERT(msg->owner == conn);
-    /* ASSERT(conn->rmsg == msg); */
+    ASSERT(conn->rmsg == msg);
     ASSERT(nmsg == NULL || nmsg->request);
 
     /* enqueue next message (request), if any */
@@ -570,7 +595,27 @@ req_recv_done(struct context *ctx, struct conn *conn, struct msg *msg,
         return;
     }
 
-    req_forward(ctx, conn, msg);
+    /* do fragment */
+    pool = conn->owner;
+    TAILQ_INIT(&frag_msgq);
+    msg->fragment(msg, pool->ncontinuum, &frag_msgq);
+
+    /* if no fragment happened */
+    if (TAILQ_EMPTY(&frag_msgq)) {
+        req_forward(ctx, conn, msg);
+        return;
+    }
+
+    req_make_reply(ctx, conn, msg);
+
+    for (sub_msg = TAILQ_FIRST(&frag_msgq); sub_msg != NULL; sub_msg = tmsg) {
+        tmsg = TAILQ_NEXT(sub_msg, m_tqe);
+
+        TAILQ_REMOVE(&frag_msgq, sub_msg, m_tqe);
+        req_forward(ctx, conn, sub_msg);
+    }
+
+    ASSERT(TAILQ_EMPTY(&frag_msgq));
 }
 
 struct msg *

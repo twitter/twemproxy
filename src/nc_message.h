@@ -22,6 +22,7 @@
 
 typedef void (*msg_parse_t)(struct msg *);
 typedef rstatus_t (*msg_post_splitcopy_t)(struct msg *);
+typedef rstatus_t (*msg_fragment_t)(struct msg *, uint32_t, struct msg_tqh *);
 typedef void (*msg_coalesce_t)(struct msg *r);
 
 typedef enum msg_parse_result {
@@ -186,6 +187,7 @@ struct msg {
 
     mbuf_copy_t          pre_splitcopy;   /* message pre-split copy */
     msg_post_splitcopy_t post_splitcopy;  /* message post-split copy */
+    msg_fragment_t       fragment;        /* message fragment */
     msg_coalesce_t       pre_coalesce;    /* message pre-coalesce */
     msg_coalesce_t       post_coalesce;   /* message post-coalesce */
 
@@ -206,7 +208,7 @@ struct msg {
 
     struct msg           *frag_owner;     /* owner of fragment message */
     uint32_t             nfrag;           /* # fragment */
-    uint32_t             nfrag_done;           /* # fragment */
+    uint32_t             nfrag_done;      /* # fragment */
     uint64_t             frag_id;         /* id of fragmented message */
     struct msg           **frag_seq;      /* sequence of fragment message, one element for each mget key*/
 
@@ -240,12 +242,13 @@ void msg_dump(struct msg *msg, int level);
 bool msg_empty(struct msg *msg);
 rstatus_t msg_recv(struct context *ctx, struct conn *conn);
 rstatus_t msg_send(struct context *ctx, struct conn *conn);
+uint64_t msg_gen_frag_id(void);
+uint32_t msg_backend_idx(struct msg *msg, uint8_t *key, uint32_t keylen);
+struct mbuf *msg_ensure_mbuf(struct msg *msg, uint32_t len);
 
 struct msg *req_get(struct conn *conn);
 void req_put(struct msg *msg);
 bool req_done(struct conn *conn, struct msg *msg);
-void msg_reset_mbufs(struct msg *msg);
-
 bool req_error(struct conn *conn, struct msg *msg);
 void req_server_enqueue_imsgq(struct context *ctx, struct conn *conn, struct msg *msg);
 void req_server_dequeue_imsgq(struct context *ctx, struct conn *conn, struct msg *msg);

@@ -440,31 +440,12 @@ msg_empty(struct msg *msg)
 }
 
 uint32_t
-msg_backend_idx(struct msg *msg, uint8_t *key, uint32_t keylen)
+msg_backend_idx(struct msg *msg)
 {
     struct conn        *conn = msg->owner;
     struct server_pool *pool = conn->owner;
-
-    /* FIXME: merge with code in req_forward */
-    /* hash_tag */
-    if (!string_empty(&pool->hash_tag)) {
-        struct string *tag = &pool->hash_tag;
-        uint8_t *tag_start, *tag_end;
-
-        tag_start = nc_strchr(key, key + keylen, tag->data[0]);
-        if (tag_start != NULL) {
-            tag_end = nc_strchr(tag_start + 1, key + keylen, tag->data[1]);
-            if (tag_end != NULL) {
-                key = tag_start + 1;
-                keylen = (uint32_t)(tag_end - key);
-            }
-        }
-    }
-
-    if (keylen == 0) {
-        key = msg->key_start;
-        keylen = (uint32_t)(msg->key_end - msg->key_start);
-    }
+    uint8_t *key = msg->key_start;
+    uint32_t keylen = (uint32_t)(msg->key_end - msg->key_start);
 
     return server_pool_idx(pool, key, keylen);
 }
@@ -535,7 +516,7 @@ msg_parsed(struct context *ctx, struct conn *conn, struct msg *msg)
 }
 
 static rstatus_t
-_msg_fragment(struct context *ctx, struct conn *conn, struct msg *msg)
+msg_fragment(struct context *ctx, struct conn *conn, struct msg *msg)
 {
     rstatus_t status;   /* return status */
     struct msg *nmsg;   /* new message */
@@ -662,9 +643,9 @@ msg_parse(struct context *ctx, struct conn *conn, struct msg *msg)
         status = msg_parsed(ctx, conn, msg);
         break;
 
-    /* case MSG_PARSE_FRAGMENT: */
-        /* status = msg_fragment(ctx, conn, msg); */
-        /* break; */
+    case MSG_PARSE_FRAGMENT:
+        status = msg_fragment(ctx, conn, msg);
+        break;
 
     case MSG_PARSE_REPAIR:
         status = msg_repair(ctx, conn, msg);

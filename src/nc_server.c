@@ -623,6 +623,25 @@ server_pool_idx(struct server_pool *pool, uint8_t *key, uint32_t keylen)
     ASSERT(array_n(&pool->server) != 0);
     ASSERT(key != NULL && keylen != 0);
 
+    /*
+     * If hash_tag: is configured for this server pool, we use the part of
+     * the key within the hash tag as an input to the distributor. Otherwise
+     * we use the full key
+     */
+    if (!string_empty(&pool->hash_tag)) {
+        struct string *tag = &pool->hash_tag;
+        uint8_t *tag_start, *tag_end;
+
+        tag_start = nc_strchr(key, key + keylen, tag->data[0]);
+        if (tag_start != NULL) {
+            tag_end = nc_strchr(tag_start + 1, key + keylen, tag->data[1]);
+            if ((tag_end != NULL) && (tag_end - tag_start > 1)) {
+                key = tag_start + 1;
+                keylen = (uint32_t)(tag_end - key);
+            }
+        }
+    }
+
     switch (pool->dist_type) {
     case DIST_KETAMA:
         hash = server_pool_hash(pool, key, keylen);

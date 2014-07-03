@@ -419,7 +419,6 @@ req_recv_next(struct context *ctx, struct conn *conn, bool alloc)
 static void
 req_make_reply(struct context *ctx, struct conn *conn, struct msg *req)
 {
-    struct mbuf *mbuf;
     struct msg *msg;
 
     msg = msg_get(conn, true, conn->redis); /* replay */
@@ -521,32 +520,8 @@ req_forward(struct context *ctx, struct conn *c_conn, struct msg *msg)
     }
 
     pool = c_conn->owner;
-    key = NULL;
-    keylen = 0;
-
-    /*
-     * If hash_tag: is configured for this server pool, we use the part of
-     * the key within the hash tag as an input to the distributor. Otherwise
-     * we use the full key
-     */
-    if (!string_empty(&pool->hash_tag)) {
-        struct string *tag = &pool->hash_tag;
-        uint8_t *tag_start, *tag_end;
-
-        tag_start = nc_strchr(msg->key_start, msg->key_end, tag->data[0]);
-        if (tag_start != NULL) {
-            tag_end = nc_strchr(tag_start + 1, msg->key_end, tag->data[1]);
-            if (tag_end != NULL) {
-                key = tag_start + 1;
-                keylen = (uint32_t)(tag_end - key);
-            }
-        }
-    }
-
-    if (keylen == 0) {
-        key = msg->key_start;
-        keylen = (uint32_t)(msg->key_end - msg->key_start);
-    }
+    key = msg->key_start;
+    keylen = (uint32_t)(msg->key_end - msg->key_start);
 
     s_conn = server_pool_conn(ctx, c_conn->owner, key, keylen);
     if (s_conn == NULL) {

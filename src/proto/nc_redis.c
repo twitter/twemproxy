@@ -2315,7 +2315,7 @@ redis_fragment_argx(struct msg *r, uint32_t ncontinuum, struct msg_tqh *frag_msg
         redis_argx_update_keypos(r);
         key = r->key_start;
         keylen = (uint32_t)(r->key_end - r->key_start);
-        idx = msg_backend_idx(r, key, keylen);
+        idx = msg_backend_idx(r);
         sub_msg = sub_msgs[idx];
 
         r->frag_seq[i] = sub_msgs[idx];

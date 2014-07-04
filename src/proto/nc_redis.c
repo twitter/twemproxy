@@ -2284,10 +2284,7 @@ redis_fragment_argx(struct msg *r, uint32_t ncontinuum, struct msg_tqh *frag_msg
     uint32_t i;
 
     /* init sub_msgs and msg->frag_seq */
-    sub_msgs = nc_alloc(ncontinuum * sizeof(void *));
-    for (i = 0; i < ncontinuum; i++) {
-        sub_msgs[i] = msg_get(r->owner, r->request, r->redis);
-    }
+    sub_msgs = nc_zalloc(ncontinuum * sizeof(void *));
     r->frag_seq = nc_alloc(sizeof(struct msg *) * r->narg); /* the point for each key, point to sub_msgs elements */
 
     mbuf = STAILQ_FIRST(&r->mhdr);
@@ -2316,6 +2313,9 @@ redis_fragment_argx(struct msg *r, uint32_t ncontinuum, struct msg_tqh *frag_msg
         key = r->key_start;
         keylen = (uint32_t)(r->key_end - r->key_start);
         idx = msg_backend_idx(r);
+        if (sub_msgs[idx] == NULL) {
+            sub_msgs[idx] = msg_get(r->owner, r->request, r->redis);
+        }
         sub_msg = sub_msgs[idx];
 
         r->frag_seq[i] = sub_msgs[idx];
@@ -2344,8 +2344,7 @@ redis_fragment_argx(struct msg *r, uint32_t ncontinuum, struct msg_tqh *frag_msg
 
     for (i = 0; i < ncontinuum; i++) {     /* prepend mget header, and forward it */
         struct msg *sub_msg = sub_msgs[i];
-        if (STAILQ_EMPTY(&sub_msg->mhdr)) {
-            msg_put(sub_msg);
+        if (sub_msg == NULL) {
             continue;
         }
 

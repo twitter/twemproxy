@@ -1166,6 +1166,55 @@ error:
 }
 
 /*
+ * Pre-split copy handler invoked when the request is a multi vector -
+ * 'get' or 'gets' request and is about to be split into two requests
+ */
+void
+memcache_pre_splitcopy(struct mbuf *mbuf, void *arg)
+{
+    struct msg *r = arg;                  /* request vector */
+    struct string get = string("get ");   /* 'get ' string */
+    struct string gets = string("gets "); /* 'gets ' string */
+
+    ASSERT(r->request);
+    ASSERT(!r->redis);
+    ASSERT(mbuf_empty(mbuf));
+
+    switch (r->type) {
+    case MSG_REQ_MC_GET:
+        mbuf_copy(mbuf, get.data, get.len);
+        break;
+
+    case MSG_REQ_MC_GETS:
+        mbuf_copy(mbuf, gets.data, gets.len);
+        break;
+
+    default:
+        NOT_REACHED();
+    }
+}
+
+/*
+ * Post-split copy handler invoked when the request is a multi vector -
+ * 'get' or 'gets' request and has already been split into two requests
+ */
+rstatus_t
+memcache_post_splitcopy(struct msg *r)
+{
+    struct mbuf *mbuf;
+    struct string crlf = string(CRLF);
+
+    ASSERT(r->request);
+    ASSERT(!r->redis);
+    ASSERT(!STAILQ_EMPTY(&r->mhdr));
+
+    mbuf = STAILQ_LAST(&r->mhdr, mbuf, next);
+    mbuf_copy(mbuf, crlf.data, crlf.len);
+
+    return NC_OK;
+}
+
+/*
  * parse next key in mget request, update:
  *   r->key_start
  *   r->key_end
@@ -1228,10 +1277,7 @@ memcache_fragment_retrieval(struct msg *r, uint32_t ncontinuum, struct msg_tqh *
     uint32_t i;
 
     /* init sub_msgs and r->frag_seq */
-    sub_msgs = nc_alloc(ncontinuum * sizeof(void *));
-    for (i = 0; i < ncontinuum; i++) {
-        sub_msgs[i] = msg_get(r->owner, r->request, r->redis);
-    }
+    sub_msgs = nc_zalloc(ncontinuum * sizeof(void *));
     r->frag_seq = nc_alloc(sizeof(struct msg *) * r->narg); /* the point for each key, point to sub_msgs elements */
 
     mbuf = STAILQ_FIRST(&r->mhdr);
@@ -1257,6 +1303,10 @@ memcache_fragment_retrieval(struct msg *r, uint32_t ncontinuum, struct msg_tqh *
         key = r->key_start;
         keylen = (uint32_t)(r->key_end - r->key_start);
         idx = msg_backend_idx(r);
+
+        if (sub_msgs[idx] == NULL) {
+            sub_msgs[idx] = msg_get(r->owner, r->request, r->redis);
+        }
         sub_msg = sub_msgs[idx];
 
         r->frag_seq[i] = sub_msgs[idx];
@@ -1276,8 +1326,7 @@ memcache_fragment_retrieval(struct msg *r, uint32_t ncontinuum, struct msg_tqh *
 
     for (i = 0; i < ncontinuum; i++) {     /* prepend mget header, and forward it */
         struct msg *sub_msg = sub_msgs[i];
-        if (STAILQ_EMPTY(&sub_msg->mhdr)) {
-            msg_put(sub_msg);
+        if (sub_msg == NULL) {
             continue;
         }
 
@@ -1326,55 +1375,6 @@ memcache_fragment(struct msg *r, uint32_t ncontinuum, struct msg_tqh *frag_msgq)
             return status;
         }
     }
-    return NC_OK;
-}
-
-/*
- * Pre-split copy handler invoked when the request is a multi vector -
- * 'get' or 'gets' request and is about to be split into two requests
- */
-void
-memcache_pre_splitcopy(struct mbuf *mbuf, void *arg)
-{
-    struct msg *r = arg;                  /* request vector */
-    struct string get = string("get ");   /* 'get ' string */
-    struct string gets = string("gets "); /* 'gets ' string */
-
-    ASSERT(r->request);
-    ASSERT(!r->redis);
-    ASSERT(mbuf_empty(mbuf));
-
-    switch (r->type) {
-    case MSG_REQ_MC_GET:
-        mbuf_copy(mbuf, get.data, get.len);
-        break;
-
-    case MSG_REQ_MC_GETS:
-        mbuf_copy(mbuf, gets.data, gets.len);
-        break;
-
-    default:
-        NOT_REACHED();
-    }
-}
-
-/*
- * Post-split copy handler invoked when the request is a multi vector -
- * 'get' or 'gets' request and has already been split into two requests
- */
-rstatus_t
-memcache_post_splitcopy(struct msg *r)
-{
-    struct mbuf *mbuf;
-    struct string crlf = string(CRLF);
-
-    ASSERT(r->request);
-    ASSERT(!r->redis);
-    ASSERT(!STAILQ_EMPTY(&r->mhdr));
-
-    mbuf = STAILQ_LAST(&r->mhdr, mbuf, next);
-    mbuf_copy(mbuf, crlf.data, crlf.len);
-
     return NC_OK;
 }
 

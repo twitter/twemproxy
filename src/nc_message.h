@@ -134,11 +134,14 @@ typedef enum msg_parse_result {
     ACTION( REQ_REDIS_ZCOUNT )                                                                      \
     ACTION( REQ_REDIS_ZINCRBY )                                                                     \
     ACTION( REQ_REDIS_ZINTERSTORE )                                                                 \
+    ACTION( REQ_REDIS_ZLEXCOUNT )                                                                   \
     ACTION( REQ_REDIS_ZRANGE )                                                                      \
+    ACTION( REQ_REDIS_ZRANGEBYLEX )                                                                 \
     ACTION( REQ_REDIS_ZRANGEBYSCORE )                                                               \
     ACTION( REQ_REDIS_ZRANK )                                                                       \
     ACTION( REQ_REDIS_ZREM )                                                                        \
     ACTION( REQ_REDIS_ZREMRANGEBYRANK )                                                             \
+    ACTION( REQ_REDIS_ZREMRANGEBYLEX )                                                              \
     ACTION( REQ_REDIS_ZREMRANGEBYSCORE )                                                            \
     ACTION( REQ_REDIS_ZREVRANGE )                                                                   \
     ACTION( REQ_REDIS_ZREVRANGEBYSCORE )                                                            \

@@ -584,6 +584,28 @@ printf '*8\r\n$4\r\nzadd\r\n$4\r\nzfoo\r\n$3\r\n100\r\n$3\r\nbar\r\n$3\r\n101\r\
 printf '*4\r\n$14\r\nzremrangebylex\r\n$4\r\nzfoo\r\n$2\r\n(a\r\n$2\r\n(z\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
 printf '*4\r\n$14\r\nzremrangebylex\r\n$4\r\nzfoo\r\n$1\r\n-\r\n$1\r\n+\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
 
+# hyperloglog
+
+printf '\npfadd\n'
+printf '*2\r\n$3\r\ndel\r\n$4\r\npfoo\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*4\r\n$5\r\npfadd\r\n$4\r\npfoo\r\n$3\r\nbar\r\n$3\r\nbas\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*2\r\n$7\r\npfcount\r\n$4\r\npfoo\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+
+printf '\npfcount\n'
+printf '*2\r\n$3\r\ndel\r\n$4\r\npfoo\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*2\r\n$7\r\npfcount\r\n$4\r\npfoo\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*4\r\n$5\r\npfadd\r\n$4\r\npfoo\r\n$3\r\nbar\r\n$3\r\nbas\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*2\r\n$7\r\npfcount\r\n$4\r\npfoo\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+
+printf '\npfmerge\n'
+printf '*2\r\n$3\r\ndel\r\n$6\r\n{pfoo}\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*2\r\n$3\r\ndel\r\n$7\r\n{pfoo}2\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*2\r\n$3\r\ndel\r\n$7\r\n{pfoo}3\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*4\r\n$5\r\npfadd\r\n$6\r\n{pfoo}\r\n$4\r\nsfoo\r\n$3\r\nbar\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*3\r\n$5\r\npfadd\r\n$7\r\n{pfoo}2\r\n$3\r\nbas\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*5\r\n$7\r\npfmerge\r\n$7\r\n{pfoo}3\r\n$1\r\n2\r\n$6\r\n{pfoo}\r\n$7\r\n{pfoo}2\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*2\r\n$7\r\npfcount\r\n$7\r\n{pfoo}3\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+
 # scripting
 
 printf '\neval\n'

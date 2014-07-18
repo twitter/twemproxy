@@ -111,6 +111,9 @@ typedef enum msg_parse_result {
     ACTION( REQ_REDIS_LREM )                                                                        \
     ACTION( REQ_REDIS_LSET )                                                                        \
     ACTION( REQ_REDIS_LTRIM )                                                                       \
+    ACTION( REQ_REDIS_PFADD )                  /* redis requests - hyperloglog */                   \
+    ACTION( REQ_REDIS_PFCOUNT )                                                                     \
+    ACTION( REQ_REDIS_PFMERGE )                                                                     \
     ACTION( REQ_REDIS_RPOP )                                                                        \
     ACTION( REQ_REDIS_RPOPLPUSH )                                                                   \
     ACTION( REQ_REDIS_RPUSH )                                                                       \

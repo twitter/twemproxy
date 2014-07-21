@@ -442,7 +442,7 @@ msg_empty(struct msg *msg)
 uint32_t
 msg_backend_idx(struct msg *msg)
 {
-    struct conn        *conn = msg->owner;
+    struct conn *conn = msg->owner;
     struct server_pool *pool = conn->owner;
     uint8_t *key = msg->key_start;
     uint32_t keylen = (uint32_t)(msg->key_end - msg->key_start);
@@ -455,8 +455,8 @@ msg_ensure_mbuf(struct msg *msg, uint32_t len)
 {
     struct mbuf *mbuf;
 
-    if (STAILQ_EMPTY(&msg->mhdr)
-        || mbuf_size(STAILQ_LAST(&msg->mhdr, mbuf, next)) < len) {
+    if (STAILQ_EMPTY(&msg->mhdr) ||
+        mbuf_size(STAILQ_LAST(&msg->mhdr, mbuf, next)) < len) {
         mbuf = mbuf_get();
         if (mbuf == NULL) {
             return NULL;
@@ -804,6 +804,10 @@ msg_send_chain(struct context *ctx, struct conn *conn, struct msg *msg)
         }
     }
 
+    /*
+     * (nsend == 0) is possible in redis multi-del
+     * see PR: https://github.com/twitter/twemproxy/pull/225
+     */
     conn->smsg = NULL;
     if (!TAILQ_EMPTY(&send_msgq) && nsend != 0) {
         n = conn_sendv(conn, &sendv, nsend);

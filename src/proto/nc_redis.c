@@ -1074,7 +1074,7 @@ redis_parse_req(struct msg *r)
                         goto done;
                     }
                     state = SW_KEY_LEN;
-                    /*state = SW_FRAGMENT;*/
+                    /* state = SW_FRAGMENT; */
                 } else if (redis_arg2x(r)) {
                     if (r->rnarg == 0) {
                         goto done;
@@ -1510,8 +1510,8 @@ fragment:
     r->result = MSG_PARSE_FRAGMENT;
 
     log_hexdump(LOG_VERB, b->pos, mbuf_length(b), "parsed req %"PRIu64" res %d "
-               "type %d state %d rpos %d of %d", r->id, r->result, r->type,
-               r->state, r->pos - b->pos, b->last - b->pos);
+                "type %d state %d rpos %d of %d", r->id, r->result, r->type,
+                r->state, r->pos - b->pos, b->last - b->pos);
     return;
 
 done:
@@ -2035,7 +2035,10 @@ redis_copy_bulk(struct msg *dst, struct msg *src)
     uint32_t len = 0;
     uint32_t bytes = 0;
 
-    for (mbuf = STAILQ_FIRST(&src->mhdr); mbuf && (mbuf->pos >= mbuf->last); mbuf = STAILQ_FIRST(&src->mhdr)) {
+    for (mbuf = STAILQ_FIRST(&src->mhdr);
+         mbuf && (mbuf->pos >= mbuf->last);
+         mbuf = STAILQ_FIRST(&src->mhdr)) {
+
         mbuf_remove(&src->mhdr, mbuf);
         mbuf_put(mbuf);
     }
@@ -2062,15 +2065,15 @@ redis_copy_bulk(struct msg *dst, struct msg *src)
     }
     bytes = len;
 
-    /*copy len bytes to dst*/
+    /* copy len bytes to dst */
     for (; mbuf;) {
-        if (mbuf_length(mbuf) <= len) {   /*steal this buf from src to dst*/
+        if (mbuf_length(mbuf) <= len) {     /* steal this buf from src to dst */
             nbuf = STAILQ_NEXT(mbuf, next);
             mbuf_remove(&src->mhdr, mbuf);
             mbuf_insert(&dst->mhdr, mbuf);
             len -= mbuf_length(mbuf);
             mbuf = nbuf;
-        } else {                        /*split it*/
+        } else {                             /* split it */
             nbuf = mbuf_get();
             if (nbuf == NULL) {
                 return -1;
@@ -2156,7 +2159,7 @@ redis_pre_coalesce(struct msg *r)
         break;
 
     case MSG_RSP_REDIS_STATUS:
-        if (pr->type == MSG_REQ_REDIS_MSET) {       /*MSET segments*/
+        if (pr->type == MSG_REQ_REDIS_MSET) {       /* MSET segments */
             mbuf = STAILQ_FIRST(&r->mhdr);
             r->mlen -= mbuf_length(mbuf);
             mbuf_rewind(mbuf);
@@ -2191,7 +2194,10 @@ redis_argx_update_keypos(struct msg *r)
     uint32_t len = 0;
     uint32_t keylen = 0;
 
-    for (mbuf = STAILQ_FIRST(&r->mhdr); mbuf && (mbuf->pos >= mbuf->last); mbuf = STAILQ_FIRST(&r->mhdr)) {
+    for (mbuf = STAILQ_FIRST(&r->mhdr);
+         mbuf && (mbuf->pos >= mbuf->last);
+         mbuf = STAILQ_FIRST(&r->mhdr)) {
+
         mbuf_remove(&r->mhdr, mbuf);
         mbuf_put(mbuf);
     }
@@ -2272,12 +2278,13 @@ redis_append_key(struct msg *r, uint8_t *key, uint32_t keylen)
     return NC_OK;
 }
 
-/**
+/*
  * input a msg, return a msg chain.
  * ncontinuum is # bucket
  */
 static rstatus_t
-redis_fragment_argx(struct msg *r, uint32_t ncontinuum, struct msg_tqh *frag_msgq, uint32_t key_step)
+redis_fragment_argx(struct msg *r, uint32_t ncontinuum, struct msg_tqh *frag_msgq,
+                    uint32_t key_step)
 {
     struct mbuf *mbuf, *sub_msg_mbuf;
     struct msg **sub_msgs;
@@ -2285,7 +2292,8 @@ redis_fragment_argx(struct msg *r, uint32_t ncontinuum, struct msg_tqh *frag_msg
 
     /* init sub_msgs and msg->frag_seq */
     sub_msgs = nc_zalloc(ncontinuum * sizeof(void *));
-    r->frag_seq = nc_alloc(sizeof(struct msg *) * r->narg); /* the point for each key, point to sub_msgs elements */
+    /* the point for each key, point to sub_msgs elements */
+    r->frag_seq = nc_alloc(sizeof(struct msg *) * r->narg);
 
     mbuf = STAILQ_FIRST(&r->mhdr);
     mbuf->pos = mbuf->start;
@@ -2336,7 +2344,10 @@ redis_fragment_argx(struct msg *r, uint32_t ncontinuum, struct msg_tqh *frag_msg
         }
     }
 
-    for (mbuf = STAILQ_FIRST(&r->mhdr); mbuf && (mbuf->pos >= mbuf->last); mbuf = STAILQ_FIRST(&r->mhdr)) {
+    for (mbuf = STAILQ_FIRST(&r->mhdr);
+         mbuf && (mbuf->pos >= mbuf->last);
+         mbuf = STAILQ_FIRST(&r->mhdr)) {
+
         mbuf_remove(&r->mhdr, mbuf);
         mbuf_put(mbuf);
     }
@@ -2354,14 +2365,17 @@ redis_fragment_argx(struct msg *r, uint32_t ncontinuum, struct msg_tqh *frag_msg
             return NC_ENOMEM;
         }
         if (r->type == MSG_REQ_REDIS_MGET) {
-            sub_msg_mbuf->last += nc_snprintf(sub_msg_mbuf->last, mbuf_size(sub_msg_mbuf), "*%d\r\n$4\r\nmget\r\n",
-                                              sub_msg->narg + 1);
+            sub_msg_mbuf->last +=
+                nc_snprintf(sub_msg_mbuf->last, mbuf_size(sub_msg_mbuf),
+                            "*%d\r\n$4\r\nmget\r\n", sub_msg->narg + 1);
         } else if (r->type == MSG_REQ_REDIS_DEL) {
-            sub_msg_mbuf->last += nc_snprintf(sub_msg_mbuf->last, mbuf_size(sub_msg_mbuf), "*%d\r\n$3\r\ndel\r\n",
-                                              sub_msg->narg + 1);
+            sub_msg_mbuf->last +=
+                nc_snprintf(sub_msg_mbuf->last, mbuf_size(sub_msg_mbuf),
+                            "*%d\r\n$3\r\ndel\r\n", sub_msg->narg + 1);
         } else if (r->type == MSG_REQ_REDIS_MSET) {
-            sub_msg_mbuf->last += nc_snprintf(sub_msg_mbuf->last, mbuf_size(sub_msg_mbuf), "*%d\r\n$4\r\nmset\r\n",
-                                              sub_msg->narg + 1);
+            sub_msg_mbuf->last +=
+                nc_snprintf(sub_msg_mbuf->last, mbuf_size(sub_msg_mbuf),
+                            "*%d\r\n$4\r\nmset\r\n", sub_msg->narg + 1);
         }
         sub_msg->mlen += mbuf_length(sub_msg_mbuf);
 
@@ -2441,10 +2455,14 @@ redis_post_coalesce_mget(struct msg *request)
     mbuf->last += len;
     response->mlen = (uint32_t)len;
 
-    for (i = 1; i < request->narg; i++) {               /*for each  key*/
-        sub_msg = request->frag_seq[i]->peer;           /*get it's peer response*/
+    for (i = 1; i < request->narg; i++) {               /* for each  key */
+        sub_msg = request->frag_seq[i]->peer;           /* get it's peer response */
         if (sub_msg == NULL) {
-            continue;                                   /*no response because of error, we do nothing and leave it to the req_error() check in rsp_send_next*/
+            /*
+             * no response because of error, we do nothing and leave it to the
+             * req_error() check in rsp_send_next
+             */
+            continue;
         }
         len = redis_copy_bulk(response, sub_msg);
         ASSERT(len >= 0);

@@ -327,7 +327,7 @@ memcache_parse_req(struct msg *r)
                               r->key_start, p - r->key_start);
                     goto error;
                 }
-                r->narg ++;
+                r->narg++;
                 r->key_end = p;
                 r->token = NULL;
 
@@ -808,7 +808,7 @@ memcache_parse_rsp(struct msg *r)
                 case 3:
                     if (str4cmp(m, 'E', 'N', 'D', '\r')) {
                         r->type = MSG_RSP_MC_END;
-                        /* end_start <- m; end_end <- p - 1*/
+                        /* end_start <- m; end_end <- p - 1 */
                         r->end = m;
                         break;
                     }
@@ -1033,7 +1033,7 @@ memcache_parse_rsp(struct msg *r)
         case SW_VAL_LF:
             switch (ch) {
             case LF:
-                /*state = SW_END;*/
+                /* state = SW_END; */
                 state = SW_RSP_STR;
                 break;
 
@@ -1127,7 +1127,7 @@ memcache_parse_rsp(struct msg *r)
     r->state = state;
 
     if (b->last == b->end && r->token != NULL) {
-        if (state <= SW_RUNTO_VAL || state == SW_CRLF || state == SW_ALMOST_DONE){
+        if (state <= SW_RUNTO_VAL || state == SW_CRLF || state == SW_ALMOST_DONE) {
             r->state = SW_START;
         }
         r->pos = r->token;
@@ -1225,7 +1225,10 @@ memcache_retrieval_update_keypos(struct msg *r)
     struct mbuf *mbuf;
     uint8_t *p;
 
-    for (mbuf = STAILQ_FIRST(&r->mhdr); mbuf && (mbuf->pos >= mbuf->last); mbuf = STAILQ_FIRST(&r->mhdr)) {
+    for (mbuf = STAILQ_FIRST(&r->mhdr);
+         mbuf && (mbuf->pos >= mbuf->last);
+         mbuf = STAILQ_FIRST(&r->mhdr)) {
+
         mbuf_remove(&r->mhdr, mbuf);
         mbuf_put(mbuf);
     }
@@ -1270,7 +1273,9 @@ memcache_append_key(struct msg *r, uint8_t *key, uint32_t keylen)
 }
 
 static rstatus_t
-memcache_fragment_retrieval(struct msg *r, uint32_t ncontinuum, struct msg_tqh *frag_msgq, uint32_t key_step)
+memcache_fragment_retrieval(struct msg *r, uint32_t ncontinuum,
+                            struct msg_tqh *frag_msgq,
+                            uint32_t key_step)
 {
     struct mbuf *mbuf, *sub_msg_mbuf;
     struct msg **sub_msgs;
@@ -1278,12 +1283,14 @@ memcache_fragment_retrieval(struct msg *r, uint32_t ncontinuum, struct msg_tqh *
 
     /* init sub_msgs and r->frag_seq */
     sub_msgs = nc_zalloc(ncontinuum * sizeof(void *));
-    r->frag_seq = nc_alloc(sizeof(struct msg *) * r->narg); /* the point for each key, point to sub_msgs elements */
+
+    /* the point for each key, point to sub_msgs elements */
+    r->frag_seq = nc_alloc(sizeof(struct msg *) * r->narg);
 
     mbuf = STAILQ_FIRST(&r->mhdr);
     mbuf->pos = mbuf->start;
 
-    for (; *(mbuf->pos) != ' ';) { /* eat 'get ' */
+    for (; *(mbuf->pos) != ' ';) { /* eat get/gets  */
         mbuf->pos++;
     }
     mbuf->pos++;
@@ -1318,7 +1325,10 @@ memcache_fragment_retrieval(struct msg *r, uint32_t ncontinuum, struct msg_tqh *
         }
     }
 
-    for (mbuf = STAILQ_FIRST(&r->mhdr); mbuf && (mbuf->pos >= mbuf->last); mbuf = STAILQ_FIRST(&r->mhdr)) {
+    for (mbuf = STAILQ_FIRST(&r->mhdr);
+         mbuf && (mbuf->pos >= mbuf->last);
+         mbuf = STAILQ_FIRST(&r->mhdr)) {
+
         mbuf_remove(&r->mhdr, mbuf);
         mbuf_put(mbuf);
     }
@@ -1337,9 +1347,11 @@ memcache_fragment_retrieval(struct msg *r, uint32_t ncontinuum, struct msg_tqh *
             return NC_ENOMEM;
         }
         if (r->type == MSG_REQ_MC_GET) {
-            sub_msg_mbuf->last += nc_snprintf(sub_msg_mbuf->last, mbuf_size(sub_msg_mbuf), "get ");
+            sub_msg_mbuf->last +=
+                nc_snprintf(sub_msg_mbuf->last, mbuf_size(sub_msg_mbuf), "get ");
         } else if (r->type == MSG_REQ_MC_GETS) {
-            sub_msg_mbuf->last += nc_snprintf(sub_msg_mbuf->last, mbuf_size(sub_msg_mbuf), "gets ");
+            sub_msg_mbuf->last +=
+                nc_snprintf(sub_msg_mbuf->last, mbuf_size(sub_msg_mbuf), "gets ");
         }
         sub_msg->mlen += mbuf_length(sub_msg_mbuf);
         STAILQ_INSERT_HEAD(&sub_msg->mhdr, sub_msg_mbuf, next);
@@ -1350,7 +1362,8 @@ memcache_fragment_retrieval(struct msg *r, uint32_t ncontinuum, struct msg_tqh *
             nc_free(sub_msgs);
             return NC_ENOMEM;
         }
-        sub_msg_mbuf->last += nc_snprintf(sub_msg_mbuf->last, mbuf_size(sub_msg_mbuf), "\r\n");
+        sub_msg_mbuf->last +=
+            nc_snprintf(sub_msg_mbuf->last, mbuf_size(sub_msg_mbuf), "\r\n");
         sub_msg->mlen += mbuf_length(sub_msg_mbuf);
         STAILQ_INSERT_TAIL(&sub_msg->mhdr, sub_msg_mbuf, next);
 
@@ -1468,7 +1481,10 @@ memcache_copy_bulk(struct msg *dst, struct msg *src)
     uint32_t bytes = 0;
     uint32_t i = 0;
 
-    for (mbuf = STAILQ_FIRST(&src->mhdr); mbuf && (mbuf->pos >= mbuf->last); mbuf = STAILQ_FIRST(&src->mhdr)) {
+    for (mbuf = STAILQ_FIRST(&src->mhdr);
+         mbuf && (mbuf->pos >= mbuf->last);
+         mbuf = STAILQ_FIRST(&src->mhdr)) {
+
         mbuf_remove(&src->mhdr, mbuf);
         mbuf_put(mbuf);
     }
@@ -1479,8 +1495,8 @@ memcache_copy_bulk(struct msg *dst, struct msg *src)
     }
     p = mbuf->pos;
 
-    /*get : VALUE key 0 len\r\nv\r\n  */
-    /*gets: VALUE key 0 len cas\r\rnv\r\n  */
+    /* get : VALUE key 0 len\r\nv\r\n */
+    /* gets: VALUE key 0 len cas\r\rnv\r\n */
 
     ASSERT(*p == 'V');
     for (i = 0; i < 3; i++) {                 /*  eat 'VALUE key 0 '  */
@@ -1495,7 +1511,7 @@ memcache_copy_bulk(struct msg *dst, struct msg *src)
         len = len * 10 + (uint32_t)(*p - '0');
     }
 
-    for (; p < mbuf->last && ('\r' != *p); p++) { /*eat cas for gets*/
+    for (; p < mbuf->last && ('\r' != *p); p++) { /* eat cas for gets */
         ;
     }
 
@@ -1504,15 +1520,15 @@ memcache_copy_bulk(struct msg *dst, struct msg *src)
 
     bytes = len;
 
-    /*copy len bytes to dst*/
+    /* copy len bytes to dst */
     for (; mbuf;) {
-        if (mbuf_length(mbuf) <= len) {   /*steal this mbuf from src to dst*/
+        if (mbuf_length(mbuf) <= len) {   /* steal this mbuf from src to dst */
             nbuf = STAILQ_NEXT(mbuf, next);
             mbuf_remove(&src->mhdr, mbuf);
             mbuf_insert(&dst->mhdr, mbuf);
             len -= mbuf_length(mbuf);
             mbuf = nbuf;
-        } else {                        /*split it*/
+        } else {                        /* split it */
             nbuf = mbuf_get();
             if (nbuf == NULL) {
                 return -1;
@@ -1548,10 +1564,14 @@ memcache_post_coalesce(struct msg *request)
         return;
     }
 
-    for (i = 1; i < request->narg; i++) {               /*for each  key*/
-        sub_msg = request->frag_seq[i]->peer;           /*get it's peer response*/
+    for (i = 1; i < request->narg; i++) {               /* for each  key */
+        sub_msg = request->frag_seq[i]->peer;           /* get it's peer response */
         if (sub_msg == NULL) {
-            continue;                                   /*no response because of error, we do nothing and leave it to the req_error() check in rsp_send_next*/
+            /*
+             * no response because of error, we do nothing and leave it to the
+             * req_error() check in rsp_send_next
+             */
+            continue;
         }
         len = memcache_copy_bulk(response, sub_msg);
         ASSERT(len >= 0);
@@ -1560,7 +1580,7 @@ memcache_post_coalesce(struct msg *request)
         sub_msg->mlen -= len;
     }
 
-    /*append END\r\n*/
+    /* append END\r\n */
     mbuf = msg_ensure_mbuf(response, 5);
     if (mbuf == NULL) {
         return;

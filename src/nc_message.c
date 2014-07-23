@@ -263,8 +263,6 @@ done:
     msg->noreply = 0;
     msg->done = 0;
     msg->fdone = 0;
-    msg->first_fragment = 0;
-    msg->last_fragment = 0;
     msg->swallow = 0;
     msg->redis = 0;
 
@@ -516,101 +514,6 @@ msg_parsed(struct context *ctx, struct conn *conn, struct msg *msg)
 }
 
 static rstatus_t
-msg_fragment(struct context *ctx, struct conn *conn, struct msg *msg)
-{
-    rstatus_t status;   /* return status */
-    struct msg *nmsg;   /* new message */
-    struct mbuf *nbuf;  /* new mbuf */
-
-    ASSERT(conn->client && !conn->proxy);
-    ASSERT(msg->request);
-
-    nbuf = mbuf_split(&msg->mhdr, msg->pos, msg->pre_splitcopy, msg);
-    if (nbuf == NULL) {
-        return NC_ENOMEM;
-    }
-
-    status = msg->post_splitcopy(msg);
-    if (status != NC_OK) {
-        mbuf_put(nbuf);
-        return status;
-    }
-
-    nmsg = msg_get(msg->owner, msg->request, msg->redis);
-    if (nmsg == NULL) {
-        mbuf_put(nbuf);
-        return NC_ENOMEM;
-    }
-    mbuf_insert(&nmsg->mhdr, nbuf);
-    nmsg->pos = nbuf->pos;
-
-    /* update length of current (msg) and new message (nmsg) */
-    nmsg->mlen = mbuf_length(nbuf);
-    msg->mlen -= nmsg->mlen;
-
-    /*
-     * Attach unique fragment id to all fragments of the message vector. All
-     * fragments of the message, including the first fragment point to the
-     * first fragment through the frag_owner pointer. The first_fragment and
-     * last_fragment identify first and last fragment respectively.
-     *
-     * For example, a message vector given below is split into 3 fragments:
-     *  'get key1 key2 key3\r\n'
-     *  Or,
-     *  '*4\r\n$4\r\nmget\r\n$4\r\nkey1\r\n$4\r\nkey2\r\n$4\r\nkey3\r\n'
-     *
-     *   +--------------+
-     *   |  msg vector  |
-     *   |(original msg)|
-     *   +--------------+
-     *
-     *       frag_owner         frag_owner
-     *     /-----------+      /------------+
-     *     |           |      |            |
-     *     |           v      v            |
-     *   +--------------------+     +---------------------+
-     *   |   frag_id = 10     |     |   frag_id = 10      |
-     *   | first_fragment = 1 |     |  first_fragment = 0 |
-     *   | last_fragment = 0  |     |  last_fragment = 0  |
-     *   |     nfrag = 3      |     |      nfrag = 0      |
-     *   +--------------------+     +---------------------+
-     *               ^
-     *               |  frag_owner
-     *               \-------------+
-     *                             |
-     *                             |
-     *                  +---------------------+
-     *                  |   frag_id = 10      |
-     *                  |  first_fragment = 0 |
-     *                  |  last_fragment = 1  |
-     *                  |      nfrag = 0      |
-     *                  +---------------------+
-     *
-     *
-     */
-    if (msg->frag_id == 0) {
-        msg->frag_id = msg_gen_frag_id();
-        msg->first_fragment = 1;
-        msg->nfrag = 1;
-        msg->frag_owner = msg;
-    }
-    nmsg->frag_id = msg->frag_id;
-    msg->last_fragment = 0;
-    nmsg->last_fragment = 1;
-    nmsg->frag_owner = msg->frag_owner;
-    msg->frag_owner->nfrag++;
-
-    stats_pool_incr(ctx, conn->owner, fragments);
-
-    log_debug(LOG_VERB, "fragment msg into %"PRIu64" and %"PRIu64" frag id "
-              "%"PRIu64"", msg->id, nmsg->id, msg->frag_id);
-
-    conn->recv_done(ctx, conn, msg, nmsg);
-
-    return NC_OK;
-}
-
-static rstatus_t
 msg_repair(struct context *ctx, struct conn *conn, struct msg *msg)
 {
     struct mbuf *nbuf;
@@ -641,10 +544,6 @@ msg_parse(struct context *ctx, struct conn *conn, struct msg *msg)
     switch (msg->result) {
     case MSG_PARSE_OK:
         status = msg_parsed(ctx, conn, msg);
-        break;
-
-    case MSG_PARSE_FRAGMENT:
-        status = msg_fragment(ctx, conn, msg);
         break;
 
     case MSG_PARSE_REPAIR:

@@ -327,7 +327,6 @@ redis_parse_req(struct msg *r)
         SW_ARGN_LEN_LF,
         SW_ARGN,
         SW_ARGN_LF,
-        SW_FRAGMENT,
         SW_SENTINEL
     } state;
 
@@ -1074,7 +1073,6 @@ redis_parse_req(struct msg *r)
                         goto done;
                     }
                     state = SW_KEY_LEN;
-                    /* state = SW_FRAGMENT; */
                 } else if (redis_arg2x(r)) {
                     if (r->rnarg == 0) {
                         goto done;
@@ -1096,10 +1094,6 @@ redis_parse_req(struct msg *r)
             }
 
             break;
-
-        case SW_FRAGMENT:
-            r->token = p;
-            goto fragment;
 
         case SW_ARG1_LEN:
             if (r->token == NULL) {
@@ -1495,19 +1489,6 @@ redis_parse_req(struct msg *r)
     } else {
         r->result = MSG_PARSE_AGAIN;
     }
-
-    log_hexdump(LOG_VERB, b->pos, mbuf_length(b), "parsed req %"PRIu64" res %d "
-                "type %d state %d rpos %d of %d", r->id, r->result, r->type,
-                r->state, r->pos - b->pos, b->last - b->pos);
-    return;
-
-fragment:
-    ASSERT(p != b->last);
-    ASSERT(r->token != NULL);
-    r->pos = r->token;
-    r->token = NULL;
-    r->state = state;
-    r->result = MSG_PARSE_FRAGMENT;
 
     log_hexdump(LOG_VERB, b->pos, mbuf_length(b), "parsed req %"PRIu64" res %d "
                 "type %d state %d rpos %d of %d", r->id, r->result, r->type,
@@ -2147,15 +2128,6 @@ redis_pre_coalesce(struct msg *r)
         r->mlen -= (uint32_t)(r->narg_end - r->narg_start);
         mbuf->pos = r->narg_end;
 
-        if (pr->first_fragment) {
-            mbuf = mbuf_get();
-            if (mbuf == NULL) {
-                pr->error = 1;
-                pr->err = EINVAL;
-                return;
-            }
-            STAILQ_INSERT_HEAD(&r->mhdr, mbuf, next);
-        }
         break;
 
     case MSG_RSP_REDIS_STATUS:
@@ -2281,6 +2253,40 @@ redis_append_key(struct msg *r, uint8_t *key, uint32_t keylen)
 /*
  * input a msg, return a msg chain.
  * ncontinuum is # bucket
+ *
+ * Attach unique fragment id to all fragments of the message vector. All
+ * fragments of the message, including the first fragment point to the
+ * first fragment through the frag_owner pointer.
+ *
+ * For example, a message vector given below is split into 3 fragments:
+ *  'get key1 key2 key3\r\n'
+ *  Or,
+ *  '*4\r\n$4\r\nmget\r\n$4\r\nkey1\r\n$4\r\nkey2\r\n$4\r\nkey3\r\n'
+ *
+ *   +--------------+
+ *   |  msg vector  |
+ *   |(original msg)|
+ *   +--------------+
+ *
+ *       frag_owner         frag_owner
+ *     /-----------+      /------------+
+ *     |           |      |            |
+ *     |           v      v            |
+ *   +--------------------+     +---------------------+
+ *   |   frag_id = 10     |     |   frag_id = 10      |
+ *   |     nfrag = 3      |     |      nfrag = 0      |
+ *   +--------------------+     +---------------------+
+ *               ^
+ *               |  frag_owner
+ *               \-------------+
+ *                             |
+ *                             |
+ *                  +---------------------+
+ *                  |   frag_id = 10      |
+ *                  |      nfrag = 0      |
+ *                  +---------------------+
+ *
+ *
  */
 static rstatus_t
 redis_fragment_argx(struct msg *r, uint32_t ncontinuum, struct msg_tqh *frag_msgq,
@@ -2306,7 +2312,6 @@ redis_fragment_argx(struct msg *r, uint32_t ncontinuum, struct msg_tqh *frag_msg
     }
 
     r->frag_id = msg_gen_frag_id();
-    r->first_fragment = 1;
     r->nfrag = 0;
     r->frag_owner = r;
 
@@ -2486,7 +2491,7 @@ redis_post_coalesce(struct msg *r)
     struct msg *pr = r->peer; /* peer response */
 
     ASSERT(!pr->request);
-    ASSERT(r->request && r->first_fragment);
+    ASSERT(r->request && (r->frag_owner == r));
     if (r->error || r->ferror) {
         /* do nothing, if msg is in error */
         return;

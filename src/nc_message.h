@@ -29,7 +29,6 @@ typedef enum msg_parse_result {
     MSG_PARSE_OK,                         /* parsing ok */
     MSG_PARSE_ERROR,                      /* parsing error */
     MSG_PARSE_REPAIR,                     /* more to parse -> repair parsed & unparsed data */
-    MSG_PARSE_FRAGMENT,                   /* multi-vector request -> fragment */
     MSG_PARSE_AGAIN,                      /* incomplete -> parse again */
 } msg_parse_result_t;
 
@@ -220,8 +219,6 @@ struct msg {
     unsigned             noreply:1;       /* noreply? */
     unsigned             done:1;          /* done? */
     unsigned             fdone:1;         /* all fragments are done? */
-    unsigned             first_fragment:1;/* first fragment? */
-    unsigned             last_fragment:1; /* last fragment? */
     unsigned             swallow:1;       /* swallow response? */
     unsigned             redis:1;         /* redis? */
 };

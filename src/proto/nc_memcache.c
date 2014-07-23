@@ -368,7 +368,6 @@ memcache_parse_req(struct msg *r)
                 r->token = NULL;
                 p = p - 1; /* go back by 1 byte */
                 state = SW_KEY;
-                /* goto fragment; */
             }
 
             break;
@@ -677,19 +676,6 @@ memcache_parse_req(struct msg *r)
     } else {
         r->result = MSG_PARSE_AGAIN;
     }
-
-    log_hexdump(LOG_VERB, b->pos, mbuf_length(b), "parsed req %"PRIu64" res %d "
-                "type %d state %d rpos %d of %d", r->id, r->result, r->type,
-                r->state, r->pos - b->pos, b->last - b->pos);
-    return;
-
-fragment:
-    ASSERT(p != b->last);
-    ASSERT(r->token != NULL);
-    r->pos = r->token;
-    r->token = NULL;
-    r->state = state;
-    r->result = MSG_PARSE_FRAGMENT;
 
     log_hexdump(LOG_VERB, b->pos, mbuf_length(b), "parsed req %"PRIu64" res %d "
                 "type %d state %d rpos %d of %d", r->id, r->result, r->type,
@@ -1272,6 +1258,44 @@ memcache_append_key(struct msg *r, uint8_t *key, uint32_t keylen)
     return NC_OK;
 }
 
+/*
+ * input a msg, return a msg chain.
+ * ncontinuum is # bucket
+ *
+ * Attach unique fragment id to all fragments of the message vector. All
+ * fragments of the message, including the first fragment point to the
+ * first fragment through the frag_owner pointer.
+ *
+ * For example, a message vector given below is split into 3 fragments:
+ *  'get key1 key2 key3\r\n'
+ *  Or,
+ *  '*4\r\n$4\r\nmget\r\n$4\r\nkey1\r\n$4\r\nkey2\r\n$4\r\nkey3\r\n'
+ *
+ *   +--------------+
+ *   |  msg vector  |
+ *   |(original msg)|
+ *   +--------------+
+ *
+ *       frag_owner         frag_owner
+ *     /-----------+      /------------+
+ *     |           |      |            |
+ *     |           v      v            |
+ *   +--------------------+     +---------------------+
+ *   |   frag_id = 10     |     |   frag_id = 10      |
+ *   |     nfrag = 3      |     |      nfrag = 0      |
+ *   +--------------------+     +---------------------+
+ *               ^
+ *               |  frag_owner
+ *               \-------------+
+ *                             |
+ *                             |
+ *                  +---------------------+
+ *                  |   frag_id = 10      |
+ *                  |      nfrag = 0      |
+ *                  +---------------------+
+ *
+ *
+ */
 static rstatus_t
 memcache_fragment_retrieval(struct msg *r, uint32_t ncontinuum,
                             struct msg_tqh *frag_msgq,
@@ -1296,7 +1320,6 @@ memcache_fragment_retrieval(struct msg *r, uint32_t ncontinuum,
     mbuf->pos++;
 
     r->frag_id = msg_gen_frag_id();
-    r->first_fragment = 1;
     r->nfrag = 0;
     r->frag_owner = r;
 
@@ -1418,12 +1441,8 @@ memcache_pre_coalesce(struct msg *r)
 
         /*
          * Readjust responses of the fragmented message vector by not
-         * including the end marker for all but the last response
+         * including the end marker for all
          */
-
-        if (pr->last_fragment) {
-            break;
-        }
 
         ASSERT(r->end != NULL);
 
@@ -1495,8 +1514,8 @@ memcache_copy_bulk(struct msg *dst, struct msg *src)
     }
     p = mbuf->pos;
 
-    /* get : VALUE key 0 len\r\nv\r\n */
-    /* gets: VALUE key 0 len cas\r\rnv\r\n */
+    /* get : VALUE key 0 len\r\nval\r\n */
+    /* gets: VALUE key 0 len cas\r\nval\r\n */
 
     ASSERT(*p == 'V');
     for (i = 0; i < 3; i++) {                 /*  eat 'VALUE key 0 '  */
@@ -1558,7 +1577,7 @@ memcache_post_coalesce(struct msg *request)
     uint32_t i;
 
     ASSERT(!response->request);
-    ASSERT(request->request && request->first_fragment);
+    ASSERT(request->request && (request->frag_owner == request));
     if (request->error || request->ferror) {
         /* do nothing, if msg is in error */
         return;

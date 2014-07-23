@@ -159,10 +159,6 @@ req_done(struct conn *conn, struct msg *msg)
         }
     }
 
-    /*if (!pmsg->last_fragment) {*/
-        /*return false;*/
-    /*}*/
-
     /*
      * At this point, all the fragments including the last fragment have
      * been received.

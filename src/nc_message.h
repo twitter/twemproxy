@@ -241,7 +241,10 @@ rstatus_t msg_recv(struct context *ctx, struct conn *conn);
 rstatus_t msg_send(struct context *ctx, struct conn *conn);
 uint64_t msg_gen_frag_id(void);
 uint32_t msg_backend_idx(struct msg *msg);
-struct mbuf *msg_ensure_mbuf(struct msg *msg, uint32_t len);
+struct mbuf *msg_ensure_mbuf(struct msg *msg, size_t len);
+rstatus_t msg_append(struct msg *msg, uint8_t *pos, size_t n);
+rstatus_t msg_prepend(struct msg *msg, uint8_t *pos, size_t n);
+rstatus_t msg_prepend_format(struct msg *msg, const char *fmt, ...);
 
 struct msg *req_get(struct conn *conn);
 void req_put(struct msg *msg);

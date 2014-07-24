@@ -412,7 +412,7 @@ req_recv_next(struct context *ctx, struct conn *conn, bool alloc)
     return msg;
 }
 
-static void
+static rstatus_t
 req_make_reply(struct context *ctx, struct conn *conn, struct msg *req)
 {
     struct msg *msg;
@@ -420,7 +420,7 @@ req_make_reply(struct context *ctx, struct conn *conn, struct msg *req)
     msg = msg_get(conn, true, conn->redis); /* replay */
     if (msg == NULL) {
         conn->err = errno;
-        return;
+        return NC_ENOMEM;
     }
 
     req->peer = msg;
@@ -429,6 +429,7 @@ req_make_reply(struct context *ctx, struct conn *conn, struct msg *req)
 
     req->done = 1;
     conn->enqueue_outq(ctx, conn, req);
+    return NC_OK;
 }
 
 static bool
@@ -548,6 +549,7 @@ void
 req_recv_done(struct context *ctx, struct conn *conn, struct msg *msg,
               struct msg *nmsg)
 {
+    rstatus_t status;
     struct server_pool *pool;
     struct msg_tqh frag_msgq;
     struct msg *sub_msg;
@@ -569,7 +571,13 @@ req_recv_done(struct context *ctx, struct conn *conn, struct msg *msg,
     /* do fragment */
     pool = conn->owner;
     TAILQ_INIT(&frag_msgq);
-    msg->fragment(msg, pool->ncontinuum, &frag_msgq);
+    status = msg->fragment(msg, pool->ncontinuum, &frag_msgq);
+    if (status != NC_OK) {
+        if (!msg->noreply) {
+            conn->enqueue_outq(ctx, conn, msg);
+        }
+        req_forward_error(ctx, conn, msg);
+    }
 
     /* if no fragment happened */
     if (TAILQ_EMPTY(&frag_msgq)) {
@@ -577,7 +585,13 @@ req_recv_done(struct context *ctx, struct conn *conn, struct msg *msg,
         return;
     }
 
-    req_make_reply(ctx, conn, msg);
+    status = req_make_reply(ctx, conn, msg);
+    if (status != NC_OK) {
+        if (!msg->noreply) {
+            conn->enqueue_outq(ctx, conn, msg);
+        }
+        req_forward_error(ctx, conn, msg);
+    }
 
     for (sub_msg = TAILQ_FIRST(&frag_msgq); sub_msg != NULL; sub_msg = tmsg) {
         tmsg = TAILQ_NEXT(sub_msg, m_tqe);
@@ -587,6 +601,7 @@ req_recv_done(struct context *ctx, struct conn *conn, struct msg *msg,
     }
 
     ASSERT(TAILQ_EMPTY(&frag_msgq));
+    return;
 }
 
 struct msg *

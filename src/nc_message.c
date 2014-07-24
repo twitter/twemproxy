@@ -449,7 +449,7 @@ msg_backend_idx(struct msg *msg)
 }
 
 struct mbuf *
-msg_ensure_mbuf(struct msg *msg, uint32_t len)
+msg_ensure_mbuf(struct msg *msg, size_t len)
 {
     struct mbuf *mbuf;
 
@@ -464,6 +464,75 @@ msg_ensure_mbuf(struct msg *msg, uint32_t len)
         mbuf = STAILQ_LAST(&msg->mhdr, mbuf, next);
     }
     return mbuf;
+}
+
+/*
+ * append small(small than a mbuf) content into msg
+ */
+rstatus_t
+msg_append(struct msg *msg, uint8_t *pos, size_t n)
+{
+    struct mbuf *mbuf;
+
+    mbuf = msg_ensure_mbuf(msg, n);
+    if (mbuf == NULL) {
+        return NC_ENOMEM;
+    }
+
+    ASSERT(n <= mbuf_size(mbuf));
+
+    mbuf_copy(mbuf, pos, n);
+    msg->mlen += n;
+    return NC_OK;
+}
+
+/*
+ * prepend small(small than a mbuf) content into msg
+ */
+rstatus_t
+msg_prepend(struct msg *msg, uint8_t *pos, size_t n)
+{
+    struct mbuf *mbuf;
+
+    mbuf = mbuf_get();
+    if (mbuf == NULL) {
+        return NC_ENOMEM;
+    }
+
+    ASSERT(n <= mbuf_size(mbuf));
+
+    mbuf_copy(mbuf, pos, n);
+    msg->mlen += n;
+
+    STAILQ_INSERT_HEAD(&msg->mhdr, mbuf, next);
+    return NC_OK;
+}
+
+/*
+ * prepend small(small than a mbuf) content into msg
+ */
+rstatus_t
+msg_prepend_format(struct msg *msg, const char *fmt, ...)
+{
+    struct mbuf *mbuf;
+    int32_t n;
+    va_list args;
+
+    mbuf = mbuf_get();
+    if (mbuf == NULL) {
+        return NC_ENOMEM;
+    }
+
+    va_start(args, fmt);
+    n = nc_vscnprintf(mbuf->last, mbuf_size(mbuf), fmt, args);
+    va_end(args);
+
+    mbuf->last += n;
+    msg->mlen += n;
+
+    ASSERT(mbuf_size(mbuf) >= 0);
+    STAILQ_INSERT_HEAD(&msg->mhdr, mbuf, next);
+    return NC_OK;
 }
 
 inline uint64_t

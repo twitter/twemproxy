@@ -1245,7 +1245,6 @@ memcache_append_key(struct msg *r, uint8_t *key, uint32_t keylen)
 
     mbuf = msg_ensure_mbuf(r, keylen + 2);
     if (mbuf == NULL) {
-        nc_free(r);
         return NC_ENOMEM;
     }
     r->key_start = mbuf->last;   /* update key_start */
@@ -1301,20 +1300,29 @@ memcache_fragment_retrieval(struct msg *r, uint32_t ncontinuum,
                             struct msg_tqh *frag_msgq,
                             uint32_t key_step)
 {
-    struct mbuf *mbuf, *sub_msg_mbuf;
+    struct mbuf *mbuf;
     struct msg **sub_msgs;
     uint32_t i;
+    rstatus_t status;
+    struct string str_get = string("get ");   /* 'get ' string */
+    struct string str_gets = string("gets "); /* 'gets ' string */
 
-    /* init sub_msgs and r->frag_seq */
     sub_msgs = nc_zalloc(ncontinuum * sizeof(void *));
+    if (sub_msgs == NULL) {
+        return NC_ENOMEM;
+    }
 
     /* the point for each key, point to sub_msgs elements */
     r->frag_seq = nc_alloc(sizeof(struct msg *) * r->narg);
+    if (r->frag_seq == NULL) {
+        nc_free(sub_msgs);
+        return NC_ENOMEM;
+    }
 
     mbuf = STAILQ_FIRST(&r->mhdr);
     mbuf->pos = mbuf->start;
 
-    for (; *(mbuf->pos) != ' ';) { /* eat get/gets  */
+    for (; *(mbuf->pos) != ' ';) {          /* eat get/gets  */
         mbuf->pos++;
     }
     mbuf->pos++;
@@ -1336,15 +1344,20 @@ memcache_fragment_retrieval(struct msg *r, uint32_t ncontinuum,
 
         if (sub_msgs[idx] == NULL) {
             sub_msgs[idx] = msg_get(r->owner, r->request, r->redis);
+            if (sub_msgs[idx] == NULL) {
+                nc_free(sub_msgs);
+                return NC_ENOMEM;
+            }
         }
         sub_msg = sub_msgs[idx];
 
         r->frag_seq[i] = sub_msgs[idx];
 
         sub_msg->narg++;
-        if (NC_OK != memcache_append_key(sub_msg, key, keylen)) {
+        status = memcache_append_key(sub_msg, key, keylen);
+        if (status != NC_OK) {
             nc_free(sub_msgs);
-            return NC_ENOMEM;
+            return status;
         }
     }
 
@@ -1363,32 +1376,23 @@ memcache_fragment_retrieval(struct msg *r, uint32_t ncontinuum,
             continue;
         }
 
-        /* prepend get/gets (TODO: use a function) */
-        sub_msg_mbuf = mbuf_get();
-        if (sub_msg_mbuf == NULL) {
-            nc_free(sub_msgs);
-            return NC_ENOMEM;
-        }
+        /* prepend get/gets */
         if (r->type == MSG_REQ_MC_GET) {
-            sub_msg_mbuf->last +=
-                nc_snprintf(sub_msg_mbuf->last, mbuf_size(sub_msg_mbuf), "get ");
+            status = msg_prepend(sub_msg, str_get.data, str_get.len);
         } else if (r->type == MSG_REQ_MC_GETS) {
-            sub_msg_mbuf->last +=
-                nc_snprintf(sub_msg_mbuf->last, mbuf_size(sub_msg_mbuf), "gets ");
+            status = msg_prepend(sub_msg, str_gets.data, str_gets.len);
         }
-        sub_msg->mlen += mbuf_length(sub_msg_mbuf);
-        STAILQ_INSERT_HEAD(&sub_msg->mhdr, sub_msg_mbuf, next);
+        if (status != NC_OK) {
+            nc_free(sub_msgs);
+            return status;
+        }
 
         /* append \r\n */
-        sub_msg_mbuf = mbuf_get();
-        if (sub_msg_mbuf == NULL) {
+        status = msg_append(sub_msg, CRLF, CRLF_LEN);
+        if (status != NC_OK) {
             nc_free(sub_msgs);
-            return NC_ENOMEM;
+            return status;
         }
-        sub_msg_mbuf->last +=
-            nc_snprintf(sub_msg_mbuf->last, mbuf_size(sub_msg_mbuf), "\r\n");
-        sub_msg->mlen += mbuf_length(sub_msg_mbuf);
-        STAILQ_INSERT_TAIL(&sub_msg->mhdr, sub_msg_mbuf, next);
 
         sub_msg->type = r->type;
         sub_msg->frag_id = r->frag_id;
@@ -1406,10 +1410,7 @@ rstatus_t
 memcache_fragment(struct msg *r, uint32_t ncontinuum, struct msg_tqh *frag_msgq)
 {
     if (memcache_retrieval(r)) {
-        rstatus_t status = memcache_fragment_retrieval(r, ncontinuum, frag_msgq, 1);
-        if (status != NC_OK) {
-            return status;
-        }
+        return memcache_fragment_retrieval(r, ncontinuum, frag_msgq, 1);
     }
     return NC_OK;
 }
@@ -1510,7 +1511,7 @@ memcache_copy_bulk(struct msg *dst, struct msg *src)
 
     mbuf = STAILQ_FIRST(&src->mhdr);
     if (mbuf == NULL) {
-        return 0;
+        return NC_OK;           /* key not exists */
     }
     p = mbuf->pos;
 
@@ -1550,7 +1551,7 @@ memcache_copy_bulk(struct msg *dst, struct msg *src)
         } else {                        /* split it */
             nbuf = mbuf_get();
             if (nbuf == NULL) {
-                return -1;
+                return NC_ENOMEM;
             }
             mbuf_copy(nbuf, mbuf->pos, len);
             mbuf_insert(&dst->mhdr, nbuf);
@@ -1558,7 +1559,11 @@ memcache_copy_bulk(struct msg *dst, struct msg *src)
             break;
         }
     }
-    return bytes;
+
+    dst->mlen += bytes;
+    src->mlen -= bytes;
+    log_debug(LOG_VVERB, "memcache_copy_bulk copy bytes: %d", bytes);
+    return NC_OK;
 }
 
 /*
@@ -1575,38 +1580,35 @@ memcache_post_coalesce(struct msg *request)
     uint32_t len;
     struct msg *sub_msg;
     uint32_t i;
+    rstatus_t status;
 
     ASSERT(!response->request);
     ASSERT(request->request && (request->frag_owner == request));
     if (request->error || request->ferror) {
-        /* do nothing, if msg is in error */
-        return;
+        response->owner->err = 1;
+        goto done;
     }
 
     for (i = 1; i < request->narg; i++) {               /* for each  key */
         sub_msg = request->frag_seq[i]->peer;           /* get it's peer response */
         if (sub_msg == NULL) {
-            /*
-             * no response because of error, we do nothing and leave it to the
-             * req_error() check in rsp_send_next
-             */
-            continue;
+            response->owner->err = 1;
+            goto done;
         }
-        len = memcache_copy_bulk(response, sub_msg);
-        ASSERT(len >= 0);
-        log_debug(LOG_VVERB, "memcache_copy_bulk for mget copy bytes: %d", len);
-        response->mlen += len;
-        sub_msg->mlen -= len;
+        status = memcache_copy_bulk(response, sub_msg);
+        if (status != NC_OK) {
+            response->owner->err = 1;
+            goto done;
+        }
     }
 
     /* append END\r\n */
-    mbuf = msg_ensure_mbuf(response, 5);
-    if (mbuf == NULL) {
-        return;
+    status = msg_append(response, "END\r\n", 5);
+    if (status != NC_OK) {
+        response->owner->err = 1;
+        goto done;
     }
-    len = nc_snprintf(mbuf->last, mbuf_size(mbuf), "END\r\n");
-    mbuf->last += len;
-    response->mlen += len;
 
+done:
     nc_free(request->frag_seq);
 }

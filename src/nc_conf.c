@@ -66,6 +66,10 @@ static struct command conf_commands[] = {
       conf_set_num,
       offsetof(struct conf_pool, backlog) },
 
+    { string("database"),
+      conf_set_num,
+      offsetof(struct conf_pool, database) },
+
     { string("client_connections"),
       conf_set_num,
       offsetof(struct conf_pool, client_connections) },
@@ -180,6 +184,7 @@ conf_pool_init(struct conf_pool *cp, struct string *name)
 
     cp->timeout = CONF_UNSET_NUM;
     cp->backlog = CONF_UNSET_NUM;
+    cp->database = CONF_UNSET_NUM;
 
     cp->client_connections = CONF_UNSET_NUM;
 
@@ -266,6 +271,7 @@ conf_pool_each_transform(void *elem, void *data)
     sp->key_hash = hash_algos[cp->hash];
     sp->dist_type = cp->distribution;
     sp->hash_tag = cp->hash_tag;
+    sp->database = cp->database;
 
     sp->redis = cp->redis ? 1 : 0;
     sp->timeout = cp->timeout;
@@ -1213,6 +1219,10 @@ conf_validate_pool(struct conf *cf, struct conf_pool *cp)
 
     if (cp->preconnect == CONF_UNSET_NUM) {
         cp->preconnect = CONF_DEFAULT_PRECONNECT;
+    }
+
+    if (cp->database == CONF_UNSET_NUM) {
+        cp->database = CONF_DEFAULT_DATABASE;
     }
 
     if (cp->auto_eject_hosts == CONF_UNSET_NUM) {

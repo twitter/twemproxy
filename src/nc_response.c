@@ -145,6 +145,25 @@ rsp_filter(struct context *ctx, struct conn *conn, struct msg *msg)
 
     ASSERT(!conn->client && !conn->proxy);
 
+    if (conn->initializing) {
+        if (conn->redis) {
+            rsp_put(msg);
+            // ignore the first response assuming it has been caused by Redis's SELECT command
+            bool success = (msg->result == MSG_PARSE_OK) && (msg->type != MSG_RSP_REDIS_ERROR);
+            if (success) {
+                log_warn("first rsp %"PRIu64" (Redis SELECT command) len %"PRIu32" on s %d",
+                         msg->id, msg->mlen, conn->sd);
+            } else {
+                // if "SELECT" command failed, we need to close the connection
+                // with a Redis instance, otherwise all the next requests can
+                // get to a wrong database
+                server_close(ctx, conn);
+            }
+            conn->initializing = false;
+            return true;
+        }
+    }
+
     if (msg_empty(msg)) {
         ASSERT(conn->rmsg == NULL);
         log_debug(LOG_VERB, "filter empty rsp %"PRIu64" on s %d", msg->id,

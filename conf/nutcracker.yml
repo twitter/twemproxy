@@ -8,6 +8,7 @@ alpha:
   server_failure_limit: 1
   servers:
    - 127.0.0.1:6379:1
+  database: 1
 
 beta:
   listen: 127.0.0.1:22122

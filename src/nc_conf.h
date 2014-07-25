@@ -48,6 +48,7 @@
 #define CONF_DEFAULT_CLIENT_CONNECTIONS      0
 #define CONF_DEFAULT_REDIS                   false
 #define CONF_DEFAULT_PRECONNECT              false
+#define CONF_DEFAULT_DATABASE                0
 #define CONF_DEFAULT_AUTO_EJECT_HOSTS        false
 #define CONF_DEFAULT_SERVER_RETRY_TIMEOUT    30 * 1000      /* in msec */
 #define CONF_DEFAULT_SERVER_FAILURE_LIMIT    2
@@ -82,6 +83,7 @@ struct conf_pool {
     int                client_connections;    /* client_connections: */
     int                redis;                 /* redis: */
     int                preconnect;            /* preconnect: */
+    int                database;              /* Redis database to select (connect to) */
     int                auto_eject_hosts;      /* auto_eject_hosts: */
     int                server_connections;    /* server_connections: */
     int                server_retry_timeout;  /* server_retry_timeout: in msec */

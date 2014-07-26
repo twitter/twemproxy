@@ -63,6 +63,9 @@
 #define NC_EAGAIN   -2
 #define NC_ENOMEM   -3
 
+/* reserved fds for std streams, log, stats fd, epoll etc. */
+#define RESERVED_FDS 32
+
 typedef int rstatus_t; /* return type */
 typedef int err_t;     /* error type */
 
@@ -97,6 +100,7 @@ struct event_base;
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <sys/time.h>
+#include <sys/resource.h>
 #include <netinet/in.h>
 
 #include <nc_array.h>
@@ -120,6 +124,10 @@ struct context {
     struct event_base  *evb;        /* event base */
     int                max_timeout; /* max timeout in msec */
     int                timeout;     /* timeout in msec */
+
+    uint32_t           rlimit_nofile;           /* rlimit # file */
+    uint32_t           max_client_connections;  /* max # client connections */
+    uint32_t           max_server_connections;  /* max # server connections */
 };
 
 

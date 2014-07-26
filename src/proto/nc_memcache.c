@@ -1152,55 +1152,6 @@ error:
 }
 
 /*
- * Pre-split copy handler invoked when the request is a multi vector -
- * 'get' or 'gets' request and is about to be split into two requests
- */
-void
-memcache_pre_splitcopy(struct mbuf *mbuf, void *arg)
-{
-    struct msg *r = arg;                  /* request vector */
-    struct string get = string("get ");   /* 'get ' string */
-    struct string gets = string("gets "); /* 'gets ' string */
-
-    ASSERT(r->request);
-    ASSERT(!r->redis);
-    ASSERT(mbuf_empty(mbuf));
-
-    switch (r->type) {
-    case MSG_REQ_MC_GET:
-        mbuf_copy(mbuf, get.data, get.len);
-        break;
-
-    case MSG_REQ_MC_GETS:
-        mbuf_copy(mbuf, gets.data, gets.len);
-        break;
-
-    default:
-        NOT_REACHED();
-    }
-}
-
-/*
- * Post-split copy handler invoked when the request is a multi vector -
- * 'get' or 'gets' request and has already been split into two requests
- */
-rstatus_t
-memcache_post_splitcopy(struct msg *r)
-{
-    struct mbuf *mbuf;
-    struct string crlf = string(CRLF);
-
-    ASSERT(r->request);
-    ASSERT(!r->redis);
-    ASSERT(!STAILQ_EMPTY(&r->mhdr));
-
-    mbuf = STAILQ_LAST(&r->mhdr, mbuf, next);
-    mbuf_copy(mbuf, crlf.data, crlf.len);
-
-    return NC_OK;
-}
-
-/*
  * parse next key in mget request, update:
  *   r->key_start
  *   r->key_end

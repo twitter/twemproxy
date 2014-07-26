@@ -228,8 +228,6 @@ done:
     msg->parser = NULL;
     msg->result = MSG_PARSE_OK;
 
-    msg->pre_splitcopy = NULL;
-    msg->post_splitcopy = NULL;
     msg->fragment = NULL;
     msg->pre_coalesce = NULL;
     msg->post_coalesce = NULL;
@@ -289,8 +287,6 @@ msg_get(struct conn *conn, bool request, bool redis)
         } else {
             msg->parser = redis_parse_rsp;
         }
-        msg->pre_splitcopy = redis_pre_splitcopy;
-        msg->post_splitcopy = redis_post_splitcopy;
         msg->fragment = redis_fragment;
         msg->pre_coalesce = redis_pre_coalesce;
         msg->post_coalesce = redis_post_coalesce;
@@ -300,8 +296,6 @@ msg_get(struct conn *conn, bool request, bool redis)
         } else {
             msg->parser = memcache_parse_rsp;
         }
-        msg->pre_splitcopy = memcache_pre_splitcopy;
-        msg->post_splitcopy = memcache_post_splitcopy;
         msg->fragment = memcache_fragment;
         msg->pre_coalesce = memcache_pre_coalesce;
         msg->post_coalesce = memcache_post_coalesce;

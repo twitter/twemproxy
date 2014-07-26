@@ -21,7 +21,6 @@
 #include <nc_core.h>
 
 typedef void (*msg_parse_t)(struct msg *);
-typedef rstatus_t (*msg_post_splitcopy_t)(struct msg *);
 typedef rstatus_t (*msg_fragment_t)(struct msg *, uint32_t, struct msg_tqh *);
 typedef void (*msg_coalesce_t)(struct msg *r);
 
@@ -184,8 +183,6 @@ struct msg {
     msg_parse_t          parser;          /* message parser */
     msg_parse_result_t   result;          /* message parsing result */
 
-    mbuf_copy_t          pre_splitcopy;   /* message pre-split copy */
-    msg_post_splitcopy_t post_splitcopy;  /* message post-split copy */
     msg_fragment_t       fragment;        /* message fragment */
     msg_coalesce_t       pre_coalesce;    /* message pre-coalesce */
     msg_coalesce_t       post_coalesce;   /* message post-coalesce */

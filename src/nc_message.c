@@ -365,6 +365,11 @@ msg_put(struct msg *msg)
         mbuf_put(mbuf);
     }
 
+    if (msg->frag_seq) {
+        nc_free(msg->frag_seq);
+        msg->frag_seq = NULL;
+    }
+
     nfree_msgq++;
     TAILQ_INSERT_HEAD(&free_msgq, msg, m_tqe);
 }
@@ -476,7 +481,7 @@ msg_append(struct msg *msg, uint8_t *pos, size_t n)
     ASSERT(n <= mbuf_size(mbuf));
 
     mbuf_copy(mbuf, pos, n);
-    msg->mlen += n;
+    msg->mlen += (uint32_t)n;
     return NC_OK;
 }
 
@@ -496,7 +501,7 @@ msg_prepend(struct msg *msg, uint8_t *pos, size_t n)
     ASSERT(n <= mbuf_size(mbuf));
 
     mbuf_copy(mbuf, pos, n);
-    msg->mlen += n;
+    msg->mlen += (uint32_t)n;
 
     STAILQ_INSERT_HEAD(&msg->mhdr, mbuf, next);
     return NC_OK;
@@ -522,7 +527,7 @@ msg_prepend_format(struct msg *msg, const char *fmt, ...)
     va_end(args);
 
     mbuf->last += n;
-    msg->mlen += n;
+    msg->mlen += (uint32_t)n;
 
     ASSERT(mbuf_size(mbuf) >= 0);
     STAILQ_INSERT_HEAD(&msg->mhdr, mbuf, next);

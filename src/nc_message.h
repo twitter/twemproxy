@@ -204,9 +204,9 @@ struct msg {
 
     struct msg           *frag_owner;     /* owner of fragment message */
     uint32_t             nfrag;           /* # fragment */
-    uint32_t             nfrag_done;      /* # fragment */
+    uint32_t             nfrag_done;      /* # fragment done */
     uint64_t             frag_id;         /* id of fragmented message */
-    struct msg           **frag_seq;      /* sequence of fragment message, one element for each mget key*/
+    struct msg           **frag_seq;      /* sequence of fragment message, map from keys to fragments*/
 
     err_t                err;             /* errno on error? */
     unsigned             error:1;         /* error? */

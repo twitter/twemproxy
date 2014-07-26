@@ -1827,7 +1827,6 @@ redis_parse_rsp(struct msg *r)
                 }
                 r->rnarg--;
                 r->token = NULL;
-
             } else {
                 goto error;
             }
@@ -2307,11 +2306,16 @@ redis_fragment_argx(struct msg *r, uint32_t ncontinuum, struct msg_tqh *frag_msg
         }
 
         if (r->type == MSG_REQ_REDIS_MGET) {
-            status = msg_prepend_format(sub_msg, "*%d\r\n$4\r\nmget\r\n", sub_msg->narg + 1);
+            status = msg_prepend_format(sub_msg, "*%d\r\n$4\r\nmget\r\n",
+                                        sub_msg->narg + 1);
         } else if (r->type == MSG_REQ_REDIS_DEL) {
-            status = msg_prepend_format(sub_msg, "*%d\r\n$3\r\ndel\r\n", sub_msg->narg + 1);
+            status = msg_prepend_format(sub_msg, "*%d\r\n$3\r\ndel\r\n",
+                                        sub_msg->narg + 1);
         } else if (r->type == MSG_REQ_REDIS_MSET) {
-            status = msg_prepend_format(sub_msg, "*%d\r\n$4\r\nmset\r\n", sub_msg->narg + 1);
+            status = msg_prepend_format(sub_msg, "*%d\r\n$4\r\nmset\r\n",
+                                        sub_msg->narg + 1);
+        } else {
+            NOT_REACHED();
         }
         if (status != NC_OK) {
             nc_free(sub_msgs);
@@ -2347,13 +2351,11 @@ redis_post_coalesce_mset(struct msg *request)
     struct msg *response = request->peer;
     rstatus_t status;
 
-    status = msg_append(response, "+OK\r\n", 5);
+    status = msg_append(response, (uint8_t *)"+OK\r\n", 5);
     if (status != NC_OK) {
         response->error = 1;        /* mark this msg as err */
         response->err = errno;
     }
-
-    nc_free(request->frag_seq);
 }
 
 void
@@ -2361,13 +2363,12 @@ redis_post_coalesce_del(struct msg *request)
 {
     struct msg *response = request->peer;
     rstatus_t status;
+
     status = msg_prepend_format(response, ":%d\r\n", request->integer);
     if (status != NC_OK) {
         response->error = 1;
         response->err = errno;
     }
-
-    nc_free(request->frag_seq);
 }
 
 static void
@@ -2375,9 +2376,7 @@ redis_post_coalesce_mget(struct msg *request)
 {
     struct msg *response = request->peer;
     struct msg *sub_msg;
-    struct mbuf *mbuf;
     rstatus_t status;
-    uint32_t len;
     uint32_t i;
 
     status = msg_prepend_format(response, "*%d\r\n", request->narg - 1);
@@ -2387,24 +2386,21 @@ redis_post_coalesce_mget(struct msg *request)
          * we just close the conn here
          */
         response->owner->err = 1;
-        goto done;
+        return;
     }
 
     for (i = 1; i < request->narg; i++) {               /* for each  key */
         sub_msg = request->frag_seq[i]->peer;           /* get it's peer response */
         if (sub_msg == NULL) {
             response->owner->err = 1;
-            goto done;
+            return;
         }
         status = redis_copy_bulk(response, sub_msg);
         if (status != NC_OK) {
             response->owner->err = 1;
-            goto done;
+            return;
         }
     }
-
-done:
-    nc_free(request->frag_seq);
 }
 
 /*
@@ -2431,5 +2427,7 @@ redis_post_coalesce(struct msg *r)
         redis_post_coalesce_del(r);
     } else if (r->type == MSG_REQ_REDIS_MSET) {
         redis_post_coalesce_mset(r);
+    } else {
+        NOT_REACHED();
     }
 }

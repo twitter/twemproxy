@@ -1255,8 +1255,6 @@ memcache_fragment_retrieval(struct msg *r, uint32_t ncontinuum,
     struct msg **sub_msgs;
     uint32_t i;
     rstatus_t status;
-    struct string str_get = string("get ");   /* 'get ' string */
-    struct string str_gets = string("gets "); /* 'gets ' string */
 
     sub_msgs = nc_zalloc(ncontinuum * sizeof(void *));
     if (sub_msgs == NULL) {
@@ -1329,9 +1327,9 @@ memcache_fragment_retrieval(struct msg *r, uint32_t ncontinuum,
 
         /* prepend get/gets */
         if (r->type == MSG_REQ_MC_GET) {
-            status = msg_prepend(sub_msg, str_get.data, str_get.len);
+            status = msg_prepend(sub_msg, (uint8_t *)"get ", 4);
         } else if (r->type == MSG_REQ_MC_GETS) {
-            status = msg_prepend(sub_msg, str_gets.data, str_gets.len);
+            status = msg_prepend(sub_msg, (uint8_t *)"gets ", 5);
         }
         if (status != NC_OK) {
             nc_free(sub_msgs);
@@ -1339,7 +1337,7 @@ memcache_fragment_retrieval(struct msg *r, uint32_t ncontinuum,
         }
 
         /* append \r\n */
-        status = msg_append(sub_msg, CRLF, CRLF_LEN);
+        status = msg_append(sub_msg, (uint8_t *)CRLF, CRLF_LEN);
         if (status != NC_OK) {
             nc_free(sub_msgs);
             return status;
@@ -1527,8 +1525,6 @@ void
 memcache_post_coalesce(struct msg *request)
 {
     struct msg *response = request->peer;
-    struct mbuf *mbuf;
-    uint32_t len;
     struct msg *sub_msg;
     uint32_t i;
     rstatus_t status;
@@ -1537,29 +1533,26 @@ memcache_post_coalesce(struct msg *request)
     ASSERT(request->request && (request->frag_owner == request));
     if (request->error || request->ferror) {
         response->owner->err = 1;
-        goto done;
+        return;
     }
 
     for (i = 1; i < request->narg; i++) {               /* for each  key */
         sub_msg = request->frag_seq[i]->peer;           /* get it's peer response */
         if (sub_msg == NULL) {
             response->owner->err = 1;
-            goto done;
+            return;
         }
         status = memcache_copy_bulk(response, sub_msg);
         if (status != NC_OK) {
             response->owner->err = 1;
-            goto done;
+            return;
         }
     }
 
     /* append END\r\n */
-    status = msg_append(response, "END\r\n", 5);
+    status = msg_append(response, (uint8_t *)"END\r\n", 5);
     if (status != NC_OK) {
         response->owner->err = 1;
-        goto done;
+        return;
     }
-
-done:
-    nc_free(request->frag_seq);
 }

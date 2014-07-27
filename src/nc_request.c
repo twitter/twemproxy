@@ -54,6 +54,14 @@ req_log(struct msg *req)
     if (req->mlen == 0) {
         return;
     }
+    /*
+     * there is a race scenario where a requests comes in, the log level is not LOG_NOTICE,
+     * and before the response arrives you modify the log level to LOG_NOTICE
+     * using SIGTTIN OR SIGTTOU, then req_log() wouldn't have msg->start_ts set
+     */
+    if (req->start_ts == 0) {
+        return;
+    }
 
     req_time = nc_usec_now() - req->start_ts;
 
@@ -168,7 +176,7 @@ req_done(struct conn *conn, struct msg *msg)
      */
 
     msg->fdone = 1;
-    nfragment = 1;
+    nfragment = 0;
 
     for (pmsg = msg, cmsg = TAILQ_PREV(msg, msg_tqh, c_tqe);
          cmsg != NULL && cmsg->frag_id == id;
@@ -184,7 +192,7 @@ req_done(struct conn *conn, struct msg *msg)
         nfragment++;
     }
 
-    /* ASSERT(msg->frag_owner->nfrag == nfragment); */
+    ASSERT(msg->frag_owner->nfrag == nfragment);
 
     msg->post_coalesce(msg->frag_owner);
 

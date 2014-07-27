@@ -235,7 +235,7 @@ redis_argx(struct msg *r)
  * more key-value pairs, otherwise return false
  */
 static bool
-redis_arg2x(struct msg *r)
+redis_argkvx(struct msg *r)
 {
     switch (r->type) {
     case MSG_REQ_REDIS_MSET:
@@ -1073,7 +1073,7 @@ redis_parse_req(struct msg *r)
                         goto done;
                     }
                     state = SW_KEY_LEN;
-                } else if (redis_arg2x(r)) {
+                } else if (redis_argkvx(r)) {
                     if (r->rnarg == 0) {
                         goto done;
                     }
@@ -1177,7 +1177,7 @@ redis_parse_req(struct msg *r)
                         goto error;
                     }
                     state = SW_ARG2_LEN;
-                } else if (redis_arg2x(r)) {
+                } else if (redis_argkvx(r)) {
                     if (r->rnarg == 0) {
                         goto done;
                     }
@@ -1941,7 +1941,7 @@ redis_copy_bulk(struct msg *dst, struct msg *src)
     uint32_t bytes = 0;
 
     for (mbuf = STAILQ_FIRST(&src->mhdr);
-         mbuf && (mbuf->pos >= mbuf->last);
+         mbuf && mbuf_empty(mbuf);
          mbuf = STAILQ_FIRST(&src->mhdr)) {
 
         mbuf_remove(&src->mhdr, mbuf);
@@ -2095,7 +2095,7 @@ redis_argx_update_keypos(struct msg *r)
     uint32_t keylen = 0;
 
     for (mbuf = STAILQ_FIRST(&r->mhdr);
-         mbuf && (mbuf->pos >= mbuf->last);
+         mbuf && mbuf_empty(mbuf);
          mbuf = STAILQ_FIRST(&r->mhdr)) {
 
         mbuf_remove(&r->mhdr, mbuf);
@@ -2222,13 +2222,14 @@ redis_fragment_argx(struct msg *r, uint32_t ncontinuum, struct msg_tqh *frag_msg
     uint32_t i;
     rstatus_t status;
 
-    sub_msgs = nc_zalloc(ncontinuum * sizeof(void *));
+    sub_msgs = nc_zalloc(ncontinuum * sizeof(*sub_msgs));
     if (sub_msgs == NULL) {
         return NC_ENOMEM;
     }
 
     /* the point for each key, point to sub_msgs elements */
-    r->frag_seq = nc_alloc(sizeof(struct msg *) * r->narg);
+    ASSERT(r->frag_seq == NULL);
+    r->frag_seq = nc_alloc(r->narg * sizeof(*r->frag_seq));
     if (r->frag_seq == NULL) {
         nc_free(sub_msgs);
         return NC_ENOMEM;
@@ -2237,6 +2238,12 @@ redis_fragment_argx(struct msg *r, uint32_t ncontinuum, struct msg_tqh *frag_msg
     mbuf = STAILQ_FIRST(&r->mhdr);
     mbuf->pos = mbuf->start;
 
+    /*
+     * This code is based on the assumption that '*narg\r\n$4\r\nMGET\r\n' is located
+     * in a contiguous location.
+     * This is always true because we have capped our MBUF_MIN_SIZE at 512 and
+     * whenever we have multiple messages, we copy the tail message into a new mbuf
+     */
     for (i = 0; i < 3; i++) {                 /* eat *narg\r\n$4\r\nMGET\r\n */
         for (; *(mbuf->pos) != '\n';) {
             mbuf->pos++;
@@ -2291,7 +2298,7 @@ redis_fragment_argx(struct msg *r, uint32_t ncontinuum, struct msg_tqh *frag_msg
     }
 
     for (mbuf = STAILQ_FIRST(&r->mhdr);
-         mbuf && (mbuf->pos >= mbuf->last);
+         mbuf && mbuf_empty(mbuf);
          mbuf = STAILQ_FIRST(&r->mhdr)) {
 
         mbuf_remove(&r->mhdr, mbuf);
@@ -2337,12 +2344,15 @@ redis_fragment_argx(struct msg *r, uint32_t ncontinuum, struct msg_tqh *frag_msg
 rstatus_t
 redis_fragment(struct msg *r, uint32_t ncontinuum, struct msg_tqh *frag_msgq)
 {
-    if (redis_argx(r)) {
+    switch (r->type) {
+    case MSG_REQ_REDIS_MGET:
+    case MSG_REQ_REDIS_DEL:
         return redis_fragment_argx(r, ncontinuum, frag_msgq, 1);
-    } else if (redis_arg2x(r)) {
+    case MSG_REQ_REDIS_MSET:
         return redis_fragment_argx(r, ncontinuum, frag_msgq, 2);
+    default:
+        return NC_OK;
     }
-    return NC_OK;
 }
 
 void
@@ -2421,13 +2431,14 @@ redis_post_coalesce(struct msg *r)
         return;
     }
 
-    if (r->type == MSG_REQ_REDIS_MGET) {
-        redis_post_coalesce_mget(r);
-    } else if (r->type == MSG_REQ_REDIS_DEL) {
-        redis_post_coalesce_del(r);
-    } else if (r->type == MSG_REQ_REDIS_MSET) {
-        redis_post_coalesce_mset(r);
-    } else {
+    switch (r->type) {
+    case MSG_REQ_REDIS_MGET:
+        return redis_post_coalesce_mget(r);
+    case MSG_REQ_REDIS_DEL:
+        return redis_post_coalesce_del(r);
+    case MSG_REQ_REDIS_MSET:
+        return redis_post_coalesce_mset(r);
+    default:
         NOT_REACHED();
     }
 }

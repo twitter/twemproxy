@@ -1163,7 +1163,7 @@ memcache_retrieval_update_keypos(struct msg *r)
     uint8_t *p;
 
     for (mbuf = STAILQ_FIRST(&r->mhdr);
-         mbuf && (mbuf->pos >= mbuf->last);
+         mbuf && mbuf_empty(mbuf);
          mbuf = STAILQ_FIRST(&r->mhdr)) {
 
         mbuf_remove(&r->mhdr, mbuf);
@@ -1256,13 +1256,14 @@ memcache_fragment_retrieval(struct msg *r, uint32_t ncontinuum,
     uint32_t i;
     rstatus_t status;
 
-    sub_msgs = nc_zalloc(ncontinuum * sizeof(void *));
+    sub_msgs = nc_zalloc(ncontinuum * sizeof(*sub_msgs));
     if (sub_msgs == NULL) {
         return NC_ENOMEM;
     }
 
     /* the point for each key, point to sub_msgs elements */
-    r->frag_seq = nc_alloc(sizeof(struct msg *) * r->narg);
+    ASSERT(r->frag_seq == NULL);
+    r->frag_seq = nc_alloc(r->narg * sizeof(*r->frag_seq));
     if (r->frag_seq == NULL) {
         nc_free(sub_msgs);
         return NC_ENOMEM;
@@ -1271,6 +1272,12 @@ memcache_fragment_retrieval(struct msg *r, uint32_t ncontinuum,
     mbuf = STAILQ_FIRST(&r->mhdr);
     mbuf->pos = mbuf->start;
 
+    /*
+     * This code is based on the assumption that 'gets ' is located
+     * in a contiguous location.
+     * This is always true because we have capped our MBUF_MIN_SIZE at 512 and
+     * whenever we have multiple messages, we copy the tail message into a new mbuf
+     */
     for (; *(mbuf->pos) != ' ';) {          /* eat get/gets  */
         mbuf->pos++;
     }
@@ -1311,7 +1318,7 @@ memcache_fragment_retrieval(struct msg *r, uint32_t ncontinuum,
     }
 
     for (mbuf = STAILQ_FIRST(&r->mhdr);
-         mbuf && (mbuf->pos >= mbuf->last);
+         mbuf && mbuf_empty(mbuf);
          mbuf = STAILQ_FIRST(&r->mhdr)) {
 
         mbuf_remove(&r->mhdr, mbuf);
@@ -1451,7 +1458,7 @@ memcache_copy_bulk(struct msg *dst, struct msg *src)
     uint32_t i = 0;
 
     for (mbuf = STAILQ_FIRST(&src->mhdr);
-         mbuf && (mbuf->pos >= mbuf->last);
+         mbuf && mbuf_empty(mbuf);
          mbuf = STAILQ_FIRST(&src->mhdr)) {
 
         mbuf_remove(&src->mhdr, mbuf);

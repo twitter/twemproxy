@@ -83,6 +83,9 @@
 
 static uint32_t nfree_connq;       /* # free conn q */
 static struct conn_tqh free_connq; /* free conn q */
+static uint64_t ntotal_conn;       /* total # connections counter from start */
+static uint32_t ncurr_conn;        /* current # connections */
+static uint32_t ncurr_cconn;       /* current # client connections */
 
 /*
  * Return the context associated with this connection.
@@ -154,6 +157,9 @@ _conn_get(void)
     conn->done = 0;
     conn->redis = 0;
 
+    ntotal_conn++;
+    ncurr_conn++;
+
     return conn;
 }
 
@@ -195,6 +201,8 @@ conn_get(void *owner, bool client, bool redis)
         conn->dequeue_inq = NULL;
         conn->enqueue_outq = req_client_enqueue_omsgq;
         conn->dequeue_outq = req_client_dequeue_omsgq;
+        
+        ncurr_cconn++;
     } else {
         /*
          * server receives a response, possibly parsing it, and sends a
@@ -285,6 +293,11 @@ conn_put(struct conn *conn)
 
     nfree_connq++;
     TAILQ_INSERT_HEAD(&free_connq, conn, conn_tqe);
+
+    if (conn->client) {
+        ncurr_cconn--;
+    }
+    ncurr_conn--;
 }
 
 void
@@ -406,4 +419,22 @@ conn_sendv(struct conn *conn, struct array *sendv, size_t nsend)
     NOT_REACHED();
 
     return NC_ERROR;
+}
+
+uint32_t
+conn_ncurr_conn(void)
+{
+    return ncurr_conn;
+}
+
+uint64_t
+conn_ntotal_conn(void)
+{
+    return ntotal_conn;
+}
+
+uint32_t
+conn_ncurr_cconn(void)
+{
+    return ncurr_cconn;
 }

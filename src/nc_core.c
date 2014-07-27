@@ -27,18 +27,20 @@ static uint32_t ctx_id; /* context generation */
 static rstatus_t
 core_calc_connections(struct context *ctx)
 {
+    int status;
     struct rlimit limit;
-    if (getrlimit(RLIMIT_NOFILE,&limit) == -1) {
-        log_debug(LOG_CRIT, "getrlimit failed: %s", strerror(errno));
+
+    status = getrlimit(RLIMIT_NOFILE, &limit);
+    if (status < 0) {
+        log_error("getrlimit failed: %s", strerror(errno));
         return NC_ERROR;
     }
 
-    ctx->rlimit_nofile = (uint32_t)limit.rlim_cur;
-    ctx->max_client_connections = 
-        ctx->rlimit_nofile - ctx->max_server_connections - RESERVED_FDS;
-    log_debug(LOG_NOTICE, "current rlimit nofile %d, max_server_connections %d, "
-              "max_client_connections %d", ctx->rlimit_nofile,
-              ctx->max_server_connections, ctx->max_client_connections);
+    ctx->max_nfd = (uint32_t)limit.rlim_cur;
+    ctx->max_ncconn = ctx->max_nfd - ctx->max_nsconn - RESERVED_FDS;
+    log_debug(LOG_NOTICE, "max fds %"PRIu32" max client conns %"PRIu32" "
+              "max server conns %"PRIu32"", ctx->max_nfd, ctx->max_ncconn,
+              ctx->max_nsconn);
 
     return NC_OK;
 }
@@ -60,9 +62,9 @@ core_ctx_create(struct instance *nci)
     array_null(&ctx->pool);
     ctx->max_timeout = nci->stats_interval;
     ctx->timeout = ctx->max_timeout;
-    ctx->rlimit_nofile = 0;
-    ctx->max_client_connections = 0;
-    ctx->max_server_connections = 0;
+    ctx->max_nfd = 0;
+    ctx->max_ncconn = 0;
+    ctx->max_nsconn = 0;
 
     /* parse and create configuration */
     ctx->cf = conf_create(nci->conf_filename);
@@ -79,8 +81,10 @@ core_ctx_create(struct instance *nci)
         return NULL;
     }
 
-    /* get rlimit and calc max client connections after got server pool 
-     * connections number */
+    /*
+     * Get rlimit and calculate max client connections after we have
+     * calculated max server connections
+     */
     status = core_calc_connections(ctx);
     if (status != NC_OK) {
         server_pool_deinit(&ctx->pool);

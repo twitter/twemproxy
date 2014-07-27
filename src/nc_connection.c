@@ -83,9 +83,9 @@
 
 static uint32_t nfree_connq;       /* # free conn q */
 static struct conn_tqh free_connq; /* free conn q */
-static int64_t total_connections;  /* connections counter from start */
-static int curr_connections;       /* current # connections */
-static int curr_client_connections;/* current # client connections */
+static uint64_t ntotal_conn;       /* total # connections counter from start */
+static uint32_t ncurr_conn;        /* current # connections */
+static uint32_t ncurr_cconn;       /* current # client connections */
 
 /*
  * Return the context associated with this connection.
@@ -157,8 +157,8 @@ _conn_get(void)
     conn->done = 0;
     conn->redis = 0;
 
-    total_connections++;
-    curr_connections++;
+    ntotal_conn++;
+    ncurr_conn++;
 
     return conn;
 }
@@ -202,7 +202,7 @@ conn_get(void *owner, bool client, bool redis)
         conn->enqueue_outq = req_client_enqueue_omsgq;
         conn->dequeue_outq = req_client_dequeue_omsgq;
         
-        curr_client_connections++;
+        ncurr_cconn++;
     } else {
         /*
          * server receives a response, possibly parsing it, and sends a
@@ -295,9 +295,9 @@ conn_put(struct conn *conn)
     TAILQ_INSERT_HEAD(&free_connq, conn, conn_tqe);
 
     if (conn->client) {
-        curr_client_connections--;
+        ncurr_cconn--;
     }
-    curr_connections--;
+    ncurr_conn--;
 }
 
 void
@@ -421,20 +421,20 @@ conn_sendv(struct conn *conn, struct array *sendv, size_t nsend)
     return NC_ERROR;
 }
 
-int
-conn_curr_connections(void)
+uint32_t
+conn_ncurr_conn(void)
 {
-    return curr_connections;
+    return ncurr_conn;
 }
 
-int64_t
-conn_total_connections(void)
+uint64_t
+conn_ntotal_conn(void)
 {
-    return total_connections;
+    return ntotal_conn;
 }
 
-int
-conn_curr_client_connections(void)
+uint32_t
+conn_ncurr_cconn(void)
 {
-    return curr_client_connections;
+    return ncurr_cconn;
 }

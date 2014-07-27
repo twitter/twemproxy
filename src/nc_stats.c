@@ -361,11 +361,11 @@ stats_create_buf(struct stats *st)
     size += int64_max_digits;
     size += key_value_extra;
 
-    size += st->total_connections_str.len;
+    size += st->ntotal_conn_str.len;
     size += int64_max_digits;
     size += key_value_extra;
 
-    size += st->curr_connections_str.len;
+    size += st->ncurr_conn_str.len;
     size += int64_max_digits;
     size += key_value_extra;
 
@@ -516,14 +516,12 @@ stats_add_header(struct stats *st)
         return status;
     }
 
-    status = stats_add_num(st, &st->total_connections_str,
-                           conn_total_connections());
+    status = stats_add_num(st, &st->ntotal_conn_str, conn_ntotal_conn());
     if (status != NC_OK) {
         return status;
     }
 
-    status = stats_add_num(st, &st->curr_connections_str,
-                           conn_curr_connections());
+    status = stats_add_num(st, &st->ncurr_conn_str, conn_ncurr_conn());
     if (status != NC_OK) {
         return status;
     }
@@ -929,8 +927,8 @@ stats_create(uint16_t stats_port, char *stats_ip, int stats_interval,
     string_set_text(&st->uptime_str, "uptime");
     string_set_text(&st->timestamp_str, "timestamp");
 
-    string_set_text(&st->total_connections_str, "total_connections");
-    string_set_text(&st->curr_connections_str, "curr_connections");
+    string_set_text(&st->ntotal_conn_str, "total_connections");
+    string_set_text(&st->ncurr_conn_str, "curr_connections");
 
     st->updated = 0;
     st->aggregate = 0;

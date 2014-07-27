@@ -282,45 +282,41 @@ proxy_accept(struct context *ctx, struct conn *p)
                 return NC_OK;
             }
 
-            /*
-             * FIXME: On EMFILE or ENFILE mask out IN event on the proxy; mask
-             * it back in when some existing connection gets closed
-             */
-            
             /* 
              * Workaround of https://github.com/twitter/twemproxy/issues/97
-             * Just ignore EMFILE/ENFILE, return NC_OK will enable the server 
-             * continue to run instead of close the server socket
+             *
+             * We should never reach here because the check for conn_ncurr_cconn()
+             * against ctx->max_ncconn should catch this earlier in the cycle.
+             * If we reach here ignore EMFILE/ENFILE, return NC_OK will enable
+             * the server continue to run instead of close the server socket
+             *
+             * The right solution however, is on EMFILE/ENFILE to mask out IN
+             * event on the proxy and mask it back in when some existing
+             * connections gets closed
              */
             if (errno == EMFILE || errno == ENFILE) {
-                log_debug(LOG_CRIT, "accept on p %d failed: %s", p->sd,
-                          strerror(errno));
-                p->recv_ready = 0;
+                log_debug(LOG_CRIT, "accept on p %d with max fds %"PRIu32" "
+                          "used connections %"PRIu32" max client connections %"PRIu32" "
+                          "curr client connections %"PRIu32" failed: %s",
+                          p->sd, ctx->max_nfd, conn_ncurr_conn(),
+                          ctx->max_ncconn, conn_ncurr_cconn(), strerror(errno));
 
-                log_debug(LOG_CRIT, "connections status: rlimit nofile %d, "
-                          "used connections: %d, max client connections %d, "
-                          "curr client connections %d", ctx->rlimit_nofile,
-                          conn_curr_connections(), ctx->max_client_connections,
-                          conn_curr_client_connections());
-                /* Since we maintain a safe max_client_connections and check
-                 * it after every accept, we should not reach here.
-                 * So we will panic after this log */
-                log_panic("HIT MAX OPEN FILES, IT SHOULD NOT HAPPEN. ABORT.");
+                p->recv_ready = 0;
 
                 return NC_OK;
             }
 
             log_error("accept on p %d failed: %s", p->sd, strerror(errno));
+
             return NC_ERROR;
         }
 
         break;
     }
 
-    if (conn_curr_client_connections() >= (int)ctx->max_client_connections) {
-        log_debug(LOG_CRIT, "client connections %d exceed limit %d",
-                  conn_curr_client_connections(),
-                  ctx->max_client_connections);
+    if (conn_ncurr_cconn() >= ctx->max_ncconn) {
+        log_debug(LOG_CRIT, "client connections %"PRIu32" exceed limit %"PRIu32,
+                  conn_ncurr_cconn(), ctx->max_ncconn);
         status = close(sd);
         if (status < 0) {
             log_error("close c %d failed, ignored: %s", sd, strerror(errno));

@@ -1,4 +1,4 @@
-## Redis Commands Supported
+## Redis Command Support
 
 ### Keys Command
 

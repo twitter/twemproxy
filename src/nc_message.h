@@ -161,6 +161,11 @@ typedef enum msg_type {
 } msg_type_t;
 #undef DEFINE_ACTION
 
+struct keypos {
+    uint8_t             *start;           /* key start pos */
+    uint8_t             *end;             /* key end pos */
+};
+
 struct msg {
     TAILQ_ENTRY(msg)     c_tqe;           /* link in client q */
     TAILQ_ENTRY(msg)     s_tqe;           /* link in server q */
@@ -189,8 +194,7 @@ struct msg {
 
     msg_type_t           type;            /* message type */
 
-    uint8_t              *key_start;      /* key start */
-    uint8_t              *key_end;        /* key end */
+    struct array         *keys;           /* array of keypos, for req */
 
     uint32_t             vlen;            /* value length (memcache) */
     uint8_t              *end;            /* end marker (memcache) */
@@ -237,7 +241,7 @@ bool msg_empty(struct msg *msg);
 rstatus_t msg_recv(struct context *ctx, struct conn *conn);
 rstatus_t msg_send(struct context *ctx, struct conn *conn);
 uint64_t msg_gen_frag_id(void);
-uint32_t msg_backend_idx(struct msg *msg);
+uint32_t msg_backend_idx(struct msg *msg, uint8_t *key, uint32_t keylen);
 struct mbuf *msg_ensure_mbuf(struct msg *msg, size_t len);
 rstatus_t msg_append(struct msg *msg, uint8_t *pos, size_t n);
 rstatus_t msg_prepend(struct msg *msg, uint8_t *pos, size_t n);

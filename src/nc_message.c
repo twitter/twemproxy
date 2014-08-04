@@ -234,8 +234,11 @@ done:
 
     msg->type = MSG_UNKNOWN;
 
-    msg->key_start = NULL;
-    msg->key_end = NULL;
+    msg->keys = array_create(1, sizeof(struct keypos));
+    if (msg->keys == NULL) {
+        nc_free(msg);
+        return NULL;
+    }
 
     msg->vlen = 0;
     msg->end = NULL;
@@ -370,6 +373,12 @@ msg_put(struct msg *msg)
         msg->frag_seq = NULL;
     }
 
+    if (msg->keys) {
+        msg->keys->nelem = 0; /* a hack here */
+        array_destroy(msg->keys);
+        msg->keys = NULL;
+    }
+
     nfree_msgq++;
     TAILQ_INSERT_HEAD(&free_msgq, msg, m_tqe);
 }
@@ -437,12 +446,10 @@ msg_empty(struct msg *msg)
 }
 
 uint32_t
-msg_backend_idx(struct msg *msg)
+msg_backend_idx(struct msg *msg, uint8_t *key, uint32_t keylen)
 {
     struct conn *conn = msg->owner;
     struct server_pool *pool = conn->owner;
-    uint8_t *key = msg->key_start;
-    uint32_t keylen = (uint32_t)(msg->key_end - msg->key_start);
 
     return server_pool_idx(pool, key, keylen);
 }

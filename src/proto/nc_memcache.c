@@ -317,18 +317,26 @@ memcache_parse_req(struct msg *r)
         case SW_KEY:
             if (r->token == NULL) {
                 r->token = p;
-                r->key_start = p;
             }
             if (ch == ' ' || ch == CR) {
-                if ((p - r->key_start) > MEMCACHE_MAX_KEY_LENGTH) {
+                struct keypos *kpos;
+
+                if ((p - r->token) > MEMCACHE_MAX_KEY_LENGTH) {
                     log_error("parsed bad req %"PRIu64" of type %d with key "
                               "prefix '%.*s...' and length %d that exceeds "
                               "maximum key length", r->id, r->type, 16,
-                              r->key_start, p - r->key_start);
+                              r->token, p - r->token);
                     goto error;
                 }
+
+                kpos = array_push(r->keys);
+                if (kpos == NULL) {
+                    goto enomem;
+                }
+                kpos->start = r->token;
+                kpos->end = p;
+
                 r->narg++;
-                r->key_end = p;
                 r->token = NULL;
 
                 /* get next state */
@@ -694,6 +702,15 @@ done:
                 r->state, r->pos - b->pos, b->last - b->pos);
     return;
 
+enomem:
+    r->result = MSG_PARSE_ERROR;
+    r->state = state;
+
+    log_hexdump(LOG_INFO, b->pos, mbuf_length(b), "out of memory on parse req %"PRIu64" "
+                "res %d type %d state %d", r->id, r->result, r->type, r->state);
+
+    return;
+
 error:
     r->result = MSG_PARSE_ERROR;
     r->state = state;
@@ -917,7 +934,6 @@ memcache_parse_rsp(struct msg *r)
 
         case SW_KEY:
             if (ch == ' ') {
-                r->key_end = p;
                 /* r->token = NULL; */
                 state = SW_SPACES_BEFORE_FLAGS;
             }
@@ -1151,57 +1167,26 @@ error:
                 r->state);
 }
 
-/*
- * parse next key in mget request, update:
- *   r->key_start
- *   r->key_end
- * */
-static rstatus_t
-memcache_retrieval_update_keypos(struct msg *r)
-{
-    struct mbuf *mbuf;
-    uint8_t *p;
-
-    for (mbuf = STAILQ_FIRST(&r->mhdr);
-         mbuf && mbuf_empty(mbuf);
-         mbuf = STAILQ_FIRST(&r->mhdr)) {
-
-        mbuf_remove(&r->mhdr, mbuf);
-        mbuf_put(mbuf);
-    }
-
-    p = mbuf->pos;
-    for (; p < mbuf->last && isspace(*p); p++) {
-        /* eat spaces */
-    }
-
-    r->key_start = p;
-    for (; p < mbuf->last && !isspace(*p); p++) {
-        /* read key */
-    }
-    r->key_end = p;
-
-    for (; p < mbuf->last && isspace(*p); p++) {
-        /* eat spaces */
-    }
-    mbuf->pos = p;
-
-    return NC_OK;
-}
-
 static rstatus_t
 memcache_append_key(struct msg *r, uint8_t *key, uint32_t keylen)
 {
     struct mbuf *mbuf;
+    struct keypos *kpos;
 
     mbuf = msg_ensure_mbuf(r, keylen + 2);
     if (mbuf == NULL) {
         return NC_ENOMEM;
     }
-    r->key_start = mbuf->last;   /* update key_start */
+
+    kpos = array_push(r->keys);
+    if (kpos == NULL) {
+        return NC_ENOMEM;
+    }
+
+    kpos->start = mbuf->last;
+    kpos->end = mbuf->last + keylen;
     mbuf_copy(mbuf, key, keylen);
     r->mlen += keylen;
-    r->key_end = mbuf->last;     /* update key_start */
 
     mbuf_copy(mbuf, (uint8_t *)" ", 1);
     r->mlen += 1;
@@ -1209,42 +1194,7 @@ memcache_append_key(struct msg *r, uint8_t *key, uint32_t keylen)
 }
 
 /*
- * input a msg, return a msg chain.
- * ncontinuum is # bucket
- *
- * Attach unique fragment id to all fragments of the message vector. All
- * fragments of the message, including the first fragment point to the
- * first fragment through the frag_owner pointer.
- *
- * For example, a message vector given below is split into 3 fragments:
- *  'get key1 key2 key3\r\n'
- *  Or,
- *  '*4\r\n$4\r\nmget\r\n$4\r\nkey1\r\n$4\r\nkey2\r\n$4\r\nkey3\r\n'
- *
- *   +--------------+
- *   |  msg vector  |
- *   |(original msg)|
- *   +--------------+
- *
- *       frag_owner         frag_owner
- *     /-----------+      /------------+
- *     |           |      |            |
- *     |           v      v            |
- *   +--------------------+     +---------------------+
- *   |   frag_id = 10     |     |   frag_id = 10      |
- *   |     nfrag = 3      |     |      nfrag = 0      |
- *   +--------------------+     +---------------------+
- *               ^
- *               |  frag_owner
- *               \-------------+
- *                             |
- *                             |
- *                  +---------------------+
- *                  |   frag_id = 10      |
- *                  |      nfrag = 0      |
- *                  +---------------------+
- *
- *
+ * read the comment in proto/nc_redis.c
  */
 static rstatus_t
 memcache_fragment_retrieval(struct msg *r, uint32_t ncontinuum,
@@ -1261,9 +1211,8 @@ memcache_fragment_retrieval(struct msg *r, uint32_t ncontinuum,
         return NC_ENOMEM;
     }
 
-    /* the point for each key, point to sub_msgs elements */
     ASSERT(r->frag_seq == NULL);
-    r->frag_seq = nc_alloc(r->narg * sizeof(*r->frag_seq));
+    r->frag_seq = nc_alloc(array_n(r->keys) * sizeof(*r->frag_seq));
     if (r->frag_seq == NULL) {
         nc_free(sub_msgs);
         return NC_ENOMEM;
@@ -1287,16 +1236,10 @@ memcache_fragment_retrieval(struct msg *r, uint32_t ncontinuum,
     r->nfrag = 0;
     r->frag_owner = r;
 
-    for (i = 1; i < r->narg; i++) {        /* for each  key */
-        uint8_t *key;
-        uint32_t keylen;
-        uint32_t idx;
+    for (i = 0; i < array_n(r->keys); i++) {        /* for each  key */
         struct msg *sub_msg;
-
-        memcache_retrieval_update_keypos(r);
-        key = r->key_start;
-        keylen = (uint32_t)(r->key_end - r->key_start);
-        idx = msg_backend_idx(r);
+        struct keypos *kpos = array_get(r->keys, i);
+        uint32_t idx = msg_backend_idx(r, kpos->start, kpos->end - kpos->start);
 
         if (sub_msgs[idx] == NULL) {
             sub_msgs[idx] = msg_get(r->owner, r->request, r->redis);
@@ -1305,26 +1248,15 @@ memcache_fragment_retrieval(struct msg *r, uint32_t ncontinuum,
                 return NC_ENOMEM;
             }
         }
-        sub_msg = sub_msgs[idx];
-
-        r->frag_seq[i] = sub_msgs[idx];
+        r->frag_seq[i] = sub_msg = sub_msgs[idx];
 
         sub_msg->narg++;
-        status = memcache_append_key(sub_msg, key, keylen);
+        status = memcache_append_key(sub_msg, kpos->start, kpos->end - kpos->start);
         if (status != NC_OK) {
             nc_free(sub_msgs);
             return status;
         }
     }
-
-    for (mbuf = STAILQ_FIRST(&r->mhdr);
-         mbuf && mbuf_empty(mbuf);
-         mbuf = STAILQ_FIRST(&r->mhdr)) {
-
-        mbuf_remove(&r->mhdr, mbuf);
-        mbuf_put(mbuf);
-    }
-    ASSERT(STAILQ_EMPTY(&r->mhdr));
 
     for (i = 0; i < ncontinuum; i++) {     /* prepend mget header, and forward it */
         struct msg *sub_msg = sub_msgs[i];
@@ -1448,7 +1380,7 @@ memcache_pre_coalesce(struct msg *r)
  * copy one response from src to dst
  * return bytes copied
  * */
-uint32_t
+static rstatus_t
 memcache_copy_bulk(struct msg *dst, struct msg *src)
 {
     struct mbuf *mbuf, *nbuf;
@@ -1543,7 +1475,7 @@ memcache_post_coalesce(struct msg *request)
         return;
     }
 
-    for (i = 1; i < request->narg; i++) {               /* for each  key */
+    for (i = 0; i < array_n(request->keys); i++) {      /* for each  key */
         sub_msg = request->frag_seq[i]->peer;           /* get it's peer response */
         if (sub_msg == NULL) {
             response->owner->err = 1;

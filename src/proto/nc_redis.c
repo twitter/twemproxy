@@ -1026,17 +1026,23 @@ redis_parse_req(struct msg *r)
 
             if (*m != CR) {
                 goto error;
+            } else {        /* got a key */
+                struct keypos *kpos;
+
+                p = m;      /* move forward by rlen bytes */
+                r->rlen = 0;
+                m = r->token;
+                r->token = NULL;
+
+                kpos = array_push(r->keys);
+                if (kpos == NULL) {
+                    goto enomem;
+                }
+                kpos->start = m;
+                kpos->end = p;
+
+                state = SW_KEY_LF;
             }
-
-            p = m; /* move forward by rlen bytes */
-            r->rlen = 0;
-            m = r->token;
-            r->token = NULL;
-
-            r->key_start = m;
-            r->key_end = p;
-
-            state = SW_KEY_LF;
 
             break;
 
@@ -1508,6 +1514,15 @@ done:
                 r->state, r->pos - b->pos, b->last - b->pos);
     return;
 
+enomem:
+    r->result = MSG_PARSE_ERROR;
+    r->state = state;
+
+    log_hexdump(LOG_INFO, b->pos, mbuf_length(b), "out of memory on parse req %"PRIu64" "
+                "res %d type %d state %d", r->id, r->result, r->type, r->state);
+
+    return;
+
 error:
     r->result = MSG_PARSE_ERROR;
     r->state = state;
@@ -1929,8 +1944,10 @@ error:
 }
 
 /*
- * copy one response from src to dst
- * return bytes copied
+ * copy one bulk from src to dst
+ *
+ * if dst == NULL, we just eat the bulk
+ *
  * */
 static rstatus_t
 redis_copy_bulk(struct msg *dst, struct msg *src)
@@ -1975,22 +1992,28 @@ redis_copy_bulk(struct msg *dst, struct msg *src)
         if (mbuf_length(mbuf) <= len) {     /* steal this buf from src to dst */
             nbuf = STAILQ_NEXT(mbuf, next);
             mbuf_remove(&src->mhdr, mbuf);
-            mbuf_insert(&dst->mhdr, mbuf);
+            if (dst != NULL) {
+                mbuf_insert(&dst->mhdr, mbuf);
+            }
             len -= mbuf_length(mbuf);
             mbuf = nbuf;
         } else {                             /* split it */
-            nbuf = mbuf_get();
-            if (nbuf == NULL) {
-                return NC_ENOMEM;
+            if (dst != NULL) {
+                nbuf = mbuf_get();
+                if (nbuf == NULL) {
+                    return NC_ENOMEM;
+                }
+                mbuf_copy(nbuf, mbuf->pos, len);
+                mbuf_insert(&dst->mhdr, nbuf);
             }
-            mbuf_copy(nbuf, mbuf->pos, len);
-            mbuf_insert(&dst->mhdr, nbuf);
             mbuf->pos += len;
             break;
         }
     }
 
-    dst->mlen += bytes;
+    if (dst != NULL) {
+        dst->mlen += bytes;
+    }
     src->mlen -= bytes;
     log_debug(LOG_VVERB, "redis_copy_bulk copy bytes: %d", bytes);
     return NC_OK;
@@ -2081,70 +2104,13 @@ redis_pre_coalesce(struct msg *r)
     }
 }
 
-/*
- * parse next key in mget request, update
- * r->key_start
- * r->key_end
- * */
-static rstatus_t
-redis_argx_update_keypos(struct msg *r)
-{
-    struct mbuf *mbuf;
-    uint8_t *p;
-    uint32_t len = 0;
-    uint32_t keylen = 0;
-
-    for (mbuf = STAILQ_FIRST(&r->mhdr);
-         mbuf && mbuf_empty(mbuf);
-         mbuf = STAILQ_FIRST(&r->mhdr)) {
-
-        mbuf_remove(&r->mhdr, mbuf);
-        mbuf_put(mbuf);
-    }
-
-    p = mbuf->pos;
-    ASSERT(*p == '$');
-    p++;
-
-    len = 0;
-    for (; p < mbuf->last && isdigit(*p); p++) {
-        len = len * 10 + (uint32_t)(*p - '0');
-    }
-
-    keylen = len;
-    len += (uint32_t)CRLF_LEN * 2;
-    len += (uint32_t)(p - mbuf->pos);
-
-    if (mbuf_length(mbuf) < len - CRLF_LEN) { /* key no in this buf, remove it. */
-        len -= mbuf_length(mbuf);
-        mbuf_remove(&r->mhdr, mbuf);
-        mbuf_put(mbuf);
-
-        mbuf = STAILQ_FIRST(&r->mhdr);
-    }
-
-    r->key_end = mbuf->pos + len - CRLF_LEN;
-    r->key_start = r->key_end - keylen;
-    mbuf->pos += len - CRLF_LEN;
-
-    len = CRLF_LEN;
-    while (mbuf_length(mbuf) < len) {        /* eat CRLF */
-        len -= mbuf_length(mbuf);
-        mbuf->pos = mbuf->last;
-
-        mbuf = STAILQ_NEXT(mbuf, next);
-    }
-    mbuf->pos += len;
-
-    return NC_OK;
-}
-
 static rstatus_t
 redis_append_key(struct msg *r, uint8_t *key, uint32_t keylen)
 {
     uint32_t len;
     struct mbuf *mbuf;
     uint8_t printbuf[32];
+    struct keypos *kpos;
 
     /* 1. keylen */
     len = (uint32_t)nc_snprintf(printbuf, sizeof(printbuf), "$%d\r\n", keylen);
@@ -2160,10 +2126,16 @@ redis_append_key(struct msg *r, uint8_t *key, uint32_t keylen)
     if (mbuf == NULL) {
         return NC_ENOMEM;
     }
-    r->key_start = mbuf->last;   /* update key_start */
+
+    kpos = array_push(r->keys);
+    if (kpos == NULL) {
+        return NC_ENOMEM;
+    }
+
+    kpos->start = mbuf->last;
+    kpos->end = mbuf->last + keylen;
     mbuf_copy(mbuf, key, keylen);
     r->mlen += keylen;
-    r->key_end = mbuf->last;     /* update key_start */
 
     /* 3. CRLF */
     mbuf = msg_ensure_mbuf(r, CRLF_LEN);
@@ -2172,45 +2144,60 @@ redis_append_key(struct msg *r, uint8_t *key, uint32_t keylen)
     }
     mbuf_copy(mbuf, (uint8_t *)CRLF, CRLF_LEN);
     r->mlen += (uint32_t)CRLF_LEN;
+
     return NC_OK;
 }
 
 /*
  * input a msg, return a msg chain.
- * ncontinuum is # bucket
+ * ncontinuum is the number of backend redis/memcache server
  *
- * Attach unique fragment id to all fragments of the message vector. All
- * fragments of the message, including the first fragment point to the
- * first fragment through the frag_owner pointer.
+ * the original msg will be fragment into at most ncontinuum fragments.
+ * all the keys map to the same backend will group into one fragment.
  *
- * For example, a message vector given below is split into 3 fragments:
- *  'get key1 key2 key3\r\n'
- *  Or,
- *  '*4\r\n$4\r\nmget\r\n$4\r\nkey1\r\n$4\r\nkey2\r\n$4\r\nkey3\r\n'
+ * frag_id:
+ * a unique fragment id for all fragments of the message vector. including the orig msg.
  *
- *   +--------------+
- *   |  msg vector  |
- *   |(original msg)|
- *   +--------------+
+ * frag_owner:
+ * All fragments of the message use frag_owner point to the orig msg
  *
- *       frag_owner         frag_owner
- *     /-----------+      /------------+
- *     |           |      |            |
- *     |           v      v            |
- *   +--------------------+     +---------------------+
- *   |   frag_id = 10     |     |   frag_id = 10      |
- *   |     nfrag = 3      |     |      nfrag = 0      |
- *   +--------------------+     +---------------------+
- *               ^
- *               |  frag_owner
- *               \-------------+
- *                             |
- *                             |
- *                  +---------------------+
- *                  |   frag_id = 10      |
- *                  |      nfrag = 0      |
- *                  +---------------------+
+ * frag_seq:
+ * the map from each key to it's fragment, (only in the orig msg)
  *
+ * For example, a message vector with 3 keys:
+ *
+ *     get key1 key2 key3
+ *
+ * suppose we have 2 backend server, and the map is:
+ *
+ *     key1  => backend 0
+ *     key2  => backend 1
+ *     key3  => backend 0
+ *
+ * it will fragment like this:
+ *
+ *   +-----------------+
+ *   |  msg vector     |
+ *   |(original msg)   |
+ *   |key1, key2, key3 |
+ *   +-----------------+
+ *
+ *                                             frag_owner
+ *                        /--------------------------------------+
+ *       frag_owner      /                                       |
+ *     /-----------+    | /------------+ frag_owner              |
+ *     |           |    | |            |                         |
+ *     |           v    v v            |                         |
+ *   +--------------------+     +---------------------+     +----+----------------+
+ *   |   frag_id = 10     |     |   frag_id = 10      |     |   frag_id = 10      |
+ *   |     nfrag = 3      |     |      nfrag = 0      |     |      nfrag = 0      |
+ *   | frag_seq = x x x   |     |     key1, key3      |     |         key2        |
+ *   +------------|-|-|---+     +---------------------+     +---------------------+
+ *                | | |          ^    ^                          ^
+ *                | \ \          |    |                          |
+ *                |  \ ----------+    |                          |
+ *                +---\---------------+                          |
+ *                     ------------------------------------------+
  *
  */
 static rstatus_t
@@ -2222,14 +2209,15 @@ redis_fragment_argx(struct msg *r, uint32_t ncontinuum, struct msg_tqh *frag_msg
     uint32_t i;
     rstatus_t status;
 
+    ASSERT(array_n(r->keys) == (r->narg - 1) / key_step);
+
     sub_msgs = nc_zalloc(ncontinuum * sizeof(*sub_msgs));
     if (sub_msgs == NULL) {
         return NC_ENOMEM;
     }
 
-    /* the point for each key, point to sub_msgs elements */
     ASSERT(r->frag_seq == NULL);
-    r->frag_seq = nc_alloc(r->narg * sizeof(*r->frag_seq));
+    r->frag_seq = nc_alloc(array_n(r->keys) * sizeof(*r->frag_seq));
     if (r->frag_seq == NULL) {
         nc_free(sub_msgs);
         return NC_ENOMEM;
@@ -2255,16 +2243,11 @@ redis_fragment_argx(struct msg *r, uint32_t ncontinuum, struct msg_tqh *frag_msg
     r->nfrag = 0;
     r->frag_owner = r;
 
-    for (i = 1; i < r->narg; i++) {        /* for each  key */
-        uint8_t *key;
-        uint32_t keylen;
-        uint32_t idx;
+    for (i = 0; i < array_n(r->keys); i++) {        /* for each key */
         struct msg *sub_msg;
+        struct keypos *kpos = array_get(r->keys, i);
+        uint32_t idx = msg_backend_idx(r, kpos->start, kpos->end - kpos->start);
 
-        redis_argx_update_keypos(r);
-        key = r->key_start;
-        keylen = (uint32_t)(r->key_end - r->key_start);
-        idx = msg_backend_idx(r);
         if (sub_msgs[idx] == NULL) {
             sub_msgs[idx] = msg_get(r->owner, r->request, r->redis);
             if (sub_msgs[idx] == NULL) {
@@ -2272,39 +2255,33 @@ redis_fragment_argx(struct msg *r, uint32_t ncontinuum, struct msg_tqh *frag_msg
                 return NC_ENOMEM;
             }
         }
-        sub_msg = sub_msgs[idx];
-
-        r->frag_seq[i] = sub_msgs[idx];
+        r->frag_seq[i] = sub_msg = sub_msgs[idx];
 
         sub_msg->narg++;
-        status = redis_append_key(sub_msg, key, keylen);
+        status = redis_append_key(sub_msg, kpos->start, kpos->end - kpos->start);
         if (status != NC_OK) {
             nc_free(sub_msgs);
             return status;
         }
 
-        if (key_step == 1) {            /* mget,del */
+        if (key_step == 1) {                            /* mget,del */
             continue;
-        } else {                        /* mset */
+        } else {                                        /* mset */
+            status = redis_copy_bulk(NULL, r);          /* eat key */
+            if (status != NC_OK) {
+                nc_free(sub_msgs);
+                return status;
+            }
+
             status = redis_copy_bulk(sub_msg, r);
             if (status != NC_OK) {
                 nc_free(sub_msgs);
                 return status;
             }
 
-            i++;
             sub_msg->narg++;
         }
     }
-
-    for (mbuf = STAILQ_FIRST(&r->mhdr);
-         mbuf && mbuf_empty(mbuf);
-         mbuf = STAILQ_FIRST(&r->mhdr)) {
-
-        mbuf_remove(&r->mhdr, mbuf);
-        mbuf_put(mbuf);
-    }
-    ASSERT(STAILQ_EMPTY(&r->mhdr));
 
     for (i = 0; i < ncontinuum; i++) {     /* prepend mget header, and forward it */
         struct msg *sub_msg = sub_msgs[i];
@@ -2399,7 +2376,7 @@ redis_post_coalesce_mget(struct msg *request)
         return;
     }
 
-    for (i = 1; i < request->narg; i++) {               /* for each  key */
+    for (i = 0; i < array_n(request->keys); i++) {      /* for each key */
         sub_msg = request->frag_seq[i]->peer;           /* get it's peer response */
         if (sub_msg == NULL) {
             response->owner->err = 1;

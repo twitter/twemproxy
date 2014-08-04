@@ -40,6 +40,7 @@ req_log(struct msg *req)
     char *peer_str;            /* peer client ip:port */
     uint32_t req_len, rsp_len; /* request and response length */
     struct string *req_type;   /* request type string */
+    struct keypos *kpos;
 
     if (log_loggable(LOG_NOTICE) == 0) {
         return;
@@ -69,8 +70,13 @@ req_log(struct msg *req)
     req_len = req->mlen;
     rsp_len = (rsp != NULL) ? rsp->mlen : 0;
 
-    if (req->key_end) {
-        req->key_end[0] = '\0';
+    if (array_n(req->keys) < 1) {
+        return;
+    }
+
+    kpos = array_get(req->keys, 0);
+    if (kpos->end != NULL) {
+        *(kpos->end) = '\0';
     }
 
     /*
@@ -87,7 +93,7 @@ req_log(struct msg *req)
               " key0 '%s' peer '%s' done %d error %d",
               req->id, req->owner->sd, req_time / 1000, req_time % 1000,
               req_type->len, req_type->data, req->narg, req_len, rsp_len,
-              req->key_start, peer_str, req->done, req->error);
+              kpos->start, peer_str, req->done, req->error);
 }
 
 void
@@ -516,6 +522,7 @@ req_forward(struct context *ctx, struct conn *c_conn, struct msg *msg)
     struct server_pool *pool;
     uint8_t *key;
     uint32_t keylen;
+    struct keypos *kpos;
 
     ASSERT(c_conn->client && !c_conn->proxy);
 
@@ -525,8 +532,11 @@ req_forward(struct context *ctx, struct conn *c_conn, struct msg *msg)
     }
 
     pool = c_conn->owner;
-    key = msg->key_start;
-    keylen = (uint32_t)(msg->key_end - msg->key_start);
+
+    ASSERT(array_n(msg->keys) > 0);
+    kpos = array_get(msg->keys, 0);
+    key = kpos->start;
+    keylen = (uint32_t)(kpos->end - kpos->start);
 
     s_conn = server_pool_conn(ctx, c_conn->owner, key, keylen);
     if (s_conn == NULL) {

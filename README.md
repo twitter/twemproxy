@@ -260,7 +260,7 @@ https://github.com/twitter/twemproxy/issues
 ## Contributors
 
 * Manju Rajashekhar ([@manju](https://twitter.com/manju))
-* Lin Yang [@idning](https://github.com/idning)
+* Lin Yang ([@idning](https://github.com/idning))
 
 ## License
 

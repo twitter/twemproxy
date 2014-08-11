@@ -257,10 +257,12 @@ Have a bug or a question? Please create an issue here on GitHub!
 
 https://github.com/twitter/twemproxy/issues
 
-## Contributors
+## Committers
 
 * Manju Rajashekhar ([@manju](https://twitter.com/manju))
 * Lin Yang ([@idning](https://github.com/idning))
+
+Thank you to all of our [contributors](https://github.com/twitter/twemproxy/graphs/contributors)!
 
 ## License
 

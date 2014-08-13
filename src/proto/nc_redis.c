@@ -2094,6 +2094,9 @@ redis_pre_coalesce(struct msg *r)
             mbuf = mbuf_get();
             if (mbuf == NULL) {
                 pr->error = 1;
+                if (pr->frag_owner) {
+                    pr->frag_owner->nfrag_error++;
+                }
                 pr->err = EINVAL;
                 return;
             }
@@ -2111,6 +2114,9 @@ redis_pre_coalesce(struct msg *r)
         log_hexdump(LOG_ERR, mbuf->pos, mbuf_length(mbuf), "rsp fragment "
                     "with unknown type %d", r->type);
         pr->error = 1;
+        if (pr->frag_owner) {
+            pr->frag_owner->nfrag_error++;
+        }
         pr->err = EINVAL;
         break;
     }

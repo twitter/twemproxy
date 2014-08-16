@@ -43,6 +43,7 @@
 
 #define CONF_DEFAULT_HASH                    HASH_FNV1A_64
 #define CONF_DEFAULT_DIST                    DIST_KETAMA
+#define CONF_DEFAULT_HASH_TAG_POS            1              /* rank (i.e. nth) */
 #define CONF_DEFAULT_TIMEOUT                 -1
 #define CONF_DEFAULT_LISTEN_BACKLOG          512
 #define CONF_DEFAULT_CLIENT_CONNECTIONS      0
@@ -76,6 +77,7 @@ struct conf_pool {
     struct conf_listen listen;                /* listen: */
     hash_type_t        hash;                  /* hash: */
     struct string      hash_tag;              /* hash_tag: */
+    int                hash_tag_pos;          /* hash_tag_pos: */
     dist_type_t        distribution;          /* distribution: */
     int                timeout;               /* timeout: */
     int                backlog;               /* backlog: */

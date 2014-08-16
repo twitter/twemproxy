@@ -508,12 +508,26 @@ req_forward(struct context *ctx, struct conn *c_conn, struct msg *msg)
         struct string *tag = &pool->hash_tag;
         uint8_t *tag_start, *tag_end;
 
+        int cur_tag_pos = 0;
         tag_start = nc_strchr(msg->key_start, msg->key_end, tag->data[0]);
-        if (tag_start != NULL) {
-            tag_end = nc_strchr(tag_start + 1, msg->key_end, tag->data[1]);
-            if (tag_end != NULL) {
-                key = tag_start + 1;
-                keylen = (uint32_t)(tag_end - key);
+        for(; cur_tag_pos < *(&pool->hash_tag_pos); cur_tag_pos++) {
+            if (tag_start != NULL) {
+                tag_end = nc_strchr(tag_start + 1, msg->key_end, tag->data[1]);
+                if (tag_end != NULL) {
+                    key = tag_start + 1;
+                    if(cur_tag_pos+1 == *(&pool->hash_tag_pos)) {
+                        keylen = (uint32_t)(tag_end - key);
+                    }
+                    else {
+                        tag_start = tag_end;
+                    }
+                }
+                else {
+                    break;
+                }
+            }
+            else {
+                break;
             }
         }
     }

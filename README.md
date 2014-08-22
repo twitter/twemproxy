@@ -226,7 +226,11 @@ If you are deploying nutcracker in production, you might consider reading throug
 + [puppet module](https://github.com/wuakitv/puppet-twemproxy)
 + [nutcracker-web](https://github.com/kontera-technologies/nutcracker-web)
 + [munin-plugin](https://github.com/eveiga/contrib/tree/nutcracker/plugins/nutcracker)
++ [collectd-plugin](https://github.com/bewie/collectd-twemproxy)
 + [redis-twemproxy agent](https://github.com/Stono/redis-twemproxy-agent)
++ [sensu-metrics](https://github.com/sensu/sensu-community-plugins/blob/master/plugins/twemproxy/twemproxy-metrics.rb)
++ [redis-mgr](https://github.com/idning/redis-mgr)
++ [smitty for twemproxy failover](https://github.com/areina/smitty)
 
 ## Users
 + [Pinterest](http://pinterest.com/)
@@ -241,6 +245,11 @@ If you are deploying nutcracker in production, you might consider reading throug
 + [Bright](http://www.bright.com/)
 + [56.com](http://www.56.com/)
 + [Snapchat](http://www.snapchat.com/)
++ [Digg](http://digg.com/)
++ [Gawkermedia](http://advertising.gawker.com/)
++ [3scale.net](http://3scale.net)
++ [Ooyala](http://www.ooyala.com)
++ [Twitch](http://twitch.tv)
 
 ## Issues and Support
 
@@ -248,9 +257,12 @@ Have a bug or a question? Please create an issue here on GitHub!
 
 https://github.com/twitter/twemproxy/issues
 
-## Contributors
+## Committers
 
 * Manju Rajashekhar ([@manju](https://twitter.com/manju))
+* Lin Yang ([@idning](https://github.com/idning))
+
+Thank you to all of our [contributors](https://github.com/twitter/twemproxy/graphs/contributors)!
 
 ## License
 

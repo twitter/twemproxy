@@ -116,6 +116,13 @@ static struct msg_tqh free_msgq; /* free msg q */
 static struct rbtree tmo_rbt;    /* timeout rbtree */
 static struct rbnode tmo_rbs;    /* timeout rbtree sentinel */
 
+#define DEFINE_ACTION(_name) string(#_name),
+static struct string msg_type_strings[] = {
+    MSG_TYPE_CODEC( DEFINE_ACTION )
+    null_string
+};
+#undef DEFINE_ACTION
+
 static struct msg *
 msg_from_rbe(struct rbnode *node)
 {
@@ -212,6 +219,7 @@ done:
 
     STAILQ_INIT(&msg->mhdr);
     msg->mlen = 0;
+    msg->start_ts = 0;
 
     msg->state = 0;
     msg->pos = NULL;
@@ -294,6 +302,10 @@ msg_get(struct conn *conn, bool request, bool redis)
         msg->post_splitcopy = memcache_post_splitcopy;
         msg->pre_coalesce = memcache_pre_coalesce;
         msg->post_coalesce = memcache_post_coalesce;
+    }
+
+    if (log_loggable(LOG_NOTICE) != 0) {
+        msg->start_ts = nc_usec_now();
     }
 
     log_debug(LOG_VVERB, "get msg %p id %"PRIu64" request %d owner sd %d",
@@ -404,6 +416,12 @@ msg_deinit(void)
         msg_free(msg);
     }
     ASSERT(nfree_msgq == 0);
+}
+
+struct string *
+msg_type_string(msg_type_t type)
+{
+    return &msg_type_strings[type];
 }
 
 bool

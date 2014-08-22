@@ -1,4 +1,4 @@
-## Redis Commands Supported
+## Redis Command Support
 
 ### Keys Command
 
@@ -227,14 +227,20 @@
     |      ZINCRBY      |    Yes     | ZINCRBY key increment member                                                                                        |
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
     |     ZINTERSTORE   |    Yes*    | ZINTERSTORE destination numkeys key [key ...] [WEIGHTS weight [weight ...]] [AGGREGATE SUM|MIN|MAX]                 |
+    +------------------------------------------------------------------------------------------------------------------------------------------------------+
+    |      ZLEXCOUNT    |    Yes     | ZLEXCOUNT key min max                                                                                               |
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
     |      ZRANGE       |    Yes     | ZRANGE key start stop [WITHSCORES]                                                                                  |
+    +------------------------------------------------------------------------------------------------------------------------------------------------------+
+    |    ZRANGEBYLEX    |    Yes     | ZRANGEBYLEX key min max [LIMIT offset count]                                                                        |
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
     |    ZRANGEBYSCORE  |    Yes     | ZRANGEBYSCORE key min max [WITHSCORES] [LIMIT offset count]                                                         |
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
     |      ZRANK        |    Yes     | ZRANK key member                                                                                                    |
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
     |       ZREM        |    Yes     | ZREM key member [member ...]                                                                                        |
+    +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
+    |   ZREMRANGEBYLEX  |    Yes     | ZREMRANGEBYLEX key min max                                                                                          |
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
     |   ZREMRANGEBYRANK |    Yes     | ZREMRANGEBYRANK key start stop                                                                                      |
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
@@ -254,6 +260,20 @@
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
 
 * ZINTERSTORE and ZUNIONSTORE support requires that the supplied keys hash to the same server. You can ensure this by using the same [hashtag](notes/recommendation.md#hash-tags) for all keys in the command. Twemproxy does no checking on its end to verify that all the keys hash to the same server, and the given command is forwarded to the server that the first key hashes to.
+
+### HyperLogLog
+
+    +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
+    |      Command      | Supported? | Format                                                                                                              |
+    +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
+    |       PFADD       |    Yes     | PFADD key element [element ...]                                                                                     |
+    +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
+    |      PFCOUNT      |    Yes     | PFCOUNT key [key ...]                                                                                               |
+    +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
+    |      PFMERGE      |    Yes*    | PFMERGE destkey sourcekey [sourcekey ...]                                                                           |
+    +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
+
+* PFMERGE support requires that the supplied keys hash to the same server. You can ensure this by using the same [hashtag](notes/recommendation.md#hash-tags) for all keys in the command. Twemproxy does no checking on its end to verify that all the keys hash to the same server, and the given command is forwarded to the server that the first key hashes to.
 
 
 ### Pub/Sub

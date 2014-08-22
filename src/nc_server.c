@@ -742,6 +742,18 @@ server_pool_each_set_owner(void *elem, void *data)
     return NC_OK;
 }
 
+static rstatus_t
+server_pool_each_calc_connections(void *elem, void *data)
+{
+    struct server_pool *sp = elem;
+    struct context *ctx = data;
+
+    ctx->max_nsconn += sp->server_connections * array_n(&sp->server);
+    ctx->max_nsconn += 1; /* pool listening socket */
+
+    return NC_OK;
+}
+
 rstatus_t
 server_pool_run(struct server_pool *pool)
 {
@@ -797,6 +809,14 @@ server_pool_init(struct array *server_pool, struct array *conf_pool,
 
     /* set ctx as the server pool owner */
     status = array_each(server_pool, server_pool_each_set_owner, ctx);
+    if (status != NC_OK) {
+        server_pool_deinit(server_pool);
+        return status;
+    }
+
+    /* compute max server connections */
+    ctx->max_nsconn = 0;
+    status = array_each(server_pool, server_pool_each_calc_connections, ctx);
     if (status != NC_OK) {
         server_pool_deinit(server_pool);
         return status;

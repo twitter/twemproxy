@@ -1557,6 +1557,8 @@ conf_add_server(struct conf *cf, struct command *cmd, void *conf)
     field->weight = nc_atoi(weight, weightlen);
     if (field->weight < 0) {
         return "has an invalid weight in \"hostname:port:weight [name]\" format string";
+    } else if (field->weight == 0) {
+        return "has a zero weight in \"hostname:port:weight [name]\" format string";
     }
 
     if (value->data[0] != '/') {

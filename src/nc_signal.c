@@ -110,7 +110,7 @@ signal_handler(int signo)
         break;
 
     case SIGSEGV:
-        nc_stacktrace(1);
+        log_stacktrace();
         actionstr = ", core dumping";
         raise(SIGSEGV);
         break;
@@ -119,7 +119,7 @@ signal_handler(int signo)
         NOT_REACHED();
     }
 
-    loga("signal %d (%s) received%s", signo, sig->signame, actionstr);
+    log_safe("signal %d (%s) received%s", signo, sig->signame, actionstr);
 
     if (action != NULL) {
         action();

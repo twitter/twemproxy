@@ -1956,6 +1956,7 @@ redis_copy_bulk(struct msg *dst, struct msg *src)
     uint8_t *p;
     uint32_t len = 0;
     uint32_t bytes = 0;
+    rstatus_t status;
 
     for (mbuf = STAILQ_FIRST(&src->mhdr);
          mbuf && mbuf_empty(mbuf);
@@ -1975,7 +1976,7 @@ redis_copy_bulk(struct msg *dst, struct msg *src)
     p++;
 
     if (p[0] == '-' && p[1] == '1') {
-        len = 1 + 2 + CRLF_LEN;
+        len = 1 + 2 + CRLF_LEN;             /* $-1\r\n */
         p = mbuf->pos + len;
     } else {
         len = 0;
@@ -1999,12 +2000,10 @@ redis_copy_bulk(struct msg *dst, struct msg *src)
             mbuf = nbuf;
         } else {                             /* split it */
             if (dst != NULL) {
-                nbuf = mbuf_get();
-                if (nbuf == NULL) {
-                    return NC_ENOMEM;
+                status = msg_append(dst, mbuf->pos, len);
+                if (status != NC_OK) {
+                    return status;
                 }
-                mbuf_copy(nbuf, mbuf->pos, len);
-                mbuf_insert(&dst->mhdr, nbuf);
             }
             mbuf->pos += len;
             break;

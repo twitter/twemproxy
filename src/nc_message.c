@@ -480,6 +480,8 @@ msg_append(struct msg *msg, uint8_t *pos, size_t n)
 {
     struct mbuf *mbuf;
 
+    ASSERT(n <= mbuf_data_size());
+
     mbuf = msg_ensure_mbuf(msg, n);
     if (mbuf == NULL) {
         return NC_ENOMEM;

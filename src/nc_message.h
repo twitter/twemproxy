@@ -117,6 +117,7 @@ typedef enum msg_type {
     MSG_REQ_REDIS_RPUSHX,
     MSG_REQ_REDIS_SADD,                   /* redis requests - sets */
     MSG_REQ_REDIS_SCARD,
+    MSG_REQ_REDIS_SCRIPT,
     MSG_REQ_REDIS_SDIFF,
     MSG_REQ_REDIS_SDIFFSTORE,
     MSG_REQ_REDIS_SELECT,

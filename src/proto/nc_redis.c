@@ -196,6 +196,8 @@ redis_argn(struct msg *r)
     case MSG_REQ_REDIS_SUNIONSTORE:
     case MSG_REQ_REDIS_SRANDMEMBER:
 
+    case MSG_REQ_REDIS_SCRIPT:
+
     case MSG_REQ_REDIS_ZADD:
     case MSG_REQ_REDIS_ZINTERSTORE:
     case MSG_REQ_REDIS_ZRANGE:
@@ -736,6 +738,11 @@ redis_parse_req(struct msg *r)
 
                 if (str6icmp(m, 's', 'e', 'l', 'e', 'c', 't')) {
                     r->type = MSG_REQ_REDIS_SELECT;
+                    break;
+                }
+
+                if (str6icmp(m, 's', 'c', 'r', 'i', 'p', 't')) {
+                    r->type = MSG_REQ_REDIS_SCRIPT;
                     break;
                 }
 

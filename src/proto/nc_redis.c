@@ -1877,7 +1877,28 @@ redis_parse_rsp(struct msg *r)
                  *
                  * Here, we only handle a multi bulk reply element that
                  * are either integer reply or bulk reply.
+                 *
+                 * there is a special case for sscan/hscan/zscan, these command
+                 * replay a number and a multi bulk like this:
+                 *
+                 * - mulit-bulk
+                 *    - cursor
+                 *    - mulit-bulk
+                 *       - val1
+                 *       - val2
+                 *       - val3
+                 *
+                 * in this case, there is only one sub-multi-bulk,
+                 * and it's the last element of parent,
+                 * we can handle it like tail-recursive.
+                 *
                  */
+                if (ch == '*') {    /* for sscan/hscan/zscan only */
+                    p = p - 1;      /* go back by 1 byte */
+                    state = SW_MULTIBULK;
+                    break;
+                }
+
                 if (ch != '$' && ch != ':') {
                     goto error;
                 }

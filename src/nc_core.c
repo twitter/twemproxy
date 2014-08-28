@@ -208,9 +208,9 @@ core_send(struct context *ctx, struct conn *conn)
 
     status = conn->send(ctx, conn);
     if (status != NC_OK) {
-        log_debug(LOG_INFO, "send on %c %d failed: %s",
+        log_debug(LOG_INFO, "send on %c %d failed: status: %d errno: %d %s",
                   conn->client ? 'c' : (conn->proxy ? 'p' : 's'), conn->sd,
-                  strerror(errno));
+                  status, errno, strerror(errno));
     }
 
     return status;

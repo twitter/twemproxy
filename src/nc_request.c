@@ -40,6 +40,7 @@ req_log(struct msg *req)
     char *peer_str;            /* peer client ip:port */
     uint32_t req_len, rsp_len; /* request and response length */
     struct string *req_type;   /* request type string */
+    struct keypos *kpos;
 
     if (log_loggable(LOG_NOTICE) == 0) {
         return;
@@ -54,6 +55,14 @@ req_log(struct msg *req)
     if (req->mlen == 0) {
         return;
     }
+    /*
+     * there is a race scenario where a requests comes in, the log level is not LOG_NOTICE,
+     * and before the response arrives you modify the log level to LOG_NOTICE
+     * using SIGTTIN OR SIGTTOU, then req_log() wouldn't have msg->start_ts set
+     */
+    if (req->start_ts == 0) {
+        return;
+    }
 
     req_time = nc_usec_now() - req->start_ts;
 
@@ -61,8 +70,13 @@ req_log(struct msg *req)
     req_len = req->mlen;
     rsp_len = (rsp != NULL) ? rsp->mlen : 0;
 
-    if (req->key_end) {
-        req->key_end[0] = '\0';
+    if (array_n(req->keys) < 1) {
+        return;
+    }
+
+    kpos = array_get(req->keys, 0);
+    if (kpos->end != NULL) {
+        *(kpos->end) = '\0';
     }
 
     /*
@@ -79,7 +93,7 @@ req_log(struct msg *req)
               " key0 '%s' peer '%s' done %d error %d",
               req->id, req->owner->sd, req_time / 1000, req_time % 1000,
               req_type->len, req_type->data, req->narg, req_len, rsp_len,
-              req->key_start, peer_str, req->done, req->error);
+              kpos->start, peer_str, req->done, req->error);
 }
 
 void
@@ -135,6 +149,10 @@ req_done(struct conn *conn, struct msg *msg)
         return true;
     }
 
+    if (msg->nfrag_done < msg->nfrag) {
+        return false;
+    }
+
     /* check all fragments of the given request vector are done */
 
     for (pmsg = msg, cmsg = TAILQ_PREV(msg, msg_tqh, c_tqe);
@@ -155,10 +173,6 @@ req_done(struct conn *conn, struct msg *msg)
         }
     }
 
-    if (!pmsg->last_fragment) {
-        return false;
-    }
-
     /*
      * At this point, all the fragments including the last fragment have
      * been received.
@@ -168,7 +182,7 @@ req_done(struct conn *conn, struct msg *msg)
      */
 
     msg->fdone = 1;
-    nfragment = 1;
+    nfragment = 0;
 
     for (pmsg = msg, cmsg = TAILQ_PREV(msg, msg_tqh, c_tqe);
          cmsg != NULL && cmsg->frag_id == id;
@@ -193,6 +207,7 @@ req_done(struct conn *conn, struct msg *msg)
 
     return true;
 }
+
 
 /*
  * Return true if request is in error, false otherwise
@@ -411,6 +426,26 @@ req_recv_next(struct context *ctx, struct conn *conn, bool alloc)
     return msg;
 }
 
+static rstatus_t
+req_make_reply(struct context *ctx, struct conn *conn, struct msg *req)
+{
+    struct msg *msg;
+
+    msg = msg_get(conn, true, conn->redis); /* replay */
+    if (msg == NULL) {
+        conn->err = errno;
+        return NC_ENOMEM;
+    }
+
+    req->peer = msg;
+    msg->peer = req;
+    msg->request = 0;
+
+    req->done = 1;
+    conn->enqueue_outq(ctx, conn, req);
+    return NC_OK;
+}
+
 static bool
 req_filter(struct context *ctx, struct conn *conn, struct msg *msg)
 {
@@ -487,6 +522,7 @@ req_forward(struct context *ctx, struct conn *c_conn, struct msg *msg)
     struct server_pool *pool;
     uint8_t *key;
     uint32_t keylen;
+    struct keypos *kpos;
 
     ASSERT(c_conn->client && !c_conn->proxy);
 
@@ -496,32 +532,11 @@ req_forward(struct context *ctx, struct conn *c_conn, struct msg *msg)
     }
 
     pool = c_conn->owner;
-    key = NULL;
-    keylen = 0;
 
-    /*
-     * If hash_tag: is configured for this server pool, we use the part of
-     * the key within the hash tag as an input to the distributor. Otherwise
-     * we use the full key
-     */
-    if (!string_empty(&pool->hash_tag)) {
-        struct string *tag = &pool->hash_tag;
-        uint8_t *tag_start, *tag_end;
-
-        tag_start = nc_strchr(msg->key_start, msg->key_end, tag->data[0]);
-        if (tag_start != NULL) {
-            tag_end = nc_strchr(tag_start + 1, msg->key_end, tag->data[1]);
-            if (tag_end != NULL) {
-                key = tag_start + 1;
-                keylen = (uint32_t)(tag_end - key);
-            }
-        }
-    }
-
-    if (keylen == 0) {
-        key = msg->key_start;
-        keylen = (uint32_t)(msg->key_end - msg->key_start);
-    }
+    ASSERT(array_n(msg->keys) > 0);
+    kpos = array_get(msg->keys, 0);
+    key = kpos->start;
+    keylen = (uint32_t)(kpos->end - kpos->start);
 
     s_conn = server_pool_conn(ctx, c_conn->owner, key, keylen);
     if (s_conn == NULL) {
@@ -552,6 +567,12 @@ void
 req_recv_done(struct context *ctx, struct conn *conn, struct msg *msg,
               struct msg *nmsg)
 {
+    rstatus_t status;
+    struct server_pool *pool;
+    struct msg_tqh frag_msgq;
+    struct msg *sub_msg;
+    struct msg *tmsg; 			/* tmp next message */
+
     ASSERT(conn->client && !conn->proxy);
     ASSERT(msg->request);
     ASSERT(msg->owner == conn);
@@ -565,7 +586,40 @@ req_recv_done(struct context *ctx, struct conn *conn, struct msg *msg,
         return;
     }
 
-    req_forward(ctx, conn, msg);
+    /* do fragment */
+    pool = conn->owner;
+    TAILQ_INIT(&frag_msgq);
+    status = msg->fragment(msg, pool->ncontinuum, &frag_msgq);
+    if (status != NC_OK) {
+        if (!msg->noreply) {
+            conn->enqueue_outq(ctx, conn, msg);
+        }
+        req_forward_error(ctx, conn, msg);
+    }
+
+    /* if no fragment happened */
+    if (TAILQ_EMPTY(&frag_msgq)) {
+        req_forward(ctx, conn, msg);
+        return;
+    }
+
+    status = req_make_reply(ctx, conn, msg);
+    if (status != NC_OK) {
+        if (!msg->noreply) {
+            conn->enqueue_outq(ctx, conn, msg);
+        }
+        req_forward_error(ctx, conn, msg);
+    }
+
+    for (sub_msg = TAILQ_FIRST(&frag_msgq); sub_msg != NULL; sub_msg = tmsg) {
+        tmsg = TAILQ_NEXT(sub_msg, m_tqe);
+
+        TAILQ_REMOVE(&frag_msgq, sub_msg, m_tqe);
+        req_forward(ctx, conn, sub_msg);
+    }
+
+    ASSERT(TAILQ_EMPTY(&frag_msgq));
+    return;
 }
 
 struct msg *

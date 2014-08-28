@@ -1879,7 +1879,7 @@ redis_parse_rsp(struct msg *r)
                  * are either integer reply or bulk reply.
                  *
                  * there is a special case for sscan/hscan/zscan, these command
-                 * replay a number and a multi bulk like this:
+                 * replay a nested multi-bulk with a number and a multi bulk like this:
                  *
                  * - mulit-bulk
                  *    - cursor

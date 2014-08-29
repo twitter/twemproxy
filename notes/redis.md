@@ -131,7 +131,7 @@
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
     |      HVALS        |    Yes     | HVALS key                                                                                                           |
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
-    |      HSCAN        |    No      | HSCAN key cursor [MATCH pattern] [COUNT count]                                                                      |
+    |      HSCAN        |    Yes     | HSCAN key cursor [MATCH pattern] [COUNT count]                                                                      |
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
 
 ### Lists
@@ -209,7 +209,7 @@
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
     |   SUNIONSTORE     |    Yes*    | SUNIONSTORE destination key [key ...]                                                                               |
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
-    |      SSCAN        |    No      | SSCAN key cursor [MATCH pattern] [COUNT count]                                                                      |
+    |      SSCAN        |    Yes     | SSCAN key cursor [MATCH pattern] [COUNT count]                                                                      |
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
 
 * SIDFF, SDIFFSTORE, SINTER, SINTERSTORE, SMOVE, SUNION and SUNIONSTORE support requires that the supplied keys hash to the same server. You can ensure this by using the same [hashtag](notes/recommendation.md#hash-tags) for all keys in the command. Twemproxy does no checking on its end to verify that all the keys hash to the same server, and the given command is forwarded to the server that the first key hashes to.
@@ -258,7 +258,7 @@
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
     |    ZUNIONSTORE    |    Yes*    | ZUNIONSTORE destination numkeys key [key ...] [WEIGHTS weight [weight ...]] [AGGREGATE SUM|MIN|MAX]                 |
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
-    |      ZSCAN        |    No      | ZSCAN key cursor [MATCH pattern] [COUNT count]                                                                      |
+    |      ZSCAN        |    Yes     | ZSCAN key cursor [MATCH pattern] [COUNT count]                                                                      |
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
 
 * ZINTERSTORE and ZUNIONSTORE support requires that the supplied keys hash to the same server. You can ensure this by using the same [hashtag](notes/recommendation.md#hash-tags) for all keys in the command. Twemproxy does no checking on its end to verify that all the keys hash to the same server, and the given command is forwarded to the server that the first key hashes to.

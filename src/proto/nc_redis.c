@@ -184,6 +184,7 @@ redis_argn(struct msg *r)
     case MSG_REQ_REDIS_HDEL:
     case MSG_REQ_REDIS_HMGET:
     case MSG_REQ_REDIS_HMSET:
+    case MSG_REQ_REDIS_HSCAN:
 
     case MSG_REQ_REDIS_LPUSH:
     case MSG_REQ_REDIS_RPUSH:
@@ -197,6 +198,7 @@ redis_argn(struct msg *r)
     case MSG_REQ_REDIS_SUNION:
     case MSG_REQ_REDIS_SUNIONSTORE:
     case MSG_REQ_REDIS_SRANDMEMBER:
+    case MSG_REQ_REDIS_SSCAN:
 
     case MSG_REQ_REDIS_PFADD:
     case MSG_REQ_REDIS_PFMERGE:
@@ -210,6 +212,7 @@ redis_argn(struct msg *r)
     case MSG_REQ_REDIS_ZRANGEBYLEX:
     case MSG_REQ_REDIS_ZREVRANGEBYSCORE:
     case MSG_REQ_REDIS_ZUNIONSTORE:
+    case MSG_REQ_REDIS_ZSCAN:
         return true;
 
     default:
@@ -608,6 +611,11 @@ redis_parse_req(struct msg *r)
                     break;
                 }
 
+                if (str5icmp(m, 'h', 's', 'c', 'a', 'n')) {
+                    r->type = MSG_REQ_REDIS_HSCAN;
+                    break;
+                }
+
                 if (str5icmp(m, 'l', 'p', 'u', 's', 'h')) {
                     r->type = MSG_REQ_REDIS_LPUSH;
                     break;
@@ -648,6 +656,11 @@ redis_parse_req(struct msg *r)
                     break;
                 }
 
+                if (str5icmp(m, 's', 's', 'c', 'a', 'n')) {
+                    r->type = MSG_REQ_REDIS_SSCAN;
+                    break;
+                }
+
                 if (str5icmp(m, 'z', 'c', 'a', 'r', 'd')) {
                     r->type = MSG_REQ_REDIS_ZCARD;
                     break;
@@ -655,6 +668,11 @@ redis_parse_req(struct msg *r)
 
                 if (str5icmp(m, 'z', 'r', 'a', 'n', 'k')) {
                     r->type = MSG_REQ_REDIS_ZRANK;
+                    break;
+                }
+
+                if (str5icmp(m, 'z', 's', 'c', 'a', 'n')) {
+                    r->type = MSG_REQ_REDIS_ZSCAN;
                     break;
                 }
 
@@ -1859,7 +1877,28 @@ redis_parse_rsp(struct msg *r)
                  *
                  * Here, we only handle a multi bulk reply element that
                  * are either integer reply or bulk reply.
+                 *
+                 * there is a special case for sscan/hscan/zscan, these command
+                 * replay a nested multi-bulk with a number and a multi bulk like this:
+                 *
+                 * - mulit-bulk
+                 *    - cursor
+                 *    - mulit-bulk
+                 *       - val1
+                 *       - val2
+                 *       - val3
+                 *
+                 * in this case, there is only one sub-multi-bulk,
+                 * and it's the last element of parent,
+                 * we can handle it like tail-recursive.
+                 *
                  */
+                if (ch == '*') {    /* for sscan/hscan/zscan only */
+                    p = p - 1;      /* go back by 1 byte */
+                    state = SW_MULTIBULK;
+                    break;
+                }
+
                 if (ch != '$' && ch != ':') {
                     goto error;
                 }

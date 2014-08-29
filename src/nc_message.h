@@ -100,6 +100,7 @@ typedef enum msg_parse_result {
     ACTION( REQ_REDIS_HMSET )                                                                       \
     ACTION( REQ_REDIS_HSET )                                                                        \
     ACTION( REQ_REDIS_HSETNX )                                                                      \
+    ACTION( REQ_REDIS_HSCAN)                                                                        \
     ACTION( REQ_REDIS_HVALS )                                                                       \
     ACTION( REQ_REDIS_LINDEX )                 /* redis requests - lists */                         \
     ACTION( REQ_REDIS_LINSERT )                                                                     \
@@ -132,6 +133,7 @@ typedef enum msg_parse_result {
     ACTION( REQ_REDIS_SREM )                                                                        \
     ACTION( REQ_REDIS_SUNION )                                                                      \
     ACTION( REQ_REDIS_SUNIONSTORE )                                                                 \
+    ACTION( REQ_REDIS_SSCAN)                                                                        \
     ACTION( REQ_REDIS_ZADD )                   /* redis requests - sorted sets */                   \
     ACTION( REQ_REDIS_ZCARD )                                                                       \
     ACTION( REQ_REDIS_ZCOUNT )                                                                      \
@@ -151,6 +153,7 @@ typedef enum msg_parse_result {
     ACTION( REQ_REDIS_ZREVRANK )                                                                    \
     ACTION( REQ_REDIS_ZSCORE )                                                                      \
     ACTION( REQ_REDIS_ZUNIONSTORE )                                                                 \
+    ACTION( REQ_REDIS_ZSCAN)                                                                        \
     ACTION( REQ_REDIS_EVAL )                   /* redis requests - eval */                          \
     ACTION( REQ_REDIS_EVALSHA )                                                                     \
     ACTION( RSP_REDIS_STATUS )                 /* redis response */                                 \

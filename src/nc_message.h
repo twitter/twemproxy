@@ -23,6 +23,7 @@
 typedef void (*msg_parse_t)(struct msg *);
 typedef rstatus_t (*msg_fragment_t)(struct msg *, uint32_t, struct msg_tqh *);
 typedef void (*msg_coalesce_t)(struct msg *r);
+typedef rstatus_t (*msg_reply_t)(struct msg *r);
 
 typedef enum msg_parse_result {
     MSG_PARSE_OK,                         /* parsing ok */
@@ -157,6 +158,8 @@ typedef enum msg_parse_result {
     ACTION( REQ_REDIS_ZSCAN)                                                                        \
     ACTION( REQ_REDIS_EVAL )                   /* redis requests - eval */                          \
     ACTION( REQ_REDIS_EVALSHA )                                                                     \
+    ACTION( REQ_REDIS_PING )                   /* redis requests - ping/quit */                     \
+    ACTION( REQ_REDIS_QUIT)                                                                         \
     ACTION( RSP_REDIS_STATUS )                 /* redis response */                                 \
     ACTION( RSP_REDIS_ERROR )                                                                       \
     ACTION( RSP_REDIS_INTEGER )                                                                     \
@@ -199,6 +202,7 @@ struct msg {
     msg_parse_result_t   result;          /* message parsing result */
 
     msg_fragment_t       fragment;        /* message fragment */
+    msg_reply_t          reply;           /* gen message reply (example: ping) */
     msg_coalesce_t       pre_coalesce;    /* message pre-coalesce */
     msg_coalesce_t       post_coalesce;   /* message post-coalesce */
 
@@ -228,6 +232,7 @@ struct msg {
     unsigned             request:1;       /* request? or response? */
     unsigned             quit:1;          /* quit request? */
     unsigned             noreply:1;       /* noreply? */
+    unsigned             noforward:1;     /* not need forward (example: ping) */
     unsigned             done:1;          /* done? */
     unsigned             fdone:1;         /* all fragments are done? */
     unsigned             swallow:1;       /* swallow response? */

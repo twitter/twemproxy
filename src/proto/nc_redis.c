@@ -22,6 +22,25 @@
 #include <nc_proto.h>
 
 /*
+ * Return true, if the redis command take no key, otherwise
+ * return false
+ */
+static bool
+redis_argz(struct msg *r)
+{
+    switch (r->type) {
+    case MSG_REQ_REDIS_PING:
+    case MSG_REQ_REDIS_QUIT:
+        return true;
+
+    default:
+        break;
+    }
+
+    return false;
+}
+
+/*
  * Return true, if the redis command accepts no arguments, otherwise
  * return false
  */
@@ -594,6 +613,18 @@ redis_parse_req(struct msg *r)
                     break;
                 }
 
+                if (str4icmp(m, 'p', 'i', 'n', 'g')) {
+                    r->type = MSG_REQ_REDIS_PING;
+                    r->noforward = 1;
+                    break;
+                }
+
+                if (str4icmp(m, 'q', 'u', 'i', 't')) {
+                    r->type = MSG_REQ_REDIS_QUIT;
+                    r->quit = 1;
+                    break;
+                }
+
                 break;
 
             case 5:
@@ -1018,7 +1049,9 @@ redis_parse_req(struct msg *r)
         case SW_REQ_TYPE_LF:
             switch (ch) {
             case LF:
-                if (redis_argeval(r)) {
+                if (redis_argz(r)) {
+                    goto done;
+                } else if (redis_argeval(r)) {
                     state = SW_ARG1_LEN;
                 } else {
                     state = SW_KEY_LEN;
@@ -2414,6 +2447,23 @@ redis_fragment(struct msg *r, uint32_t ncontinuum, struct msg_tqh *frag_msgq)
         return redis_fragment_argx(r, ncontinuum, frag_msgq, 2);
     default:
         return NC_OK;
+    }
+}
+
+rstatus_t
+redis_reply(struct msg *r)
+{
+    struct msg *response = r->peer;
+
+    ASSERT(response != NULL);
+
+    switch (r->type) {
+    case MSG_REQ_REDIS_PING:
+        return msg_append(response, (uint8_t *)"+PONG\r\n", 7);
+
+    default:
+        NOT_REACHED();
+        return NC_ERROR;
     }
 }
 

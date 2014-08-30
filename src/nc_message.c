@@ -229,6 +229,7 @@ done:
     msg->result = MSG_PARSE_OK;
 
     msg->fragment = NULL;
+    msg->reply = NULL;
     msg->pre_coalesce = NULL;
     msg->post_coalesce = NULL;
 
@@ -262,6 +263,7 @@ done:
     msg->request = 0;
     msg->quit = 0;
     msg->noreply = 0;
+    msg->noforward = 0;
     msg->done = 0;
     msg->fdone = 0;
     msg->swallow = 0;
@@ -291,6 +293,7 @@ msg_get(struct conn *conn, bool request, bool redis)
             msg->parser = redis_parse_rsp;
         }
         msg->fragment = redis_fragment;
+        msg->reply = redis_reply;
         msg->pre_coalesce = redis_pre_coalesce;
         msg->post_coalesce = redis_post_coalesce;
     } else {

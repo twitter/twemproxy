@@ -37,6 +37,15 @@ event_base_create(int nevent, event_cb_t cb)
         return NULL;
     }
 
+    status = fcntl(evp, F_SETFD, FD_CLOEXEC);
+    if (status < 0) {
+        status = close(evp);
+        if (status < 0) {
+            log_error("close evp %d failed, ignored: %s", evp, strerror(errno));
+        }
+        return NULL;
+    }
+
     event = nc_calloc(nevent, sizeof(*event));
     if (event == NULL) {
         status = close(evp);
@@ -360,6 +369,12 @@ event_loop_stats(event_stats_cb_t cb, void *arg)
     if (evp < 0) {
         log_error("port create failed: %s", strerror(errno));
         return;
+    }
+
+    status = fcntl(evp, F_SETFD, FD_CLOEXEC);
+    if (status < 0) {
+        log_error("fcntl on evp %d failed: %s", evp, strerror(errno));
+        goto error;
     }
 
     status = port_associate(evp, PORT_SOURCE_FD, st->sd, POLLIN, NULL);

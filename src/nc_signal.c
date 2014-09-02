@@ -21,6 +21,13 @@
 #include <nc_core.h>
 #include <nc_signal.h>
 
+static sig_atomic_t nc_reload;
+static sig_atomic_t nc_exiting;
+static int64_t nc_reload_ts;
+
+/* how many ms should we delay since we received reload signal */
+#define NC_RELOAD_DELAYED 3000
+
 static struct signal signals[] = {
     { SIGUSR1, "SIGUSR1", 0,                 signal_handler },
     { SIGUSR2, "SIGUSR2", 0,                 signal_handler },
@@ -84,6 +91,12 @@ signal_handler(int signo)
 
     switch (signo) {
     case SIGUSR1:
+        if (nc_exiting || nc_reload) {
+            actionstr = ", is in exiting, ignored";
+        } else {
+            actionstr = ", reloading";
+            nc_reload = 1;
+        }
         break;
 
     case SIGUSR2:
@@ -128,4 +141,31 @@ signal_handler(int signo)
     if (done) {
         exit(1);
     }
+}
+
+rstatus_t
+signal_check(struct instance *nci)
+{
+    if (nc_reload) {
+        nc_reload = 0;
+        nc_exiting = 1;
+        nc_reload_ts = nc_msec_now();
+
+        log_debug(LOG_INFO, "reloading");
+        core_exec_new_binary(nci);
+
+        /* for parent: close listen fd here */
+        proxy_deinit(nci->ctx);
+
+        return NC_OK;
+    }
+
+    if (nc_exiting) {
+        if (nc_msec_now() - nc_reload_ts > NC_RELOAD_DELAYED) {
+            /* this is not a error, means we will exit now */
+            return NC_ERROR;
+        }
+    }
+
+    return NC_OK;
 }

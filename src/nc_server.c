@@ -468,6 +468,14 @@ server_connect(struct context *ctx, struct server *server, struct conn *conn)
         goto error;
     }
 
+    status = fcntl(conn->sd, F_SETFD, FD_CLOEXEC);
+    if (status < 0) {
+        log_error("fcntl FD_CLOEXEC on s %d for server '%.*s' failed: %s",
+                  conn->sd, server->pname.len, server->pname.data,
+                  strerror(errno));
+        goto error;
+    }
+
     status = nc_set_nonblocking(conn->sd);
     if (status != NC_OK) {
         log_error("set nonblock on s %d for server '%.*s' failed: %s",
@@ -868,6 +876,18 @@ server_pool_init(struct array *server_pool, struct array *conf_pool,
     return NC_OK;
 }
 
+static void
+server_pool_disconnect_client(struct server_pool *pool)
+{
+    log_debug(LOG_WARN, "disconnect %d clients on pool %"PRIu32" '%.*s'",
+              pool->nc_conn_q, pool->idx, pool->name.len, pool->name.data);
+
+    while (!TAILQ_EMPTY(&pool->c_conn_q)) {
+        struct conn *c = TAILQ_FIRST(&pool->c_conn_q);
+        c->close(pool->ctx, c);
+    }
+}
+
 void
 server_pool_deinit(struct array *server_pool)
 {
@@ -878,6 +898,8 @@ server_pool_deinit(struct array *server_pool)
 
         sp = array_pop(server_pool);
         ASSERT(sp->p_conn == NULL);
+
+        server_pool_disconnect_client(sp);
         ASSERT(TAILQ_EMPTY(&sp->c_conn_q) && sp->nc_conn_q == 0);
 
         if (sp->continuum != NULL) {

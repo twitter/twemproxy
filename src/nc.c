@@ -300,6 +300,7 @@ nc_set_default_options(struct instance *nci)
     nci->pid = (pid_t)-1;
     nci->pid_filename = NULL;
     nci->pidfile = 0;
+    nci->argv = NULL;
 }
 
 static rstatus_t
@@ -525,9 +526,16 @@ nc_run(struct instance *nci)
         return;
     }
 
+    core_cleanup_inherited_socket();
+
     /* run rabbit run */
     for (;;) {
         status = core_loop(ctx);
+        if (status != NC_OK) {
+            break;
+        }
+
+        status = signal_check(nci);
         if (status != NC_OK) {
             break;
         }
@@ -543,6 +551,7 @@ main(int argc, char **argv)
     struct instance nci;
 
     nc_set_default_options(&nci);
+    nci.argv = argv;
 
     status = nc_get_options(argc, argv, &nci);
     if (status != NC_OK) {

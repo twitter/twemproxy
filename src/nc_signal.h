@@ -30,5 +30,6 @@ struct signal {
 rstatus_t signal_init(void);
 void signal_deinit(void);
 void signal_handler(int signo);
+rstatus_t signal_check(struct instance *nci);
 
 #endif

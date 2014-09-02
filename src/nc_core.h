@@ -66,6 +66,9 @@
 /* reserved fds for std streams, log, stats fd, epoll etc. */
 #define RESERVED_FDS 32
 
+/* EVN name for inherit fd */
+#define NC_ENV_FDS "NC_ENV_FDS"
+
 typedef int rstatus_t; /* return type */
 typedef int err_t;     /* error type */
 
@@ -96,6 +99,7 @@ struct event_base;
 #include <limits.h>
 #include <time.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <pthread.h>
 
 #include <sys/types.h>
@@ -117,6 +121,7 @@ struct event_base;
 #include <nc_message.h>
 #include <nc_connection.h>
 #include <nc_server.h>
+#include <nc_proxy.h>
 
 struct context {
     uint32_t           id;          /* unique context id */
@@ -147,11 +152,16 @@ struct instance {
     pid_t           pid;                         /* process id */
     char            *pid_filename;               /* pid filename */
     unsigned        pidfile:1;                   /* pid file created? */
+    char            **argv;                      /* argv of main() */
 };
 
 struct context *core_start(struct instance *nci);
 void core_stop(struct context *ctx);
 rstatus_t core_core(void *arg, uint32_t events);
 rstatus_t core_loop(struct context *ctx);
+
+rstatus_t core_exec_new_binary(struct instance *nci);
+int core_inherited_socket(char *listen_address);
+void core_cleanup_inherited_socket(void);
 
 #endif

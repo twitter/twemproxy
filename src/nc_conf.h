@@ -65,6 +65,7 @@ struct conf_listen {
 struct conf_server {
     struct string   pname;      /* server: as "name:port:weight" */
     struct string   name;       /* name */
+    struct string   address;    /* address */
     int             port;       /* port */
     int             weight;     /* weight */
     struct sockinfo info;       /* connect socket info */

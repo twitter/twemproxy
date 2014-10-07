@@ -78,9 +78,13 @@ static struct command conf_commands[] = {
       conf_set_string,
       offsetof(struct conf_pool, redis_auth) },
 
-    { string("preconnect"),
+    { string("always_host_resolve"),
       conf_set_bool,
       offsetof(struct conf_pool, preconnect) },
+
+    { string("preconnect"),
+      conf_set_bool,
+      offsetof(struct conf_pool, always_host_resolve) },
 
     { string("auto_eject_hosts"),
       conf_set_bool,
@@ -110,6 +114,7 @@ conf_server_init(struct conf_server *cs)
 {
     string_init(&cs->pname);
     string_init(&cs->name);
+    string_init(&cs->address);
     cs->port = 0;
     cs->weight = 0;
 
@@ -125,6 +130,7 @@ conf_server_deinit(struct conf_server *cs)
 {
     string_deinit(&cs->pname);
     string_deinit(&cs->name);
+    string_init(&cs->address);
     cs->valid = 0;
     log_debug(LOG_VVERB, "deinit conf server %p", cs);
 }
@@ -146,6 +152,7 @@ conf_server_each_transform(void *elem, void *data)
 
     s->pname = cs->pname;
     s->name = cs->name;
+    s->address = cs->address;
     s->port = (uint16_t)cs->port;
     s->weight = (uint32_t)cs->weight;
 
@@ -156,6 +163,7 @@ conf_server_each_transform(void *elem, void *data)
     s->ns_conn_q = 0;
     TAILQ_INIT(&s->s_conn_q);
 
+    memset(&s->info, 0, sizeof(s->info));
     s->next_retry = 0LL;
     s->failure_count = 0;
 
@@ -189,6 +197,7 @@ conf_pool_init(struct conf_pool *cp, struct string *name)
     cp->client_connections = CONF_UNSET_NUM;
 
     cp->redis = CONF_UNSET_NUM;
+    cp->always_host_resolve = CONF_UNSET_NUM;
     cp->preconnect = CONF_UNSET_NUM;
     cp->auto_eject_hosts = CONF_UNSET_NUM;
     cp->server_connections = CONF_UNSET_NUM;
@@ -277,6 +286,7 @@ conf_pool_each_transform(void *elem, void *data)
     sp->hash_tag = cp->hash_tag;
 
     sp->redis = cp->redis ? 1 : 0;
+    sp->always_host_resolve = cp->always_host_resolve ? 1 : 0;
     sp->redis_auth = cp->redis_auth;
     sp->timeout = cp->timeout;
     sp->backlog = cp->backlog;
@@ -1483,10 +1493,8 @@ conf_add_server(struct conf *cf, struct command *cmd, void *conf)
     uint8_t *p, *q, *start;
     uint8_t *pname, *addr, *port, *weight, *name;
     uint32_t k, delimlen, pnamelen, addrlen, portlen, weightlen, namelen;
-    struct string address;
     char delim[] = " ::";
 
-    string_init(&address);
     p = conf;
     a = (struct array *)(p + cmd->offset);
 
@@ -1596,18 +1604,16 @@ conf_add_server(struct conf *cf, struct command *cmd, void *conf)
         return CONF_ERROR;
     }
 
-    status = string_copy(&address, addr, addrlen);
+    status = string_copy(&(field->address), addr, addrlen);
     if (status != NC_OK) {
         return CONF_ERROR;
     }
 
-    status = nc_resolve(&address, field->port, &field->info);
+    status = nc_resolve(&(field->address), field->port, &field->info);
     if (status != NC_OK) {
-        string_deinit(&address);
         return CONF_ERROR;
     }
 
-    string_deinit(&address);
     field->valid = 1;
 
     return CONF_OK;

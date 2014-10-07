@@ -30,8 +30,21 @@ server_ref(struct conn *conn, void *owner)
     ASSERT(!conn->client && !conn->proxy);
     ASSERT(conn->owner == NULL);
 
+    struct server_pool *pool = server->owner;
+
     conn->family = server->family;
     conn->addrlen = server->addrlen;
+
+
+    if (pool->always_host_resolve) {
+        nc_resolve(&(server->address), server->port, &(server->info));
+        server->addr = (struct sockaddr *)&(server->info.addr);
+        struct in_addr inaddr = ((struct sockaddr_in *)(server->addr))->sin_addr;
+        unsigned char *ptr = (char *)(&inaddr);
+        log_debug(LOG_NOTICE, "resolve ip: %u.%u.%u.%u",
+        ptr[0], ptr[1], ptr[2], ptr[3]);
+    }
+
     conn->addr = server->addr;
 
     server->ns_conn_q++;

@@ -37,12 +37,12 @@ server_ref(struct conn *conn, void *owner)
 
 
     if (pool->always_host_resolve) {
-        nc_resolve(&(server->address), server->port, &server->info);
-        server->addr = (struct sockaddr *)&(server->info->addr);
-        struct in_addr inaddr = ((struct sockaddr_in *)(server->addr))->sin_addr;
-        unsigned char *ptr = (unsigned char *)(&inaddr);
-        log_debug(LOG_NOTICE, "resolve ip: %u.%u.%u.%u",
-        ptr[0], ptr[1], ptr[2], ptr[3]);
+        log_debug(LOG_NOTICE, "resolve %.*s", server->address);
+        rstatus_t status;
+        status = nc_resolve(&(server->address), server->port, &server->info);
+        if (status == 0) {
+          server->addr = (struct sockaddr *)&server->info.addr;
+        }
     }
 
     conn->addr = server->addr;

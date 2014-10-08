@@ -78,7 +78,7 @@ struct server {
     int                family;        /* socket family */
     socklen_t          addrlen;       /* socket length */
     struct sockaddr    *addr;         /* socket address (ref in conf_server) */
-    struct sockinfo    *info;          /* connect socket info (ref in conf_server) */
+    struct sockinfo    info;          /* connect socket info (ref in conf_server) */
 
     uint32_t           ns_conn_q;     /* # server connection */
     struct conn_tqh    s_conn_q;      /* server connection q */

@@ -187,6 +187,8 @@ proxy_each_init(void *elem, void *data)
     rstatus_t status;
     struct server_pool *pool = elem;
     struct conn *p;
+    char mode[] = "0775";
+    int mode_l;
 
     p = conn_get_proxy(pool);
     if (p == NULL) {
@@ -194,9 +196,20 @@ proxy_each_init(void *elem, void *data)
     }
 
     status = proxy_listen(pool->ctx, p);
+    log_debug(LOG_NOTICE, "status is %s", pool->addrstr.data);
     if (status != NC_OK) {
         p->close(pool->ctx, p);
         return status;
+    }
+
+    if (pool->addrstr.data[0] == '/') {
+        mode_l = strtol(mode, 0, 8);
+        if (chmod(pool->addrstr.data, mode_l) < 0) {
+            log_debug(LOG_NOTICE, "error in chmod(%s, %s) - %d (%s)\n",
+                pool->addrstr.data, mode, errno, strerror(errno));
+
+             return NC_ERROR;
+        }
     }
 
     log_debug(LOG_NOTICE, "p %d listening on '%.*s' in %s pool %"PRIu32" '%.*s'"

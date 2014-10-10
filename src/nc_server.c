@@ -778,10 +778,34 @@ server_pool_run(struct server_pool *pool)
     return NC_OK;
 }
 
+rstatus_t
+server_update_perm(struct server_pool *pool)
+{
+    char mode[] = "0775";
+    long mode_l;
+
+    if (pool->addrstr.data[0] == '/' && access(pool->addrstr.data, F_OK) != -1) {
+        mode_l = strtol(mode, 0, 8);
+        if (chmod(pool->addrstr.data, mode_l) < 0) {
+            log_debug(LOG_NOTICE, "error in chmod(%s, %s) - %d (%s)\n",
+                pool->addrstr.data, mode, errno, strerror(errno));
+
+             return NC_ERROR;
+        }
+    }
+    return NC_OK;
+}
+
 static rstatus_t
 server_pool_each_run(void *elem, void *data)
 {
     return server_pool_run(elem);
+}
+
+static rstatus_t
+server_pool_each_update_perm(void *elem, void *data)
+{
+    return server_update_perm(elem);
 }
 
 rstatus_t
@@ -822,10 +846,36 @@ server_pool_init(struct array *server_pool, struct array *conf_pool,
         return status;
     }
 
+    /* update server pool continuum */
+    status = array_each(server_pool, server_pool_each_update_perm, NULL);
+    if (status != NC_OK) {
+        server_pool_deinit(server_pool);
+        return status;
+    }
+
+
     log_debug(LOG_DEBUG, "init %"PRIu32" pools", npool);
 
     return NC_OK;
 }
+
+rstatus_t
+server_pool_permission_update(struct array *server_pool, struct array *conf_pool,
+                 struct context *ctx)
+{
+    rstatus_t status;
+    uint32_t npool;
+
+    /* update server pool continuum */
+    status = array_each(server_pool, server_pool_each_update_perm, NULL);
+    if (status != NC_OK) {
+        server_pool_deinit(server_pool);
+        return status;
+    }
+
+    return NC_OK;
+}
+
 
 void
 server_pool_deinit(struct array *server_pool)

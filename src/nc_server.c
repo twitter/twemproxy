@@ -785,7 +785,8 @@ server_update_perm(struct server_pool *pool)
     long mode_l;
 
     if (pool->addrstr.data[0] == '/' && access(pool->addrstr.data, F_OK) != -1) {
-        mode_l = strtol(mode, 0, 8);
+        mode_l = pool->mode.len > 0 ? strtol(pool->mode.data, 0, 8) : strtol(mode, 0, 8);
+
         if (chmod(pool->addrstr.data, mode_l) < 0) {
             log_debug(LOG_NOTICE, "error in chmod(%s, %s) - %d (%s)\n",
                 pool->addrstr.data, mode, errno, strerror(errno));
@@ -864,7 +865,6 @@ server_pool_permission_update(struct array *server_pool, struct array *conf_pool
                  struct context *ctx)
 {
     rstatus_t status;
-    uint32_t npool;
 
     /* update server pool continuum */
     status = array_each(server_pool, server_pool_each_update_perm, NULL);

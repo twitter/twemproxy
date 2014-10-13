@@ -82,6 +82,10 @@ static struct command conf_commands[] = {
       conf_set_bool,
       offsetof(struct conf_pool, preconnect) },
 
+    { string("mode"),
+      conf_set_string,
+      offsetof(struct conf_pool, mode) },
+
     { string("preconnect"),
       conf_set_bool,
       offsetof(struct conf_pool, always_host_resolve) },
@@ -183,6 +187,7 @@ conf_pool_init(struct conf_pool *cp, struct string *name)
     string_init(&cp->listen.pname);
     string_init(&cp->listen.name);
     string_init(&cp->redis_auth);
+    string_init(&cp->mode);
     cp->listen.port = 0;
     memset(&cp->listen.info, 0, sizeof(cp->listen.info));
     cp->listen.valid = 0;
@@ -237,6 +242,10 @@ conf_pool_deinit(struct conf_pool *cp)
         string_deinit(&cp->redis_auth);
     }
 
+    if (cp->mode.len > 0) {
+        string_deinit(&cp->mode);
+    }
+
     while (array_n(&cp->server) != 0) {
         conf_server_deinit(array_pop(&cp->server));
     }
@@ -288,6 +297,7 @@ conf_pool_each_transform(void *elem, void *data)
     sp->redis = cp->redis ? 1 : 0;
     sp->always_host_resolve = cp->always_host_resolve ? 1 : 0;
     sp->redis_auth = cp->redis_auth;
+    sp->mode = cp->mode;
     sp->timeout = cp->timeout;
     sp->backlog = cp->backlog;
 

@@ -84,6 +84,7 @@ struct conf_pool {
     int                redis;                 /* redis: */
     int                always_host_resolve;   /* always_host_resolve: */
     struct string      redis_auth;            /* redis auth password */
+    struct string      mode;                  /* socket file permissions */
     int                preconnect;            /* preconnect: */
     int                auto_eject_hosts;      /* auto_eject_hosts: */
     int                server_connections;    /* server_connections: */

@@ -194,6 +194,7 @@ proxy_each_init(void *elem, void *data)
     }
 
     status = proxy_listen(pool->ctx, p);
+
     if (status != NC_OK) {
         p->close(pool->ctx, p);
         return status;

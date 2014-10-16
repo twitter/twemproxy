@@ -32,6 +32,7 @@ redis_arg0(struct msg *r)
     case MSG_REQ_REDIS_EXISTS:
     case MSG_REQ_REDIS_PERSIST:
     case MSG_REQ_REDIS_PTTL:
+    case MSG_REQ_REDIS_SORT:
     case MSG_REQ_REDIS_TTL:
     case MSG_REQ_REDIS_TYPE:
     case MSG_REQ_REDIS_DUMP:
@@ -585,6 +586,11 @@ redis_parse_req(struct msg *r)
 
                 if (str4icmp(m, 'e', 'v', 'a', 'l')) {
                     r->type = MSG_REQ_REDIS_EVAL;
+                    break;
+                }
+
+                if (str4icmp(m, 's', 'o', 'r', 't')) {
+                    r->type = MSG_REQ_REDIS_SORT;
                     break;
                 }
 

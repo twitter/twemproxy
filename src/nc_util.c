@@ -478,7 +478,7 @@ nc_resolve_inet(struct string *name, int port, struct sockinfo *si)
     nc_snprintf(service, NC_UINTMAX_MAXLEN, "%d", port);
 
     status = getaddrinfo(node, service, &hints, &ai);
-    if (status < 0) {
+    if (status != 0) {
         log_error("address resolution of node '%s' service '%s' failed: %s",
                   node, service, gai_strerror(status));
         return -1;

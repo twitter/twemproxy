@@ -64,6 +64,7 @@ typedef enum msg_parse_result {
     ACTION( REQ_REDIS_PEXPIREAT )                                                                   \
     ACTION( REQ_REDIS_PERSIST )                                                                     \
     ACTION( REQ_REDIS_PTTL )                                                                        \
+    ACTION( REQ_REDIS_SORT )                                                                        \
     ACTION( REQ_REDIS_TTL )                                                                         \
     ACTION( REQ_REDIS_TYPE )                                                                        \
     ACTION( REQ_REDIS_APPEND )                 /* redis requests - string */                        \

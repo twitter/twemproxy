@@ -586,6 +586,27 @@ req_recv_done(struct context *ctx, struct conn *conn, struct msg *msg,
         return;
     }
 
+    if (msg->noforward) {
+        status = req_make_reply(ctx, conn, msg);
+        if (status != NC_OK) {
+            conn->err = errno;
+            return;
+        }
+
+        status = msg->reply(msg);
+        if (status != NC_OK) {
+            conn->err = errno;
+            return;
+        }
+
+        status = event_add_out(ctx->evb, conn);
+        if (status != NC_OK) {
+            conn->err = errno;
+        }
+
+        return;
+    }
+
     /* do fragment */
     pool = conn->owner;
     TAILQ_INIT(&frag_msgq);

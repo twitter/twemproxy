@@ -149,5 +149,6 @@ void redis_parse_rsp(struct msg *r);
 void redis_pre_coalesce(struct msg *r);
 void redis_post_coalesce(struct msg *r);
 rstatus_t redis_fragment(struct msg *r, uint32_t ncontinuum, struct msg_tqh *frag_msgq);
+rstatus_t redis_reply(struct msg *r);
 
 #endif

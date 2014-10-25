@@ -40,7 +40,10 @@ server_ref(struct conn *conn, void *owner)
         log_debug(LOG_NOTICE, "resolve %.*s", server->address);
         rstatus_t status;
         status = nc_resolve(&(server->address), server->port, &server->info);
-        log_debug(LOG_NOTICE, "nc resolve %.*s with status code %d\n", server->address, (int)status);
+        /**
+         * Masking logs to reduce splunk usage
+         log_debug(LOG_NOTICE, "nc resolve %.*s with status code %d\n", server->address, (int)status);
+         */
         if (status == 0) {
           server->addr = (struct sockaddr *)&server->info.addr;
           log_debug(LOG_NOTICE, "server address updated to %.*s", server->address);

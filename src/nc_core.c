@@ -202,10 +202,13 @@ core_close(struct context *ctx, struct conn *conn)
         type = conn->proxy ? 'p' : 's';
         addrstr = nc_unresolve_addr(conn->addr, conn->addrlen);
     }
+    /**
+     *  Disabling debug to reduce log noise.
     log_debug(LOG_NOTICE, "close %c %d '%s' on event %04"PRIX32" eof %d done "
               "%d rb %zu sb %zu%c %s", type, conn->sd, addrstr, conn->events,
               conn->eof, conn->done, conn->recv_bytes, conn->send_bytes,
               conn->err ? ':' : ' ', conn->err ? strerror(conn->err) : "");
+     */
 
     status = event_del_conn(ctx->evb, conn);
     if (status < 0) {

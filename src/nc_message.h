@@ -21,14 +21,14 @@
 #include <nc_core.h>
 
 typedef void (*msg_parse_t)(struct msg *);
-typedef rstatus_t (*msg_post_splitcopy_t)(struct msg *);
+typedef rstatus_t (*msg_fragment_t)(struct msg *, uint32_t, struct msg_tqh *);
 typedef void (*msg_coalesce_t)(struct msg *r);
+typedef rstatus_t (*msg_reply_t)(struct msg *r);
 
 typedef enum msg_parse_result {
     MSG_PARSE_OK,                         /* parsing ok */
     MSG_PARSE_ERROR,                      /* parsing error */
     MSG_PARSE_REPAIR,                     /* more to parse -> repair parsed & unparsed data */
-    MSG_PARSE_FRAGMENT,                   /* multi-vector request -> fragment */
     MSG_PARSE_AGAIN,                      /* incomplete -> parse again */
 } msg_parse_result_t;
 
@@ -65,6 +65,7 @@ typedef enum msg_parse_result {
     ACTION( REQ_REDIS_PEXPIREAT )                                                                   \
     ACTION( REQ_REDIS_PERSIST )                                                                     \
     ACTION( REQ_REDIS_PTTL )                                                                        \
+    ACTION( REQ_REDIS_SORT )                                                                        \
     ACTION( REQ_REDIS_TTL )                                                                         \
     ACTION( REQ_REDIS_TYPE )                                                                        \
     ACTION( REQ_REDIS_APPEND )                 /* redis requests - string */                        \
@@ -80,6 +81,7 @@ typedef enum msg_parse_result {
     ACTION( REQ_REDIS_INCRBY )                                                                      \
     ACTION( REQ_REDIS_INCRBYFLOAT )                                                                 \
     ACTION( REQ_REDIS_MGET )                                                                        \
+    ACTION( REQ_REDIS_MSET )                                                                        \
     ACTION( REQ_REDIS_PSETEX )                                                                      \
     ACTION( REQ_REDIS_RESTORE )                                                                     \
     ACTION( REQ_REDIS_SET )                                                                         \
@@ -100,6 +102,7 @@ typedef enum msg_parse_result {
     ACTION( REQ_REDIS_HMSET )                                                                       \
     ACTION( REQ_REDIS_HSET )                                                                        \
     ACTION( REQ_REDIS_HSETNX )                                                                      \
+    ACTION( REQ_REDIS_HSCAN)                                                                        \
     ACTION( REQ_REDIS_HVALS )                                                                       \
     ACTION( REQ_REDIS_LINDEX )                 /* redis requests - lists */                         \
     ACTION( REQ_REDIS_LINSERT )                                                                     \
@@ -132,6 +135,7 @@ typedef enum msg_parse_result {
     ACTION( REQ_REDIS_SREM )                                                                        \
     ACTION( REQ_REDIS_SUNION )                                                                      \
     ACTION( REQ_REDIS_SUNIONSTORE )                                                                 \
+    ACTION( REQ_REDIS_SSCAN)                                                                        \
     ACTION( REQ_REDIS_ZADD )                   /* redis requests - sorted sets */                   \
     ACTION( REQ_REDIS_ZCARD )                                                                       \
     ACTION( REQ_REDIS_ZCOUNT )                                                                      \
@@ -151,8 +155,11 @@ typedef enum msg_parse_result {
     ACTION( REQ_REDIS_ZREVRANK )                                                                    \
     ACTION( REQ_REDIS_ZSCORE )                                                                      \
     ACTION( REQ_REDIS_ZUNIONSTORE )                                                                 \
+    ACTION( REQ_REDIS_ZSCAN)                                                                        \
     ACTION( REQ_REDIS_EVAL )                   /* redis requests - eval */                          \
     ACTION( REQ_REDIS_EVALSHA )                                                                     \
+    ACTION( REQ_REDIS_PING )                   /* redis requests - ping/quit */                     \
+    ACTION( REQ_REDIS_QUIT)                                                                         \
     ACTION( RSP_REDIS_STATUS )                 /* redis response */                                 \
     ACTION( RSP_REDIS_ERROR )                                                                       \
     ACTION( RSP_REDIS_INTEGER )                                                                     \
@@ -166,6 +173,11 @@ typedef enum msg_type {
     MSG_TYPE_CODEC(DEFINE_ACTION)
 } msg_type_t;
 #undef DEFINE_ACTION
+
+struct keypos {
+    uint8_t             *start;           /* key start pos */
+    uint8_t             *end;             /* key end pos */
+};
 
 struct msg {
     TAILQ_ENTRY(msg)     c_tqe;           /* link in client q */
@@ -189,15 +201,14 @@ struct msg {
     msg_parse_t          parser;          /* message parser */
     msg_parse_result_t   result;          /* message parsing result */
 
-    mbuf_copy_t          pre_splitcopy;   /* message pre-split copy */
-    msg_post_splitcopy_t post_splitcopy;  /* message post-split copy */
+    msg_fragment_t       fragment;        /* message fragment */
+    msg_reply_t          reply;           /* gen message reply (example: ping) */
     msg_coalesce_t       pre_coalesce;    /* message pre-coalesce */
     msg_coalesce_t       post_coalesce;   /* message post-coalesce */
 
     msg_type_t           type;            /* message type */
 
-    uint8_t              *key_start;      /* key start */
-    uint8_t              *key_end;        /* key end */
+    struct array         *keys;           /* array of keypos, for req */
 
     uint32_t             vlen;            /* value length (memcache) */
     uint8_t              *end;            /* end marker (memcache) */
@@ -211,7 +222,9 @@ struct msg {
 
     struct msg           *frag_owner;     /* owner of fragment message */
     uint32_t             nfrag;           /* # fragment */
+    uint32_t             nfrag_done;      /* # fragment done */
     uint64_t             frag_id;         /* id of fragmented message */
+    struct msg           **frag_seq;      /* sequence of fragment message, map from keys to fragments*/
 
     err_t                err;             /* errno on error? */
     unsigned             error:1;         /* error? */
@@ -219,10 +232,9 @@ struct msg {
     unsigned             request:1;       /* request? or response? */
     unsigned             quit:1;          /* quit request? */
     unsigned             noreply:1;       /* noreply? */
+    unsigned             noforward:1;     /* not need forward (example: ping) */
     unsigned             done:1;          /* done? */
     unsigned             fdone:1;         /* all fragments are done? */
-    unsigned             first_fragment:1;/* first fragment? */
-    unsigned             last_fragment:1; /* last fragment? */
     unsigned             swallow:1;       /* swallow response? */
     unsigned             redis:1;         /* redis? */
 };
@@ -239,10 +251,16 @@ struct string *msg_type_string(msg_type_t type);
 struct msg *msg_get(struct conn *conn, bool request, bool redis);
 void msg_put(struct msg *msg);
 struct msg *msg_get_error(bool redis, err_t err);
-void msg_dump(struct msg *msg);
+void msg_dump(struct msg *msg, int level);
 bool msg_empty(struct msg *msg);
 rstatus_t msg_recv(struct context *ctx, struct conn *conn);
 rstatus_t msg_send(struct context *ctx, struct conn *conn);
+uint64_t msg_gen_frag_id(void);
+uint32_t msg_backend_idx(struct msg *msg, uint8_t *key, uint32_t keylen);
+struct mbuf *msg_ensure_mbuf(struct msg *msg, size_t len);
+rstatus_t msg_append(struct msg *msg, uint8_t *pos, size_t n);
+rstatus_t msg_prepend(struct msg *msg, uint8_t *pos, size_t n);
+rstatus_t msg_prepend_format(struct msg *msg, const char *fmt, ...);
 
 struct msg *req_get(struct conn *conn);
 void req_put(struct msg *msg);

@@ -90,6 +90,8 @@ struct event_base;
 #include <stdbool.h>
 #include <inttypes.h>
 #include <string.h>
+#include <stdio.h>
+#include <ctype.h>
 #include <errno.h>
 #include <limits.h>
 #include <time.h>
@@ -114,6 +116,7 @@ struct event_base;
 #include <nc_mbuf.h>
 #include <nc_message.h>
 #include <nc_connection.h>
+#include <nc_server.h>
 
 struct context {
     uint32_t           id;          /* unique context id */

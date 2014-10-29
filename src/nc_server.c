@@ -368,6 +368,10 @@ server_close(struct context *ctx, struct conn *conn)
             msg->error = 1;
             msg->err = conn->err;
 
+            if (msg->frag_owner != NULL) {
+                msg->frag_owner->nfrag_done++;
+            }
+
             if (req_done(c_conn, TAILQ_FIRST(&c_conn->omsg_q))) {
                 event_add_out(ctx->evb, msg->owner);
             }
@@ -397,6 +401,9 @@ server_close(struct context *ctx, struct conn *conn)
             msg->done = 1;
             msg->error = 1;
             msg->err = conn->err;
+            if (msg->frag_owner != NULL) {
+                msg->frag_owner->nfrag_done++;
+            }
 
             if (req_done(c_conn, TAILQ_FIRST(&c_conn->omsg_q))) {
                 event_add_out(ctx->evb, msg->owner);
@@ -464,7 +471,7 @@ server_connect(struct context *ctx, struct server *server, struct conn *conn)
     status = nc_set_nonblocking(conn->sd);
     if (status != NC_OK) {
         log_error("set nonblock on s %d for server '%.*s' failed: %s",
-                  conn->sd,  server->pname.len, server->pname.data,
+                  conn->sd, server->pname.len, server->pname.data,
                   strerror(errno));
         goto error;
     }
@@ -608,14 +615,32 @@ server_pool_hash(struct server_pool *pool, uint8_t *key, uint32_t keylen)
     return pool->key_hash((char *)key, keylen);
 }
 
-static struct server *
-server_pool_server(struct server_pool *pool, uint8_t *key, uint32_t keylen)
+uint32_t
+server_pool_idx(struct server_pool *pool, uint8_t *key, uint32_t keylen)
 {
-    struct server *server;
     uint32_t hash, idx;
 
     ASSERT(array_n(&pool->server) != 0);
     ASSERT(key != NULL && keylen != 0);
+
+    /*
+     * If hash_tag: is configured for this server pool, we use the part of
+     * the key within the hash tag as an input to the distributor. Otherwise
+     * we use the full key
+     */
+    if (!string_empty(&pool->hash_tag)) {
+        struct string *tag = &pool->hash_tag;
+        uint8_t *tag_start, *tag_end;
+
+        tag_start = nc_strchr(key, key + keylen, tag->data[0]);
+        if (tag_start != NULL) {
+            tag_end = nc_strchr(tag_start + 1, key + keylen, tag->data[1]);
+            if ((tag_end != NULL) && (tag_end - tag_start > 1)) {
+                key = tag_start + 1;
+                keylen = (uint32_t)(tag_end - key);
+            }
+        }
+    }
 
     switch (pool->dist_type) {
     case DIST_KETAMA:
@@ -634,10 +659,19 @@ server_pool_server(struct server_pool *pool, uint8_t *key, uint32_t keylen)
 
     default:
         NOT_REACHED();
-        return NULL;
+        return 0;
     }
     ASSERT(idx < array_n(&pool->server));
+    return idx;
+}
 
+static struct server *
+server_pool_server(struct server_pool *pool, uint8_t *key, uint32_t keylen)
+{
+    struct server *server;
+    uint32_t idx;
+
+    idx = server_pool_idx(pool, key, keylen);
     server = array_get(&pool->server, idx);
 
     log_debug(LOG_VERB, "key '%.*s' on dist %d maps to server '%.*s'", keylen,

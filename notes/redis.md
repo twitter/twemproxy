@@ -399,7 +399,7 @@
 ## Note
 
 - redis commands are not case sensitive
-- only vectored commands 'MGET key [key ...]' and 'DEL key [key ...]' needs to be fragmented
+- only vectored commands 'MGET key [key ...]', 'MSET key value [key value ...]', 'DEL key [key ...]' needs to be fragmented
 
 ## Performance
 

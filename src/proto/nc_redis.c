@@ -1181,6 +1181,9 @@ redis_parse_req(struct msg *r)
                     if (r->rnarg == 0) {
                         goto done;
                     }
+                    if (r->narg % 2 == 0) {
+                        goto error;
+                    }
                     state = SW_ARG1_LEN;
                 } else if (redis_argeval(r)) {
                     if (r->rnarg == 0) {

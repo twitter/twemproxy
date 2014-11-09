@@ -382,6 +382,15 @@ redis_parse_req(struct msg *r)
         case SW_NARG:
             if (r->token == NULL) {
                 if (ch != '*') {
+                    if (str4icmp(p, 'q', 'u', 'i', 't')) {
+                        r->noforward = 1;
+                        r->quit = 1; // don't send a response
+                        r->type = MSG_REQ_REDIS_QUIT;
+                        r->narg = 0;
+                        p += 5;
+                        state = SW_REQ_TYPE_LF;
+                        goto done;
+                    }
                     goto error;
                 }
                 r->token = p;
@@ -621,7 +630,7 @@ redis_parse_req(struct msg *r)
 
                 if (str4icmp(m, 'q', 'u', 'i', 't')) {
                     r->type = MSG_REQ_REDIS_QUIT;
-                    r->quit = 1;
+                    r->noforward = 1;
                     break;
                 }
 
@@ -2460,6 +2469,9 @@ redis_reply(struct msg *r)
     switch (r->type) {
     case MSG_REQ_REDIS_PING:
         return msg_append(response, (uint8_t *)"+PONG\r\n", 7);
+    case MSG_REQ_REDIS_QUIT:
+        r->quit = 1;
+        return msg_append(response, (uint8_t *)"+OK\r\n", 5);
 
     default:
         NOT_REACHED();

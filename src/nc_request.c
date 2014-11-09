@@ -451,24 +451,22 @@ req_filter(struct context *ctx, struct conn *conn, struct msg *msg)
 {
     ASSERT(conn->client && !conn->proxy);
 
-    if (msg_empty(msg)) {
+    if (msg_empty(msg) || msg->quit) {
         ASSERT(conn->rmsg == NULL);
-        log_debug(LOG_VERB, "filter empty req %"PRIu64" from c %d", msg->id,
-                  conn->sd);
-        req_put(msg);
-        return true;
-    }
 
-    /*
-     * Handle "quit\r\n", which is the protocol way of doing a
-     * passive close
-     */
-    if (msg->quit) {
-        ASSERT(conn->rmsg == NULL);
-        log_debug(LOG_INFO, "filter quit req %"PRIu64" from c %d", msg->id,
-                  conn->sd);
-        conn->eof = 1;
-        conn->recv_ready = 0;
+        if (msg->quit) {
+            log_debug(LOG_VERB, "filter quit req %"PRIu64" from c %d", msg->id,
+                      conn->sd);
+
+            /* indicate that this connection is done */
+            conn->eof = 1;
+            conn->recv_ready = 0;
+        }
+        else {
+            log_debug(LOG_VERB, "filter empty req %"PRIu64" from c %d", msg->id,
+                      conn->sd);
+        }
+
         req_put(msg);
         return true;
     }

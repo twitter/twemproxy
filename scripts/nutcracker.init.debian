@@ -1,0 +1,83 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          nutcracker
+# Required-Start:    $network $remote_fs $local_fs
+# Required-Stop:     $network $remote_fs $local_fs
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Stop/start nutcracker
+### END INIT INFO
+
+PATH=/sbin:/usr/sbin:/bin:/usr/bin
+DESC=nutcracker
+NAME=nutcracker
+USER=nobody
+CONFFILE=/opt/nutcracker/etc/$NAME.yml
+LOGFILE=/opt/nutcracker/log/nutcracker.log
+DAEMON=/opt/nutcracker/sbin/nutcracker
+PIDFILE=/var/run/nutcracker/$NAME.pid
+STATSPORT=22222
+DAEMON_ARGS="-c $CONFFILE -o $LOGFILE -p $PIDFILE -s $STATSPORT -v 11 -m 2048 -d"
+#DAEMON_ARGS="-c $CONFFILE -p $PIDFILE -s $STATSPORT -d"
+SCRIPTNAME=/etc/init.d/$NAME
+
+ulimit -Hn 100000
+ulimit -Sn 100000
+
+[ -x $DAEMON ] || exit 0
+
+[ -r /etc/default/$NAME ] && . /etc/default/$NAME
+
+. /lib/init/vars.sh
+
+. /lib/lsb/init-functions
+
+do_start()
+{
+    mkdir -p /var/run/nutcracker
+    touch $PIDFILE
+    chown $USER:$USER -R /var/run/nutcracker
+    chmod 755 /var/run/nutcracker
+
+    echo -n "Starting ${NAME}: "
+    start-stop-daemon --start --quiet -m --pidfile $PIDFILE --chuid $USER:$USER --exec $DAEMON -- \
+        $DAEMON_ARGS
+        case "$?" in
+            0|1) echo "STARTED." ;;
+            2) echo "FAILED." ;;
+        esac
+}
+
+do_stop()
+{
+    echo -n "Stopping ${NAME}: "
+    start-stop-daemon --stop --quiet --pidfile $PIDFILE --exec $DAEMON || true
+
+    case "$?" in
+        0|1) echo "STOPPED.";;
+        2) echo "FAILED." ;;
+    esac
+}
+
+case "$1" in
+    start)
+        do_start
+    ;;
+    stop)
+        do_stop
+    ;;
+    status)
+      status_of_proc -p $PIDFILE "$DAEMON" nutcracker && exit 0 || exit $?
+    ;;
+    restart)
+      do_stop
+      do_start
+    ;;
+    *)
+        echo "Usage: $SCRIPTNAME {start|stop|status|restart}" >&2
+        exit 3
+        ;;
+esac
+
+exit
+$RETVAL

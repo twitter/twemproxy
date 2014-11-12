@@ -251,6 +251,9 @@ If you are deploying nutcracker in production, you might consider reading throug
 + [Ooyala](http://www.ooyala.com)
 + [Twitch](http://twitch.tv)
 
+## Repositories
+ - [Debian](https://packagecloud.io/rhoml/twemproxy)
+
 ## Issues and Support
 
 Have a bug or a question? Please create an issue here on GitHub!

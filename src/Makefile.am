@@ -9,7 +9,9 @@ AM_CPPFLAGS += -I $(top_srcdir)/src/proto
 AM_CPPFLAGS += -I $(top_srcdir)/src/event
 AM_CPPFLAGS += -I $(top_srcdir)/contrib/yaml-0.1.4/include
 
-AM_CFLAGS =
+AM_CFLAGS = 
+# about -fno-strict-aliasing: https://github.com/twitter/twemproxy/issues/276
+AM_CFLAGS += -fno-strict-aliasing
 AM_CFLAGS += -Wall -Wshadow
 AM_CFLAGS += -Wpointer-arith
 AM_CFLAGS += -Winline

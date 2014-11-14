@@ -16,14 +16,20 @@ To build nutcracker from [distribution tarball](http://code.google.com/p/twempro
     $ make
     $ sudo make install
 
-To build nutcracker from source with _debug logs enabled_ and _assertions disabled_:
+To build nutcracker from source with _debug logs enabled_ and _assertions enabled_:
 
     $ git clone git@github.com:twitter/twemproxy.git
     $ cd twemproxy
     $ autoreconf -fvi
-    $ ./configure --enable-debug=log
+    $ ./configure --enable-debug=full
     $ make
     $ src/nutcracker -h
+
+Few checklists:
+
++ use newer version of gcc (older version of gcc has problems)
++ use CFLAGS="-O1" ./configure && make
++ use CFLAGS="-O3 -fno-strict-aliasing" ./configure && make
 
 ## Features
 

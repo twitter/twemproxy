@@ -605,12 +605,15 @@ static uint32_t
 server_pool_hash(struct server_pool *pool, uint8_t *key, uint32_t keylen)
 {
     ASSERT(array_n(&pool->server) != 0);
+    ASSERT(key != NULL);
 
     if (array_n(&pool->server) == 1) {
         return 0;
     }
 
-    ASSERT(key != NULL && keylen != 0);
+    if (keylen == 0) {
+        return 0;
+    }
 
     return pool->key_hash((char *)key, keylen);
 }
@@ -621,7 +624,7 @@ server_pool_idx(struct server_pool *pool, uint8_t *key, uint32_t keylen)
     uint32_t hash, idx;
 
     ASSERT(array_n(&pool->server) != 0);
-    ASSERT(key != NULL && keylen != 0);
+    ASSERT(key != NULL);
 
     /*
      * If hash_tag: is configured for this server pool, we use the part of

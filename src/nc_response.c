@@ -144,6 +144,15 @@ rsp_filter(struct context *ctx, struct conn *conn, struct msg *msg)
     struct msg *pmsg;
 
     ASSERT(!conn->client && !conn->proxy);
+    
+    if(conn->is_Select_Msg){
+    	conn->is_Select_Msg = 0;
+		rsp_put(msg);
+		log_debug(LOG_VERB," select success rsp %"PRIu64" len %"PRIu32" on s %d ", msg->id,
+		                  msg->mlen, conn->sd);
+		//ignore first response
+		return true;
+    }
 
     if (msg_empty(msg)) {
         ASSERT(conn->rmsg == NULL);

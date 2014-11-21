@@ -168,6 +168,22 @@ server_deinit(struct array *server)
     array_deinit(server);
 }
 
+void  setSelectDb(struct conn *conn,struct server *server){
+		 ASSERT(!conn->client && conn->connected )
+         int n, i;
+         char selectCommand[25];
+         sprintf(selectCommand,"*2\r\n$6\r\nSELECT\r\n$1\r\n%d\r\n",server->owner->select);
+
+		 n = write(conn->sd,selectCommand,strlen(selectCommand));
+		 if (n < 0) {
+			 log_error("ERROR selecting db on  socket for socket %d-> error %d ", conn->sd, strerror(errno) );
+			 conn->err = errno;
+		 }
+
+
+}
+
+
 struct conn *
 server_conn(struct server *server)
 {
@@ -534,7 +550,7 @@ server_connected(struct context *ctx, struct conn *conn)
 
     conn->connecting = 0;
     conn->connected = 1;
-
+    setSelectDb(conn,server);
     log_debug(LOG_INFO, "connected on s %d to server '%.*s'", conn->sd,
               server->pname.len, server->pname.data);
 }

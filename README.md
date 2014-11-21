@@ -226,6 +226,18 @@ Pipelining is the reason why nutcracker ends up doing better in terms of through
 
 If you are deploying nutcracker in production, you might consider reading through the [recommendation document](notes/recommendation.md) to understand the parameters you could tune in nutcracker to run it efficiently in the production environment.
 
+## Packages
+
+### Ubuntu
+
+#### PPA Stable
+
+https://launchpad.net/~twemproxy/+archive/ubuntu/stable
+
+#### PPA Daily
+
+https://launchpad.net/~twemproxy/+archive/ubuntu/daily
+
 ## Utils
 + [nagios checks](https://github.com/wanelo/nagios-checks/blob/master/check_twemproxy)
 + [circunous](https://github.com/wanelo-chef/nad-checks/blob/master/recipes/twemproxy.rb)

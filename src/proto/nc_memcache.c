@@ -1495,3 +1495,18 @@ memcache_post_coalesce(struct msg *request)
         return;
     }
 }
+
+rstatus_t
+memcache_add_auth_packet(struct context *ctx, struct conn *c_conn, struct conn *s_conn)
+{
+    NOT_REACHED();
+    return NC_OK;
+}
+
+rstatus_t
+memcache_reply(struct msg *r)
+{
+    NOT_REACHED();
+    return NC_OK;
+}
+

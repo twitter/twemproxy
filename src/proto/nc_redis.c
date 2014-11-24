@@ -21,6 +21,13 @@
 #include <nc_core.h>
 #include <nc_proto.h>
 
+#define AUTH_OK "+OK\r\n"
+#define AUTH_INVALID_PASSWORD "-ERR invalid password\r\n"
+#define AUTH_REQUIRE_PASSWORD "-NOAUTH Authentication required\r\n"
+#define AUTH_NO_PASSWORD "-ERR Client sent AUTH, but no password is set\r\n"
+
+static rstatus_t redis_handle_auth_req(struct msg *request, struct msg *response);
+
 /*
  * Return true, if the redis command take no key, otherwise
  * return false
@@ -75,8 +82,8 @@ redis_arg0(struct msg *r)
     case MSG_REQ_REDIS_SPOP:
 
     case MSG_REQ_REDIS_ZCARD:
-
     case MSG_REQ_REDIS_PFCOUNT:
+    case MSG_REQ_REDIS_AUTH:
         return true;
 
     default:
@@ -622,6 +629,12 @@ redis_parse_req(struct msg *r)
                 if (str4icmp(m, 'q', 'u', 'i', 't')) {
                     r->type = MSG_REQ_REDIS_QUIT;
                     r->quit = 1;
+                    break;
+                }
+
+                if (str4icmp(m, 'a', 'u', 't', 'h')) {
+                    r->type = MSG_REQ_REDIS_AUTH;
+                    r->noforward = 1;
                     break;
                 }
 
@@ -2451,9 +2464,19 @@ redis_fragment(struct msg *r, uint32_t ncontinuum, struct msg_tqh *frag_msgq)
 rstatus_t
 redis_reply(struct msg *r)
 {
+    struct conn *c_conn;
     struct msg *response = r->peer;
 
-    ASSERT(response != NULL);
+    ASSERT(response != NULL && response->owner != NULL);
+
+    c_conn = response->owner;
+    if (r->type == MSG_REQ_REDIS_AUTH) {
+        return redis_handle_auth_req(r, response);
+    }
+
+    if (c_conn->need_auth == 1) {
+        return msg_append(response, (uint8_t *)AUTH_REQUIRE_PASSWORD, strlen(AUTH_REQUIRE_PASSWORD));
+    }
 
     switch (r->type) {
     case MSG_REQ_REDIS_PING:
@@ -2551,4 +2574,86 @@ redis_post_coalesce(struct msg *r)
     default:
         NOT_REACHED();
     }
+}
+
+static bool
+redis_valid_auth(struct conn *conn, struct msg *msg)
+{
+    struct server_pool *pool = (struct server_pool *)conn->owner;
+
+    if (pool->redis_auth.len > 0) {
+        struct keypos *kpos;
+        uint8_t *key;
+        uint32_t keylen;
+
+        kpos = array_get(msg->keys, 0);
+        key = kpos->start;
+        keylen = (uint32_t)(kpos->end - kpos->start);
+        if (keylen != pool->redis_auth.len) {
+            return false;
+        }
+
+        if (memcmp(pool->redis_auth.data, key, keylen) != 0) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+static rstatus_t
+redis_handle_auth_req(struct msg *request, struct msg *response)
+{
+    struct server_pool *pool;
+    struct conn *conn = (struct conn *)response->owner;
+
+    ASSERT(conn->client && !conn->proxy && conn->redis);
+
+    pool = (struct server_pool *)conn->owner;
+
+    if (pool->redis_auth.len == 0) {
+        return msg_append(response, (uint8_t *)AUTH_NO_PASSWORD, nc_strlen(AUTH_NO_PASSWORD));
+    }
+
+    if (redis_valid_auth(conn, request)) {
+        conn->need_auth = 0;
+        return msg_append(response, (uint8_t *)AUTH_OK, nc_strlen(AUTH_OK));
+    } else {
+        conn->need_auth = 1;
+        return msg_append(response, (uint8_t *)AUTH_INVALID_PASSWORD, nc_strlen(AUTH_INVALID_PASSWORD));
+    }
+
+    NOT_REACHED();
+}
+
+rstatus_t
+redis_add_auth_packet(struct context *ctx, struct conn *c_conn, struct conn *s_conn)
+{
+    rstatus_t status;
+    struct msg *msg;
+    struct server_pool *pool;
+
+    ASSERT(s_conn->need_auth);
+    ASSERT(!s_conn->client && !s_conn->proxy);
+
+    pool = c_conn->owner;
+
+    msg = msg_get(c_conn, true, c_conn->redis);
+    if (msg == NULL) {
+        c_conn->err = errno;
+        return NC_ENOMEM;
+    }
+
+    status = msg_prepend_format(msg, "*2\r\n$4\r\nAUTH\r\n$%d\r\n%s\r\n",
+                                pool->redis_auth.len, pool->redis_auth.data);
+    if (status != NC_OK) {
+        msg_put(msg);
+        return status;
+    }
+
+    msg->swallow = 1;
+    s_conn->enqueue_inq(ctx, s_conn, msg);
+    s_conn->need_auth = 0;
+
+    return NC_OK;
 }

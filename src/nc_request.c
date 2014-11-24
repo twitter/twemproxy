@@ -473,13 +473,16 @@ req_filter(struct context *ctx, struct conn *conn, struct msg *msg)
         return true;
     }
 
-
     /*
-     * Hanlde "AUTH requirepass\r\n"
+     * if this conn is not authenticated, we will mark it as noforward,
+     * and handle it in the redis_reply handler.
      *
      */
+    if (conn->need_auth) {
+        msg->noforward = 1;
+    }
 
-    return msg->auth(ctx, conn, msg);
+    return false;
 }
 
 static void
@@ -561,7 +564,15 @@ req_forward(struct context *ctx, struct conn *c_conn, struct msg *msg)
         }
     }
 
-    msg->add_auth(ctx, c_conn, s_conn);
+    if (s_conn->need_auth) {
+        status = msg->add_auth(ctx, c_conn, s_conn);
+        if (status != NC_OK) {
+            req_forward_error(ctx, c_conn, msg);
+            s_conn->err = errno;
+            return;
+        }
+    }
+
     s_conn->enqueue_inq(ctx, s_conn, msg);
 
     req_forward_stats(ctx, s_conn->owner, msg);

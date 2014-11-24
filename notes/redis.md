@@ -445,3 +445,19 @@
     LRANGE_500 (first 450 elements): 8605.85 requests per second
     LRANGE_600 (first 600 elements): 6587.62 requests per second
 
+## redis-auth feature
+
++ you can enable redis-auth for a pool with 'redis_auth':
+
+    alpha:
+      listen: 127.0.0.1:22121
+      hash: fnv1a_64
+      distribution: ketama
+      redis: true
+      redis_auth: testpass
+
++ notice:
+    + *MUST* set all redis with a same passwd and all twemproxy with the same passwd
+    + length of password should less than mbuf.
+
+

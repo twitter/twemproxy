@@ -148,7 +148,6 @@ _conn_get(void)
     conn->recv_ready = 0;
     conn->send_active = 0;
     conn->send_ready = 0;
-    conn->send_auth = 0;
 
     conn->client = 0;
     conn->proxy = 0;
@@ -165,17 +164,15 @@ _conn_get(void)
     return conn;
 }
 
-static unsigned int
-need_auth(void *owner, bool redis) {
-    unsigned int ret;
+static bool
+conn_need_auth(void *owner, bool redis) {
     struct server_pool *pool = (struct server_pool *)(owner);
 
-    ret = 0;
     if (redis && pool->redis_auth.len > 0) {
-        ret = 1;
+        return true;
     }
 
-    return ret;
+    return false;
 }
 
 struct conn *
@@ -211,13 +208,13 @@ conn_get(void *owner, bool client, bool redis)
 
         conn->ref = client_ref;
         conn->unref = client_unref;
-        conn->need_auth = need_auth(owner, redis);
+        conn->need_auth = conn_need_auth(owner, redis);
 
         conn->enqueue_inq = NULL;
         conn->dequeue_inq = NULL;
         conn->enqueue_outq = req_client_enqueue_omsgq;
         conn->dequeue_outq = req_client_dequeue_omsgq;
-        
+
         ncurr_cconn++;
     } else {
         /*
@@ -240,7 +237,7 @@ conn_get(void *owner, bool client, bool redis)
         conn->ref = server_ref;
         conn->unref = server_unref;
 
-        conn->need_auth = need_auth(server->owner, redis);
+        conn->need_auth = conn_need_auth(server->owner, redis);
 
         conn->enqueue_inq = req_server_enqueue_imsgq;
         conn->dequeue_inq = req_server_dequeue_imsgq;

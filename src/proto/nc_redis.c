@@ -26,7 +26,7 @@
 #define AUTH_REQUIRE_PASSWORD "-NOAUTH Authentication required\r\n"
 #define AUTH_NO_PASSWORD "-ERR Client sent AUTH, but no password is set\r\n"
 
-static rstatus_t redis_valid_auth(struct msg *request, struct msg *response);
+static rstatus_t redis_handle_auth_req(struct msg *request, struct msg *response);
 
 /*
  * Return true, if the redis command take no key, otherwise
@@ -634,6 +634,7 @@ redis_parse_req(struct msg *r)
 
                 if (str4icmp(m, 'a', 'u', 't', 'h')) {
                     r->type = MSG_REQ_REDIS_AUTH;
+                    r->noforward = 1;
                     break;
                 }
 
@@ -2469,16 +2470,17 @@ redis_reply(struct msg *r)
     ASSERT(response != NULL && response->owner != NULL);
 
     c_conn = response->owner;
-    if (c_conn->need_auth == 1 && r->type != MSG_REQ_REDIS_AUTH) {
+    if (r->type == MSG_REQ_REDIS_AUTH) {
+        return redis_handle_auth_req(r, response);
+    }
+
+    if (c_conn->need_auth == 1) {
         return msg_append(response, (uint8_t *)AUTH_REQUIRE_PASSWORD, strlen(AUTH_REQUIRE_PASSWORD));
     }
 
     switch (r->type) {
     case MSG_REQ_REDIS_PING:
         return msg_append(response, (uint8_t *)"+PONG\r\n", 7);
-
-    case MSG_REQ_REDIS_AUTH:
-        return redis_valid_auth(r, response);
 
     default:
         NOT_REACHED();
@@ -2575,7 +2577,7 @@ redis_post_coalesce(struct msg *r)
 }
 
 static bool
-valid_auth(struct conn *conn, struct msg *msg)
+redis_valid_auth(struct conn *conn, struct msg *msg)
 {
     struct server_pool *pool = (struct server_pool *)conn->owner;
 
@@ -2600,10 +2602,11 @@ valid_auth(struct conn *conn, struct msg *msg)
 }
 
 static rstatus_t
-redis_valid_auth(struct msg *request, struct msg *response)
+redis_handle_auth_req(struct msg *request, struct msg *response)
 {
     struct server_pool *pool;
     struct conn *conn = (struct conn *)response->owner;
+
     ASSERT(conn->client && !conn->proxy && conn->redis);
 
     pool = (struct server_pool *)conn->owner;
@@ -2612,7 +2615,7 @@ redis_valid_auth(struct msg *request, struct msg *response)
         return msg_append(response, (uint8_t *)AUTH_NO_PASSWORD, nc_strlen(AUTH_NO_PASSWORD));
     }
 
-    if (valid_auth(conn, request)) {
+    if (redis_valid_auth(conn, request)) {
         conn->need_auth = 0;
         return msg_append(response, (uint8_t *)AUTH_OK, nc_strlen(AUTH_OK));
     } else {
@@ -2620,94 +2623,37 @@ redis_valid_auth(struct msg *request, struct msg *response)
         return msg_append(response, (uint8_t *)AUTH_INVALID_PASSWORD, nc_strlen(AUTH_INVALID_PASSWORD));
     }
 
-    return NC_OK;
+    NOT_REACHED();
 }
 
-static struct mbuf *
-get_mbuf(struct msg *msg)
+rstatus_t
+redis_add_auth_packet(struct context *ctx, struct conn *c_conn, struct conn *s_conn)
 {
-    struct mbuf *mbuf;
-
-    mbuf = STAILQ_LAST(&msg->mhdr, mbuf, next);
-    if (mbuf == NULL || mbuf_full(mbuf)) {
-        mbuf = mbuf_get();
-        if (mbuf == NULL) {
-            return NULL;
-        }
-
-        mbuf_insert(&msg->mhdr, mbuf);
-        msg->pos = mbuf->pos;
-    }
-
-    ASSERT(mbuf->end - mbuf->last > 0);
-    return mbuf;
-}
-
-bool
-redis_auth_req(struct context *ctx, struct conn *conn, struct msg *msg)
-{
-    ASSERT(conn->redis);
-
-    if (conn->need_auth || msg->type == MSG_REQ_REDIS_AUTH) {
-        msg->noforward = 1;
-    }
-
-    return false;
-}
-
-static uint32_t
-set_redis_auth_command(struct mbuf *mbuf, struct string *pass)
-{
-#define REDIS_AUTH_COMMAND "*2\r\n$4\r\nAUTH\r\n"
-    int n;
-    char auth[1024];
-    n = nc_snprintf(auth, sizeof(auth), REDIS_AUTH_COMMAND "$%d\r\n%s\r\n",
-            pass->len, pass->data);
-    memcpy(mbuf->last, auth, (size_t)n);
-    ASSERT((mbuf->last + n) <= mbuf->end);
-
-    return (uint32_t)n;
-}
-
-static void
-add_redis_auth_packet(struct context *ctx, struct conn *c_conn, struct conn *s_conn)
-{
+    rstatus_t status;
     struct msg *msg;
-    struct mbuf *mbuf;
     struct server_pool *pool;
-    uint32_t n;
+
+    ASSERT(s_conn->need_auth);
+    ASSERT(!s_conn->client && !s_conn->proxy);
 
     pool = c_conn->owner;
 
-    if (s_conn->need_auth == 0 || pool->redis_auth.len == 0) {
-        return;
-    }
-
-    ASSERT(!s_conn->client && !s_conn->proxy);
     msg = msg_get(c_conn, true, c_conn->redis);
     if (msg == NULL) {
         c_conn->err = errno;
-        return;
+        return NC_ENOMEM;
     }
 
-    mbuf = get_mbuf(msg);
-    if (mbuf == NULL) {
+    status = msg_prepend_format(msg, "*2\r\n$4\r\nAUTH\r\n$%d\r\n%s\r\n",
+                                pool->redis_auth.len, pool->redis_auth.data);
+    if (status != NC_OK) {
         msg_put(msg);
-        return;
+        return status;
     }
-    n = set_redis_auth_command(mbuf, &(pool->redis_auth));
-    mbuf->last += n;
-    msg->mlen += n;
-    msg->swallow = 1;
 
+    msg->swallow = 1;
     s_conn->enqueue_inq(ctx, s_conn, msg);
     s_conn->need_auth = 0;
-}
 
-void
-redis_add_auth_packet(struct context *ctx, struct conn *c_conn, struct conn *s_conn)
-{
-    if (s_conn->need_auth && s_conn->redis) {
-        add_redis_auth_packet(ctx, c_conn, s_conn);
-    }
+    return NC_OK;
 }

@@ -35,7 +35,6 @@ typedef void (*conn_ref_t)(struct conn *, void *);
 typedef void (*conn_unref_t)(struct conn *);
 
 typedef void (*conn_msgq_t)(struct context *, struct conn *, struct msg *);
-typedef void (*conn_auth_t)(struct context *, struct conn *, struct msg *);
 
 struct conn {
     TAILQ_ENTRY(conn)  conn_tqe;      /* link in server_pool / server / free q */
@@ -59,7 +58,6 @@ struct conn {
     conn_send_done_t   send_done;     /* write done handler */
     conn_close_t       close;         /* close handler */
     conn_active_t      active;        /* active? handler */
-    conn_auth_t        send_auth;     /* write auth message */
 
     conn_ref_t         ref;           /* connection reference handler */
     conn_unref_t       unref;         /* connection unreference handler */
@@ -86,7 +84,7 @@ struct conn {
     unsigned           eof:1;         /* eof? aka passive close? */
     unsigned           done:1;        /* done? aka close? */
     unsigned           redis:1;       /* redis? */
-    unsigned           need_auth:1;        /* need_auth? */
+    unsigned           need_auth:1;   /* need_auth? */
 };
 
 TAILQ_HEAD(conn_tqh, conn);

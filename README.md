@@ -268,6 +268,7 @@ https://launchpad.net/~twemproxy/+archive/ubuntu/daily
 + [3scale.net](http://3scale.net)
 + [Ooyala](http://www.ooyala.com)
 + [Twitch](http://twitch.tv)
++ [Socrata](http://www.socrata.com/)
 
 ## Issues and Support
 

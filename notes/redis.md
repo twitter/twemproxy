@@ -449,12 +449,12 @@
 
 + you can enable redis-auth for a pool with 'redis_auth':
 
-    alpha:
-      listen: 127.0.0.1:22121
-      hash: fnv1a_64
-      distribution: ketama
-      redis: true
-      redis_auth: testpass
+        alpha:
+          listen: 127.0.0.1:22121
+          hash: fnv1a_64
+          distribution: ketama
+          redis: true
+          redis_auth: testpass
 
 + notice:
     + *MUST* set all redis with a same passwd and all twemproxy with the same passwd

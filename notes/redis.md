@@ -457,7 +457,7 @@
           redis_auth: testpass
 
 + notice:
-    + *MUST* set all redis with a same passwd and all twemproxy with the same passwd
-    + length of password should less than mbuf.
+    + *MUST* set all redis with a same passwd, and all twemproxy with the same passwd
+    + Length of password should less than 256 
 
 

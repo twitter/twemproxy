@@ -399,7 +399,7 @@
 ## Note
 
 - redis commands are not case sensitive
-- only vectored commands 'MGET key [key ...]' and 'DEL key [key ...]' needs to be fragmented
+- only vectored commands 'MGET key [key ...]', 'MSET key value [key value ...]', 'DEL key [key ...]' needs to be fragmented
 
 ## Performance
 
@@ -444,4 +444,20 @@
     LRANGE_300 (first 300 elements): 12376.24 requests per second
     LRANGE_500 (first 450 elements): 8605.85 requests per second
     LRANGE_600 (first 600 elements): 6587.62 requests per second
+
+## redis-auth feature
+
++ you can enable redis-auth for a pool with 'redis_auth':
+
+        alpha:
+          listen: 127.0.0.1:22121
+          hash: fnv1a_64
+          distribution: ketama
+          redis: true
+          redis_auth: testpass
+
++ notice:
+    + *MUST* set all redis with a same passwd, and all twemproxy with the same passwd
+    + Length of password should less than 256 
+
 

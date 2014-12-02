@@ -226,6 +226,7 @@ done:
     msg->token = NULL;
 
     msg->parser = NULL;
+    msg->add_auth = NULL;
     msg->result = MSG_PARSE_OK;
 
     msg->fragment = NULL;
@@ -292,6 +293,8 @@ msg_get(struct conn *conn, bool request, bool redis)
         } else {
             msg->parser = redis_parse_rsp;
         }
+
+        msg->add_auth = redis_add_auth_packet;
         msg->fragment = redis_fragment;
         msg->reply = redis_reply;
         msg->pre_coalesce = redis_pre_coalesce;
@@ -302,6 +305,7 @@ msg_get(struct conn *conn, bool request, bool redis)
         } else {
             msg->parser = memcache_parse_rsp;
         }
+        msg->add_auth = memcache_add_auth_packet;
         msg->fragment = memcache_fragment;
         msg->pre_coalesce = memcache_pre_coalesce;
         msg->post_coalesce = memcache_post_coalesce;

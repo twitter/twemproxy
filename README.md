@@ -16,14 +16,20 @@ To build nutcracker from [distribution tarball](http://code.google.com/p/twempro
     $ make
     $ sudo make install
 
-To build nutcracker from source with _debug logs enabled_ and _assertions disabled_:
+To build nutcracker from source with _debug logs enabled_ and _assertions enabled_:
 
     $ git clone git@github.com:twitter/twemproxy.git
     $ cd twemproxy
     $ autoreconf -fvi
-    $ ./configure --enable-debug=log
+    $ ./configure --enable-debug=full
     $ make
     $ src/nutcracker -h
+
+Few checklists:
+
++ use newer version of gcc (older version of gcc has problems)
++ use CFLAGS="-O1" ./configure && make
++ use CFLAGS="-O3 -fno-strict-aliasing" ./configure && make
 
 ## Features
 
@@ -220,6 +226,18 @@ Pipelining is the reason why nutcracker ends up doing better in terms of through
 
 If you are deploying nutcracker in production, you might consider reading through the [recommendation document](notes/recommendation.md) to understand the parameters you could tune in nutcracker to run it efficiently in the production environment.
 
+## Packages
+
+### Ubuntu
+
+#### PPA Stable
+
+https://launchpad.net/~twemproxy/+archive/ubuntu/stable
+
+#### PPA Daily
+
+https://launchpad.net/~twemproxy/+archive/ubuntu/daily
+
 ## Utils
 + [nagios checks](https://github.com/wanelo/nagios-checks/blob/master/check_twemproxy)
 + [circunous](https://github.com/wanelo-chef/nad-checks/blob/master/recipes/twemproxy.rb)
@@ -250,6 +268,7 @@ If you are deploying nutcracker in production, you might consider reading throug
 + [3scale.net](http://3scale.net)
 + [Ooyala](http://www.ooyala.com)
 + [Twitch](http://twitch.tv)
++ [Socrata](http://www.socrata.com/)
 
 ## Issues and Support
 

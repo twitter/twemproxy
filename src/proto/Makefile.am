@@ -11,4 +11,5 @@ noinst_HEADERS = nc_proto.h
 
 libproto_a_SOURCES =			\
 	nc_memcache.c			\
-	nc_redis.c
+	nc_redis.c \
+	nc_proto_util.c

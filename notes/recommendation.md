@@ -2,7 +2,7 @@ If you are deploying nutcracker in your production environment, here are a few r
 
 ## Log Level
 
-By default debug logging is disabled in nutcracker. However, it is worthwhile running nutcracker with debug logging enabled and verbosity level set to LOG_INFO (-v 6 or --verbosity=6). This in reality does not add much overhead as you only pay the cost of checking an if condition for every log line encountered during the run time.
+By default debug logging is disabled in nutcracker. However, it is worthwhile running nutcracker with debug logging enabled and verbosity level set to LOG_INFO (-v 6 or --verbose=6). This in reality does not add much overhead as you only pay the cost of checking an if condition for every log line encountered during the run time.
 
 At LOG_INFO level, nutcracker logs the life cycle of every client and server connection and important events like the server being ejected from the hash ring and so on. Eg.
 

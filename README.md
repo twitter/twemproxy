@@ -60,7 +60,7 @@ Few checklists:
       -t, --test-conf        : test configuration for syntax errors and exit
       -d, --daemonize        : run as a daemon
       -D, --describe-stats   : print stats description and exit
-      -v, --verbosity=N      : set logging level (default: 5, min: 0, max: 11)
+      -v, --verbose=N        : set logging level (default: 5, min: 0, max: 11)
       -o, --output=S         : set logging file (default: stderr)
       -c, --conf-file=S      : set configuration file (default: conf/nutcracker.yml)
       -s, --stats-port=N     : set stats monitoring port (default: 22222)

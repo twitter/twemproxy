@@ -25,6 +25,9 @@ AM_LDFLAGS += -lm -lpthread -rdynamic
 if OS_SOLARIS
 AM_LDFLAGS += -lnsl -lsocket
 endif
+if OS_FREEBSD
+AM_LDFLAGS += -lexecinfo
+endif
 
 SUBDIRS = hashkit proto event
 

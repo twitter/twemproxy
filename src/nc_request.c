@@ -316,6 +316,30 @@ req_server_enqueue_imsgq(struct context *ctx, struct conn *conn, struct msg *msg
 }
 
 void
+req_server_enqueue_imsgq_head(struct context *ctx, struct conn *conn, struct msg *msg)
+{
+    ASSERT(msg->request);
+    ASSERT(!conn->client && !conn->proxy);
+
+    /*
+     * timeout clock starts ticking the instant the message is enqueued into
+     * the server in_q; the clock continues to tick until it either expires
+     * or the message is dequeued from the server out_q
+     *
+     * noreply request are free from timeouts because client is not intrested
+     * in the reponse anyway!
+     */
+    if (!msg->noreply) {
+        msg_tmo_insert(msg, conn);
+    }
+
+    TAILQ_INSERT_HEAD(&conn->imsg_q, msg, s_tqe);
+
+    stats_server_incr(ctx, conn->owner, in_queue);
+    stats_server_incr_by(ctx, conn->owner, in_queue_bytes, msg->mlen);
+}
+
+void
 req_server_dequeue_imsgq(struct context *ctx, struct conn *conn, struct msg *msg)
 {
     ASSERT(msg->request);
@@ -672,6 +696,12 @@ req_send_next(struct context *ctx, struct conn *conn)
 
     if (conn->connecting) {
         server_connected(ctx, conn);
+    }
+
+    // if the connection is dead for some reason (e.g. it hasn't been initialized
+    // correctly), ignore the request
+    if (!conn->connected) {
+        return NULL;
     }
 
     nmsg = TAILQ_FIRST(&conn->imsg_q);

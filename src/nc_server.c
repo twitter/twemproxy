@@ -168,6 +168,61 @@ server_deinit(struct array *server)
     array_deinit(server);
 }
 
+void
+server_conn_init(struct context *ctx, struct conn *conn, struct server *server)
+{
+    ASSERT(!conn->client && conn->connected);
+
+    if (conn->redis && server->owner->redis_db > 0)
+    {
+        char command[64];
+        int digits;
+        size_t commandlen;
+        size_t msize;
+        struct msg *msg;
+        struct mbuf *mbuf;
+
+        digits = (server->owner->redis_db >= 10)
+            ? (int)log10(server->owner->redis_db) + 1
+            : 1;
+
+        commandlen = snprintf(command, sizeof(command), "*2\r\n$6\r\nSELECT\r\n$%d\r\n%d\r\n", digits, server->owner->redis_db);
+
+        // Create a fake client message and add it to the pipeline
+        // We force this message to be head of queue as it might already contain
+        // a command that triggered the connect.
+
+        msg  = msg_get(conn, false, conn->redis);
+        mbuf = mbuf_get();
+
+        mbuf_insert(&msg->mhdr, mbuf);
+        msg->pos = mbuf->pos;
+        msize = mbuf_size(mbuf);
+
+        ASSERT(msize >= commandlen);
+
+        // Copy message to buffer
+
+        strcpy((char*)mbuf->last, command);
+
+        mbuf->last += commandlen;
+        msg->mlen  += (uint32_t)commandlen;
+
+        // Set parser states and swallow to true (no client to respond)
+
+        msg->state   = 0;
+        msg->token   = NULL;
+        msg->type    = MSG_REQ_REDIS_SELECT;
+        msg->result  = MSG_PARSE_OK;
+        msg->swallow = 1;
+
+        // Enqueue and send
+        
+        req_server_enqueue_imsgq_head(ctx, conn, msg);
+        msg_send(ctx, conn);
+    }
+ }
+
 struct conn *
 server_conn(struct server *server)
 {
@@ -337,6 +392,8 @@ server_close(struct context *ctx, struct conn *conn)
 
     server_close_stats(ctx, conn->owner, conn->err, conn->eof,
                        conn->connected);
+
+    conn->connected = false;
 
     if (conn->sd < 0) {
         server_failure(ctx, conn->owner);
@@ -534,6 +591,10 @@ server_connected(struct context *ctx, struct conn *conn)
 
     conn->connecting = 0;
     conn->connected = 1;
+
+    if (conn->initialize) {
+        conn->initialize(ctx, conn, server);
+    }
 
     log_debug(LOG_INFO, "connected on s %d to server '%.*s'", conn->sd,
               server->pname.len, server->pname.data);

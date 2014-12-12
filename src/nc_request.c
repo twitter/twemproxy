@@ -303,7 +303,7 @@ req_server_enqueue_imsgq(struct context *ctx, struct conn *conn, struct msg *msg
      * or the message is dequeued from the server out_q
      *
      * noreply request are free from timeouts because client is not intrested
-     * in the reponse anyway!
+     * in the response anyway!
      */
     if (!msg->noreply) {
         msg_tmo_insert(msg, conn);

@@ -250,6 +250,7 @@ https://launchpad.net/~twemproxy/+archive/ubuntu/daily
 + [sensu-metrics](https://github.com/sensu/sensu-community-plugins/blob/master/plugins/twemproxy/twemproxy-metrics.rb)
 + [redis-mgr](https://github.com/idning/redis-mgr)
 + [smitty for twemproxy failover](https://github.com/areina/smitty)
++ [chef cookbook](https://supermarket.getchef.com/cookbooks/twemproxy)
 
 ## Users
 + [Pinterest](http://pinterest.com/)

@@ -106,6 +106,10 @@ static struct command conf_commands[] = {
       conf_add_server,
       offsetof(struct conf_pool, server) },
 
+    { string("sentinels"),
+      conf_add_server,
+      offsetof(struct conf_pool, sentinel) },
+
     null_command
 };
 
@@ -213,6 +217,14 @@ conf_pool_init(struct conf_pool *cp, struct string *name)
                         sizeof(struct conf_server));
     if (status != NC_OK) {
         string_deinit(&cp->name);
+        return status;
+    }
+
+    status = array_init(&cp->sentinel, CONF_DEFAULT_SENTINELS,
+                        sizeof(struct conf_server));
+    if (status != NC_OK) {
+        string_deinit(&cp->name);
+        array_deinit(&cp->server);
         return status;
     }
 
@@ -352,6 +364,16 @@ conf_dump(struct conf *cf)
         for (j = 0; j < nserver; j++) {
             s = array_get(&cp->server, j);
             log_debug(LOG_VVERB, "    %.*s", s->len, s->data);
+        }
+
+        nserver = array_n(&cp->sentinel);
+        if (nserver > 0) {
+            log_debug(LOG_VVERB, "  sentinels: %"PRIu32"", nserver);
+
+            for (j = 0; j < nserver; j++) {
+                s = array_get(&cp->sentinel, j);
+                log_debug(LOG_VVERB, "    %.*s", s->len, s->data);
+            }
         }
     }
 }
@@ -964,8 +986,8 @@ conf_validate_structure(struct conf *cf)
 {
     rstatus_t status;
     int type, depth;
-    uint32_t i, count[CONF_MAX_DEPTH + 1];
-    bool done, error, seq;
+    uint32_t i, seq, count[CONF_MAX_DEPTH + 1];
+    bool done, error;
 
     status = conf_yaml_init(cf);
     if (status != NC_OK) {
@@ -974,7 +996,7 @@ conf_validate_structure(struct conf *cf)
 
     done = false;
     error = false;
-    seq = false;
+    seq = 0;
     depth = 0;
     for (i = 0; i < CONF_MAX_DEPTH + 1; i++) {
         count[i] = 0;
@@ -987,7 +1009,7 @@ conf_validate_structure(struct conf *cf)
      * keyx:
      *   key1: value1
      *   key2: value2
-     *   seq:
+     *   seq1:
      *     - elem1
      *     - elem2
      *     - elem3
@@ -996,11 +1018,15 @@ conf_validate_structure(struct conf *cf)
      * keyy:
      *   key1: value1
      *   key2: value2
-     *   seq:
+     *   seq1:
      *     - elem1
      *     - elem2
      *     - elem3
      *   key3: value3
+     *   seq2:
+     *     - elem1
+     *     - elem2
+     *     - elem3
      */
     do {
         status = conf_event_next(cf);
@@ -1039,8 +1065,8 @@ conf_validate_structure(struct conf *cf)
 
         case YAML_MAPPING_END_EVENT:
             if (depth == CONF_MAX_DEPTH) {
-                if (seq) {
-                    seq = false;
+                if (seq > 0) {
+                    seq = 0;
                 } else {
                     error = true;
                     log_error("conf: '%s' missing sequence directive at depth "
@@ -1052,10 +1078,10 @@ conf_validate_structure(struct conf *cf)
             break;
 
         case YAML_SEQUENCE_START_EVENT:
-            if (seq) {
+            if (seq >= CONF_MAX_SEQ) {
                 error = true;
-                log_error("conf: '%s' has more than one sequence directive",
-                          cf->fname);
+                log_error("conf: '%s' has more than %d sequence directive",
+                          cf->fname, CONF_MAX_SEQ);
             } else if (depth != CONF_MAX_DEPTH) {
                 error = true;
                 log_error("conf: '%s' has sequence at depth %d instead of %d",
@@ -1065,7 +1091,7 @@ conf_validate_structure(struct conf *cf)
                 log_error("conf: '%s' has invalid \"key:value\" at depth %d",
                           cf->fname, depth);
             }
-            seq = true;
+            seq++;
             break;
 
         case YAML_SEQUENCE_END_EVENT:
@@ -1192,6 +1218,50 @@ conf_validate_server(struct conf *cf, struct conf_pool *cp)
 }
 
 static rstatus_t
+conf_validate_sentinel(struct conf *cf, struct conf_pool *cp)
+{
+    uint32_t i, nsentinel;
+    bool valid;
+
+    nsentinel = array_n(&cp->sentinel);
+    if (nsentinel == 0)
+        return NC_OK;
+
+    if (!cp->redis) {
+        log_error("conf: pool '%.*s' is memcached, don't support sentinels",
+                  cp->name.len, cp->name.data);
+        return NC_ERROR;
+    }
+
+    /*
+     * Disallow duplicate sentinels - sentinels with identical "host:port:weight"
+     * or "name" combination are considered as duplicates. When server name
+     * is configured, we only check for duplicate "name" and not for duplicate
+     * "host:port:weight"
+     */
+    array_sort(&cp->sentinel, conf_server_name_cmp);
+    for (valid = true, i = 0; i < nsentinel - 1; i++) {
+        struct conf_server *cs1, *cs2;
+
+        cs1 = array_get(&cp->sentinel, i);
+        cs2 = array_get(&cp->sentinel, i + 1);
+
+        if (string_compare(&cs1->name, &cs2->name) == 0) {
+            log_error("conf: pool '%.*s' has sentinels with same name '%.*s'",
+                      cp->name.len, cp->name.data, cs1->name.len, 
+                      cs1->name.data);
+            valid = false;
+            break;
+        }
+    }
+    if (!valid) {
+        return NC_ERROR;
+    }
+
+    return NC_OK;
+}
+
+static rstatus_t
 conf_validate_pool(struct conf *cf, struct conf_pool *cp)
 {
     rstatus_t status;
@@ -1256,6 +1326,11 @@ conf_validate_pool(struct conf *cf, struct conf_pool *cp)
     }
 
     status = conf_validate_server(cf, cp);
+    if (status != NC_OK) {
+        return status;
+    }
+
+    status = conf_validate_sentinel(cf, cp);
     if (status != NC_OK) {
         return status;
     }

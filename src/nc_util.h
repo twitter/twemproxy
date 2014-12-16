@@ -210,6 +210,7 @@ struct sockinfo {
 
 int nc_resolve(struct string *name, int port, struct sockinfo *si);
 char *nc_unresolve_addr(struct sockaddr *addr, socklen_t addrlen);
+char *nc_unresolve(struct sockinfo *si); /* unresolve AF_UNIX and AF_INET */
 char *nc_unresolve_peer_desc(int sd);
 char *nc_unresolve_desc(int sd);
 

@@ -21,6 +21,7 @@
 #include <nc_core.h>
 #include <nc_server.h>
 #include <nc_conf.h>
+#include <math.h>
 
 void
 server_ref(struct conn *conn, void *owner)
@@ -192,7 +193,7 @@ server_conn_init(struct context *ctx, struct conn *conn, struct server *server)
         // We force this message to be head of queue as it might already contain
         // a command that triggered the connect.
 
-        msg  = msg_get(conn, false, conn->redis);
+        msg  = msg_get(conn, true, conn->redis);
         mbuf = mbuf_get();
 
         mbuf_insert(&msg->mhdr, mbuf);
@@ -210,16 +211,18 @@ server_conn_init(struct context *ctx, struct conn *conn, struct server *server)
 
         // Set parser states and swallow to true (no client to respond)
 
-        msg->state   = 0;
-        msg->token   = NULL;
         msg->type    = MSG_REQ_REDIS_SELECT;
         msg->result  = MSG_PARSE_OK;
         msg->swallow = 1;
+        msg->owner   = NULL;
 
         // Enqueue and send
         
         req_server_enqueue_imsgq_head(ctx, conn, msg);
         msg_send(ctx, conn);
+
+        log_debug(LOG_NOTICE, "sent \"SELECT %d\" to %s | %s. ",
+                  server->owner->redis_db, server->owner->name.data, server->name.data);
     }
  }
 

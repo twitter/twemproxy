@@ -431,7 +431,7 @@ req_make_reply(struct context *ctx, struct conn *conn, struct msg *req)
 {
     struct msg *msg;
 
-    msg = msg_get(conn, true, conn->redis); /* replay */
+    msg = msg_get(conn, false, conn->redis); /* replay */
     if (msg == NULL) {
         conn->err = errno;
         return NC_ENOMEM;

@@ -602,7 +602,7 @@ nc_unresolve(struct sockinfo *si) {
     switch(si->family) {
     case AF_INET:
     case AF_INET6:
-        return nc_unresolve_addr(&si->addr, si->addrlen);
+        return nc_unresolve_addr((struct sockaddr *)&si->addr, si->addrlen);
     case AF_UNIX:
         return si->addr.un.sun_path;
     default:

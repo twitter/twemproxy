@@ -17,6 +17,7 @@
 
 #include <stdio.h>
 #include <ctype.h>
+#include <math.h>
 
 #include <nc_core.h>
 #include <nc_proto.h>
@@ -2658,4 +2659,52 @@ redis_add_auth_packet(struct context *ctx, struct conn *c_conn, struct conn *s_c
     s_conn->need_auth = 0;
 
     return NC_OK;
+}
+
+void
+redis_conn_init(struct context *ctx, struct conn *conn, struct server *server)
+{
+    ASSERT(!conn->client && conn->connected);
+
+    if (conn->redis && server->owner->redis_db > 0)
+    {
+        uint8_t command[64];
+        int digits;
+        size_t commandlen;
+        struct msg *msg;
+        struct mbuf *mbuf;
+
+        digits = (server->owner->redis_db >= 10)
+            ? (int)log10(server->owner->redis_db) + 1
+            : 1;
+
+        commandlen = nc_snprintf(command, sizeof(command), "*2\r\n$6\r\nSELECT\r\n$%d\r\n%d\r\n", digits, server->owner->redis_db);
+
+        /*
+         * Create a fake client message and add it to the pipeline
+         * We force this message to be head of queue as it might already contain
+         * a command that triggered the connect.
+         */
+
+        msg  = msg_get(conn, true, conn->redis);
+        mbuf = mbuf_get();
+
+        mbuf_copy(mbuf, command, commandlen);
+        mbuf_insert(&msg->mhdr, mbuf);
+
+        msg->pos     = mbuf->pos;
+        msg->mlen   += (uint32_t)commandlen;
+        msg->type    = MSG_REQ_REDIS_SELECT;
+        msg->result  = MSG_PARSE_OK;
+        msg->swallow = 1;
+        msg->owner   = NULL;
+
+        /* Enqueue as head and send */
+
+        req_server_enqueue_imsgq_head(ctx, conn, msg);
+        msg_send(ctx, conn);
+
+        log_debug(LOG_NOTICE, "sent \"SELECT %d\" to %s | %s. ",
+        server->owner->redis_db, server->owner->name.data, server->name.data);
+    }
 }

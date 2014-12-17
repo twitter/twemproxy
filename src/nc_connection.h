@@ -59,7 +59,7 @@ struct conn {
     conn_send_done_t   send_done;     /* write done handler */
     conn_close_t       close;         /* close handler */
     conn_active_t      active;        /* active? handler */
-    conn_initialize_t  initialize;    /* connection initialize handler */
+    conn_initialize_t  init;          /* connection initialize handler */
 
     conn_ref_t         ref;           /* connection reference handler */
     conn_unref_t       unref;         /* connection unreference handler */

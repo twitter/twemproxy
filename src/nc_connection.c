@@ -214,7 +214,7 @@ conn_get(void *owner, bool client, bool redis)
         conn->dequeue_inq = NULL;
         conn->enqueue_outq = req_client_enqueue_omsgq;
         conn->dequeue_outq = req_client_dequeue_omsgq;
-        conn->initialize = NULL;
+        conn->init = NULL;
 
         ncurr_cconn++;
     } else {
@@ -244,7 +244,7 @@ conn_get(void *owner, bool client, bool redis)
         conn->dequeue_inq = req_server_dequeue_imsgq;
         conn->enqueue_outq = req_server_enqueue_omsgq;
         conn->dequeue_outq = req_server_dequeue_omsgq;
-        conn->initialize = server_conn_init;
+        conn->init = redis_conn_init;
     }
 
     conn->ref(conn, owner);

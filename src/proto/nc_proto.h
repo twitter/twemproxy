@@ -154,5 +154,6 @@ rstatus_t redis_add_auth_packet(struct context *ctx, struct conn *c_conn, struct
 rstatus_t redis_fragment(struct msg *r, uint32_t ncontinuum, struct msg_tqh *frag_msgq);
 rstatus_t redis_reply(struct msg *r);
 void redis_conn_init(struct context *ctx, struct conn *conn, struct server *server);
+void redis_swallow_msg(struct conn *conn, struct msg *pmsg, struct msg *msg);
 
 #endif

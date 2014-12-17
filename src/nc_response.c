@@ -171,7 +171,7 @@ rsp_filter(struct context *ctx, struct conn *conn, struct msg *msg)
          * We handle this stray packet scenario in nutcracker by closing the
          * server connection which would end up sending SERVER_ERROR to all
          * clients that have requests pending on this server connection. The
-         * fix is aggresive, but not doing so would lead to clients getting
+         * fix is aggressive, but not doing so would lead to clients getting
          * out of sync with the server and as a result clients end up getting
          * responses that don't correspond to the right request.
          *

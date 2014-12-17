@@ -269,7 +269,7 @@ core_timeout(struct context *ctx)
         struct conn *conn;
         int64_t now, then;
 
-        msg = msg_tmo_min();
+        msg = msg_tmo_min();    /* O(logN) */
         if (msg == NULL) {
             ctx->timeout = ctx->max_timeout;
             return;

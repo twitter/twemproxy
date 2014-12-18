@@ -26,6 +26,16 @@ prog="nutcracker"
 
 start () {
     echo -n $"Starting $prog: "
+    #Test the config before start.
+    daemon --user ${USER} ${prog} $OPTIONS -t >/dev/null  2>&1
+    RETVAL=$?
+    if [ $RETVAL -ne 0 ] ; then
+        echo  "Config check fail! Please  use 'nutcracker -c /etc/nutcracker/nutcracker.yml' for detail."
+        echo_failure;
+        echo; 
+        exit 1 
+    fi
+
     daemon --user ${USER} ${prog} $OPTIONS
     RETVAL=$?
     echo

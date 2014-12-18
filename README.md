@@ -272,6 +272,7 @@ https://launchpad.net/~twemproxy/+archive/ubuntu/daily
 + [Twitch](http://twitch.tv)
 + [Socrata](http://www.socrata.com/)
 + [Hootsuite](http://hootsuite.com/)
++ [Trivago](http://www.trivago.com/)
 
 ## Issues and Support
 

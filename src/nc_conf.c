@@ -1567,9 +1567,6 @@ conf_add_server(struct conf *cf, struct command *cmd, void *conf)
           addr_buf, &port, &weight,
           &pname_end, name_buf);
     switch(rc) {
-    case 3:
-        name_buf[0] = '\0'; /* Optional name; assume empty. */
-        /* FALL THROUGH */
     case 2: /* Check "/path/unix_socket:weight [name]" variant */
         rc = sscanf((char *)value->data,
               " "
@@ -1593,6 +1590,9 @@ conf_add_server(struct conf *cf, struct command *cmd, void *conf)
         return "has an invalid \"hostname:port:weight [name]\"or \"/path/unix_socket:weight [name]\" format string";
         }
         /* FALL THROUGH */
+    case 3:
+        name_buf[0] = '\0'; /* Optional name; assume empty. */
+        break;
     case 4:
         break;
     default:

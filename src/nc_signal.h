@@ -31,4 +31,7 @@ rstatus_t signal_init(void);
 void signal_deinit(void);
 void signal_handler(int signo);
 
+/* Check if reload signal (USR1) received, and clear the flag if necessary. */
+int signal_reload_received(int clear);
+
 #endif

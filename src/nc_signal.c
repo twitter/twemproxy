@@ -63,6 +63,23 @@ signal_deinit(void)
 {
 }
 
+static sig_atomic_t _signal_reload_received;
+static void usr1_handler() {
+    if(_signal_reload_received) {
+        log_safe("the previous reload has not been handled yet, don't rush");
+    } else {
+        _signal_reload_received = 1;
+    }
+}
+
+/* Check if reload signal (USR1) received, and clear the flag if necessary. */
+int signal_reload_received(int clear) {
+    int ret = _signal_reload_received;
+    if(clear)
+        _signal_reload_received = 0;
+    return ret;
+}
+
 void
 signal_handler(int signo)
 {
@@ -84,6 +101,8 @@ signal_handler(int signo)
 
     switch (signo) {
     case SIGUSR1:
+        actionstr = ", config reload";
+        action = usr1_handler;
         break;
 
     case SIGUSR2:

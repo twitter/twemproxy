@@ -281,12 +281,20 @@ stats_pool_reset(struct array *stats_pool)
 }
 
 static rstatus_t
-stats_pool_map(struct array *stats_pool, struct array *server_pool)
+stats_pool_each_init(struct server_pool *pool, void *data)
+{
+    struct array *stats_pool = data;
+    struct stats_pool *stp = array_push(stats_pool);
+    return stats_pool_init(stp, pool);
+}
+
+static rstatus_t
+stats_pool_map(struct array *stats_pool, struct server_pools *server_pools)
 {
     rstatus_t status;
-    uint32_t i, npool;
+    uint32_t npool;
 
-    npool = array_n(server_pool);
+    npool = server_pools_n(server_pools);
     ASSERT(npool != 0);
 
     status = array_init(stats_pool, npool, sizeof(struct stats_pool));
@@ -294,19 +302,12 @@ stats_pool_map(struct array *stats_pool, struct array *server_pool)
         return status;
     }
 
-    for (i = 0; i < npool; i++) {
-        struct server_pool *sp = array_get(server_pool, i);
-        struct stats_pool *stp = array_push(stats_pool);
+    status = server_pools_each(server_pools, stats_pool_each_init, stats_pool);
 
-        status = stats_pool_init(stp, sp);
-        if (status != NC_OK) {
-            return status;
-        }
-    }
+    log_debug(LOG_VVVERB, "map %"PRIu32" stats pools%s",
+        npool, status == NC_OK ? "" : " failed");
 
-    log_debug(LOG_VVVERB, "map %"PRIu32" stats pools", npool);
-
-    return NC_OK;
+    return status;
 }
 
 static void
@@ -516,7 +517,7 @@ stats_add_header(struct stats *st)
         return status;
     }
 
-    status = stats_add_num(st, &st->ntotal_conn_str, conn_ntotal_conn());
+    status = stats_add_num(st, &st->ntotal_conn_str, (int64_t)conn_ntotal_conn());
     if (status != NC_OK) {
         return status;
     }
@@ -888,7 +889,7 @@ stats_stop_aggregator(struct stats *st)
 
 struct stats *
 stats_create(uint16_t stats_port, char *stats_ip, int stats_interval,
-             char *source, struct array *server_pool)
+             char *source, struct server_pools *server_pools)
 {
     rstatus_t status;
     struct stats *st;
@@ -935,17 +936,17 @@ stats_create(uint16_t stats_port, char *stats_ip, int stats_interval,
 
     /* map server pool to current (a), shadow (b) and sum (c) */
 
-    status = stats_pool_map(&st->current, server_pool);
+    status = stats_pool_map(&st->current, server_pools);
     if (status != NC_OK) {
         goto error;
     }
 
-    status = stats_pool_map(&st->shadow, server_pool);
+    status = stats_pool_map(&st->shadow, server_pools);
     if (status != NC_OK) {
         goto error;
     }
 
-    status = stats_pool_map(&st->sum, server_pool);
+    status = stats_pool_map(&st->sum, server_pools);
     if (status != NC_OK) {
         goto error;
     }

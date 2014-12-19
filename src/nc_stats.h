@@ -208,7 +208,8 @@ void _stats_server_incr_by(struct context *ctx, struct server *server, stats_ser
 void _stats_server_decr_by(struct context *ctx, struct server *server, stats_server_field_t fidx, int64_t val);
 void _stats_server_set_ts(struct context *ctx, struct server *server, stats_server_field_t fidx, int64_t val);
 
-struct stats *stats_create(uint16_t stats_port, char *stats_ip, int stats_interval, char *source, struct array *server_pool);
+struct server_pools;
+struct stats *stats_create(uint16_t stats_port, char *stats_ip, int stats_interval, char *source, struct server_pools *server_pools);
 void stats_destroy(struct stats *stats);
 void stats_swap(struct stats *stats);
 

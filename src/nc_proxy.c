@@ -193,10 +193,9 @@ proxy_listen(struct context *ctx, struct conn *p)
 }
 
 rstatus_t
-proxy_each_init(void *elem, void *data)
+proxy_each_init(struct server_pool *pool, void *data)
 {
     rstatus_t status;
-    struct server_pool *pool = elem;
     struct conn *p;
 
     p = conn_get_proxy(pool);
@@ -224,24 +223,23 @@ proxy_init(struct context *ctx)
 {
     rstatus_t status;
 
-    ASSERT(array_n(&ctx->pool) != 0);
+    ASSERT(server_pools_n(&ctx->pools) != 0);
 
-    status = array_each(&ctx->pool, proxy_each_init, NULL);
+    status = server_pools_each(&ctx->pools, proxy_each_init, NULL);
     if (status != NC_OK) {
         proxy_deinit(ctx);
         return status;
     }
 
     log_debug(LOG_VVERB, "init proxy with %"PRIu32" pools",
-              array_n(&ctx->pool));
+              server_pools_n(&ctx->pools));
 
     return NC_OK;
 }
 
 rstatus_t
-proxy_each_deinit(void *elem, void *data)
+proxy_each_deinit(struct server_pool *pool, void *data)
 {
-    struct server_pool *pool = elem;
     struct conn *p;
 
     p = pool->p_conn;
@@ -256,16 +254,17 @@ void
 proxy_deinit(struct context *ctx)
 {
     rstatus_t status;
+    uint32_t npool;
 
-    ASSERT(array_n(&ctx->pool) != 0);
+    npool = server_pools_n(&ctx->pools);
+    ASSERT(npool != 0);
 
-    status = array_each(&ctx->pool, proxy_each_deinit, NULL);
+    status = server_pools_each(&ctx->pools, proxy_each_deinit, NULL);
     if (status != NC_OK) {
         return;
     }
 
-    log_debug(LOG_VVERB, "deinit proxy with %"PRIu32" pools",
-              array_n(&ctx->pool));
+    log_debug(LOG_VVERB, "deinit proxy with %"PRIu32" pools", npool);
 }
 
 static rstatus_t

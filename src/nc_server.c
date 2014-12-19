@@ -743,10 +743,9 @@ server_pool_conn(struct context *ctx, struct server_pool *pool, uint8_t *key,
 }
 
 static rstatus_t
-server_pool_each_preconnect(void *elem, void *data)
+server_pool_preconnect(struct server_pool *sp, void *data)
 {
     rstatus_t status;
-    struct server_pool *sp = elem;
 
     if (!sp->preconnect) {
         return NC_OK;
@@ -761,59 +760,36 @@ server_pool_each_preconnect(void *elem, void *data)
 }
 
 rstatus_t
-server_pool_preconnect(struct context *ctx)
+server_pools_each(struct server_pools *server_pools, pool_each_t func, void *key)
 {
     rstatus_t status;
+    struct server_pool *pool, *tmpool;
 
-    status = array_each(&ctx->pool, server_pool_each_preconnect, NULL);
-    if (status != NC_OK) {
-        return status;
+    TAILQ_FOREACH_SAFE(pool, server_pools, pool_tqe, tmpool) {
+        status = func(pool, key);
+        if(status != NC_OK)
+            return status;
     }
 
     return NC_OK;
 }
 
-static rstatus_t
-server_pool_each_disconnect(void *elem, void *data)
+rstatus_t
+server_pools_preconnect(struct context *ctx)
 {
-    rstatus_t status;
-    struct server_pool *sp = elem;
+    return server_pools_each(&ctx->pools, server_pool_preconnect, NULL);
+}
 
-    status = array_each(&sp->server, server_each_disconnect, NULL);
-    if (status != NC_OK) {
-        return status;
-    }
-
-    return NC_OK;
+static rstatus_t
+server_pool_disconnect(struct server_pool *sp, void *data)
+{
+    return array_each(&sp->server, server_each_disconnect, NULL);
 }
 
 void
-server_pool_disconnect(struct context *ctx)
+server_pools_disconnect(struct server_pools *server_pools)
 {
-    array_each(&ctx->pool, server_pool_each_disconnect, NULL);
-}
-
-static rstatus_t
-server_pool_each_set_owner(void *elem, void *data)
-{
-    struct server_pool *sp = elem;
-    struct context *ctx = data;
-
-    sp->ctx = ctx;
-
-    return NC_OK;
-}
-
-static rstatus_t
-server_pool_each_calc_connections(void *elem, void *data)
-{
-    struct server_pool *sp = elem;
-    struct context *ctx = data;
-
-    ctx->max_nsconn += sp->server_connections * array_n(&sp->server);
-    ctx->max_nsconn += 1; /* pool listening socket */
-
-    return NC_OK;
+    server_pools_each(server_pools, server_pool_disconnect, NULL);
 }
 
 rstatus_t
@@ -839,89 +815,99 @@ server_pool_run(struct server_pool *pool)
     return NC_OK;
 }
 
-static rstatus_t
-server_pool_each_run(void *elem, void *data)
-{
-    return server_pool_run(elem);
-}
-
 rstatus_t
-server_pool_init(struct array *server_pool, struct array *conf_pool,
+server_pools_init(struct server_pools *server_pools, struct array *conf_pool,
                  struct context *ctx)
 {
     rstatus_t status;
     uint32_t npool;
+    uint32_t n_server_pools;
+    struct server_pool *pool;
 
     npool = array_n(conf_pool);
     ASSERT(npool != 0);
-    ASSERT(array_n(server_pool) == 0);
-
-    status = array_init(server_pool, npool, sizeof(struct server_pool));
-    if (status != NC_OK) {
-        return status;
-    }
 
     /* transform conf pool to server pool */
-    status = array_each(conf_pool, conf_pool_each_transform, server_pool);
+    status = array_each(conf_pool, conf_pool_each_create, server_pools);
     if (status != NC_OK) {
-        server_pool_deinit(server_pool);
-        return status;
-    }
-    ASSERT(array_n(server_pool) == npool);
-
-    /* set ctx as the server pool owner */
-    status = array_each(server_pool, server_pool_each_set_owner, ctx);
-    if (status != NC_OK) {
-        server_pool_deinit(server_pool);
+        server_pools_deinit(server_pools);
         return status;
     }
 
-    /* compute max server connections */
-    ctx->max_nsconn = 0;
-    status = array_each(server_pool, server_pool_each_calc_connections, ctx);
-    if (status != NC_OK) {
-        server_pool_deinit(server_pool);
-        return status;
+    /*
+     * Do a post-initialization work on all server pools.
+     */
+    n_server_pools = 0;
+    TAILQ_FOREACH(pool, server_pools, pool_tqe) {
+        pool->ctx = ctx;  /* Set owner */
+        pool->idx = n_server_pools++;
+        /* compute max server connections */
+        ctx->max_nsconn += pool->server_connections * array_n(&pool->server);
+        ctx->max_nsconn += 1; /* pool listening socket */
+        /* update server pool continuum */
+        server_pool_run(pool);
+    }
+    ASSERT(npool == n_server_pools);
+
+    log_debug(LOG_DEBUG, "init %"PRIu32" pools", n_server_pools);
+
+    return NC_OK;
+}
+
+struct server_pool *
+server_pool_new()
+{
+    return nc_calloc(1, sizeof(struct server_pool));
+}
+
+void
+server_pool_free(struct server_pool *pool)
+{
+    nc_free(pool);  /* FIXME: memory leaks here. */
+}
+
+static rstatus_t
+server_pool_deinit(struct server_pool *pool, void *data) {
+
+    ASSERT(pool->p_conn == NULL);
+    ASSERT(TAILQ_EMPTY(&pool->c_conn_q) && pool->nc_conn_q == 0);
+
+    if (pool->continuum != NULL) {
+        nc_free(pool->continuum);
+        pool->ncontinuum = 0;
+        pool->nserver_continuum = 0;
+        pool->nlive_server = 0;
     }
 
-    /* update server pool continuum */
-    status = array_each(server_pool, server_pool_each_run, NULL);
-    if (status != NC_OK) {
-        server_pool_deinit(server_pool);
-        return status;
-    }
+    server_deinit(&pool->server);
 
-    log_debug(LOG_DEBUG, "init %"PRIu32" pools", npool);
+    log_debug(LOG_DEBUG, "deinit pool %"PRIu32" '%.*s'", pool->idx,
+              pool->name.len, pool->name.data);
+
+    if(pool->ctx) {
+        TAILQ_REMOVE(&pool->ctx->pools, pool, pool_tqe);
+    }
+    server_pool_free(pool);
 
     return NC_OK;
 }
 
 void
-server_pool_deinit(struct array *server_pool)
+server_pools_deinit(struct server_pools *server_pools)
 {
-    uint32_t i, npool;
+    server_pools_each(server_pools, server_pool_deinit, NULL);
 
-    for (i = 0, npool = array_n(server_pool); i < npool; i++) {
-        struct server_pool *sp;
+    log_debug(LOG_DEBUG, "deinit pools");
+}
 
-        sp = array_pop(server_pool);
-        ASSERT(sp->p_conn == NULL);
-        ASSERT(TAILQ_EMPTY(&sp->c_conn_q) && sp->nc_conn_q == 0);
+uint32_t
+server_pools_n(struct server_pools *server_pools) {
+    struct server_pool *pool;
+    uint32_t npool = 0;
 
-        if (sp->continuum != NULL) {
-            nc_free(sp->continuum);
-            sp->ncontinuum = 0;
-            sp->nserver_continuum = 0;
-            sp->nlive_server = 0;
-        }
-
-        server_deinit(&sp->server);
-
-        log_debug(LOG_DEBUG, "deinit pool %"PRIu32" '%.*s'", sp->idx,
-                  sp->name.len, sp->name.data);
+    TAILQ_FOREACH(pool, server_pools, pool_tqe) {
+        npool++;
     }
 
-    array_deinit(server_pool);
-
-    log_debug(LOG_DEBUG, "deinit %"PRIu32" pools", npool);
+    return npool;
 }

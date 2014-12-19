@@ -59,7 +59,7 @@ core_ctx_create(struct instance *nci)
     ctx->cf = NULL;
     ctx->stats = NULL;
     ctx->evb = NULL;
-    array_null(&ctx->pool);
+    ctx->pools = (struct server_pools)TAILQ_HEAD_INITIALIZER(ctx->pools);
     ctx->max_timeout = nci->stats_interval;
     ctx->timeout = ctx->max_timeout;
     ctx->max_nfd = 0;
@@ -74,7 +74,7 @@ core_ctx_create(struct instance *nci)
     }
 
     /* initialize server pool from configuration */
-    status = server_pool_init(&ctx->pool, &ctx->cf->pool, ctx);
+    status = server_pools_init(&ctx->pools, &ctx->cf->pool, ctx);
     if (status != NC_OK) {
         conf_destroy(ctx->cf);
         nc_free(ctx);
@@ -87,7 +87,7 @@ core_ctx_create(struct instance *nci)
      */
     status = core_calc_connections(ctx);
     if (status != NC_OK) {
-        server_pool_deinit(&ctx->pool);
+        server_pools_deinit(&ctx->pools);
         conf_destroy(ctx->cf);
         nc_free(ctx);
         return NULL;
@@ -95,9 +95,9 @@ core_ctx_create(struct instance *nci)
 
     /* create stats per server pool */
     ctx->stats = stats_create(nci->stats_port, nci->stats_addr, nci->stats_interval,
-                              nci->hostname, &ctx->pool);
+                              nci->hostname, &ctx->pools);
     if (ctx->stats == NULL) {
-        server_pool_deinit(&ctx->pool);
+        server_pools_deinit(&ctx->pools);
         conf_destroy(ctx->cf);
         nc_free(ctx);
         return NULL;
@@ -107,19 +107,19 @@ core_ctx_create(struct instance *nci)
     ctx->evb = event_base_create(EVENT_SIZE, &core_core);
     if (ctx->evb == NULL) {
         stats_destroy(ctx->stats);
-        server_pool_deinit(&ctx->pool);
+        server_pools_deinit(&ctx->pools);
         conf_destroy(ctx->cf);
         nc_free(ctx);
         return NULL;
     }
 
     /* preconnect? servers in server pool */
-    status = server_pool_preconnect(ctx);
+    status = server_pools_preconnect(ctx);
     if (status != NC_OK) {
-        server_pool_disconnect(ctx);
+        server_pools_disconnect(&ctx->pools);
         event_base_destroy(ctx->evb);
         stats_destroy(ctx->stats);
-        server_pool_deinit(&ctx->pool);
+        server_pools_deinit(&ctx->pools);
         conf_destroy(ctx->cf);
         nc_free(ctx);
         return NULL;
@@ -128,10 +128,10 @@ core_ctx_create(struct instance *nci)
     /* initialize proxy per server pool */
     status = proxy_init(ctx);
     if (status != NC_OK) {
-        server_pool_disconnect(ctx);
+        server_pools_disconnect(&ctx->pools);
         event_base_destroy(ctx->evb);
         stats_destroy(ctx->stats);
-        server_pool_deinit(&ctx->pool);
+        server_pools_deinit(&ctx->pools);
         conf_destroy(ctx->cf);
         nc_free(ctx);
         return NULL;
@@ -147,10 +147,10 @@ core_ctx_destroy(struct context *ctx)
 {
     log_debug(LOG_VVERB, "destroy ctx %p id %"PRIu32"", ctx, ctx->id);
     proxy_deinit(ctx);
-    server_pool_disconnect(ctx);
+    server_pools_disconnect(&ctx->pools);
     event_base_destroy(ctx->evb);
     stats_destroy(ctx->stats);
-    server_pool_deinit(&ctx->pool);
+    server_pools_deinit(&ctx->pools);
     conf_destroy(ctx->cf);
     nc_free(ctx);
 }

@@ -248,31 +248,19 @@ conf_pool_deinit(struct conf_pool *cp)
 }
 
 rstatus_t
-conf_pool_each_transform(void *elem, void *data)
+conf_pool_each_create(void *elem, void *data)
 {
     rstatus_t status;
     struct conf_pool *cp = elem;
-    struct array *server_pool = data;
+    struct server_pools *server_pools = data;
     struct server_pool *sp;
 
     ASSERT(cp->valid);
 
-    sp = array_push(server_pool);
+    sp = server_pool_new();
     ASSERT(sp != NULL);
 
-    sp->idx = array_idx(server_pool, sp);
-    sp->ctx = NULL;
-
-    sp->p_conn = NULL;
-    sp->nc_conn_q = 0;
     TAILQ_INIT(&sp->c_conn_q);
-
-    array_null(&sp->server);
-    sp->ncontinuum = 0;
-    sp->nserver_continuum = 0;
-    sp->continuum = NULL;
-    sp->nlive_server = 0;
-    sp->next_rebuild = 0LL;
 
     sp->name = cp->name;
     sp->addrstr = cp->listen.pname;
@@ -307,6 +295,8 @@ conf_pool_each_transform(void *elem, void *data)
     if (status != NC_OK) {
         return status;
     }
+
+    TAILQ_INSERT_TAIL(server_pools, sp, pool_tqe);
 
     log_debug(LOG_VERB, "transform to pool %"PRIu32" '%.*s'", sp->idx,
               sp->name.len, sp->name.data);

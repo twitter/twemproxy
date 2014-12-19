@@ -23,9 +23,9 @@ req_get(struct conn *conn)
 {
     struct msg *msg;
 
-    ASSERT(conn->client && !conn->proxy);
+    ASSERT(CONN_KIND_IS_CLIENT(conn));
 
-    msg = msg_get(conn, true, conn->redis);
+    msg = msg_get(conn, true);
     if (msg == NULL) {
         conn->err = errno;
     }
@@ -132,7 +132,7 @@ req_done(struct conn *conn, struct msg *msg)
     uint64_t id;             /* fragment id */
     uint32_t nfragment;      /* # fragment */
 
-    ASSERT(conn->client && !conn->proxy);
+    ASSERT(CONN_KIND_IS_CLIENT(conn));
     ASSERT(msg->request);
 
     if (!msg->done) {
@@ -295,7 +295,7 @@ void
 req_server_enqueue_imsgq(struct context *ctx, struct conn *conn, struct msg *msg)
 {
     ASSERT(msg->request);
-    ASSERT(!conn->client && !conn->proxy);
+    ASSERT(CONN_KIND_IS_SERVER(conn));
 
     /*
      * timeout clock starts ticking the instant the message is enqueued into
@@ -319,7 +319,7 @@ void
 req_server_enqueue_imsgq_head(struct context *ctx, struct conn *conn, struct msg *msg)
 {
     ASSERT(msg->request);
-    ASSERT(!conn->client && !conn->proxy);
+    ASSERT(CONN_KIND_IS_SERVER(conn));
 
     /*
      * timeout clock starts ticking the instant the message is enqueued into
@@ -343,7 +343,7 @@ void
 req_server_dequeue_imsgq(struct context *ctx, struct conn *conn, struct msg *msg)
 {
     ASSERT(msg->request);
-    ASSERT(!conn->client && !conn->proxy);
+    ASSERT(CONN_KIND_IS_SERVER(conn));
 
     TAILQ_REMOVE(&conn->imsg_q, msg, s_tqe);
 
@@ -355,7 +355,7 @@ void
 req_client_enqueue_omsgq(struct context *ctx, struct conn *conn, struct msg *msg)
 {
     ASSERT(msg->request);
-    ASSERT(conn->client && !conn->proxy);
+    ASSERT(CONN_KIND_IS_CLIENT(conn));
 
     TAILQ_INSERT_TAIL(&conn->omsg_q, msg, c_tqe);
 }
@@ -364,7 +364,7 @@ void
 req_server_enqueue_omsgq(struct context *ctx, struct conn *conn, struct msg *msg)
 {
     ASSERT(msg->request);
-    ASSERT(!conn->client && !conn->proxy);
+    ASSERT(CONN_KIND_IS_SERVER(conn));
 
     TAILQ_INSERT_TAIL(&conn->omsg_q, msg, s_tqe);
 
@@ -376,7 +376,7 @@ void
 req_client_dequeue_omsgq(struct context *ctx, struct conn *conn, struct msg *msg)
 {
     ASSERT(msg->request);
-    ASSERT(conn->client && !conn->proxy);
+    ASSERT(CONN_KIND_IS_CLIENT(conn));
 
     TAILQ_REMOVE(&conn->omsg_q, msg, c_tqe);
 }
@@ -385,7 +385,7 @@ void
 req_server_dequeue_omsgq(struct context *ctx, struct conn *conn, struct msg *msg)
 {
     ASSERT(msg->request);
-    ASSERT(!conn->client && !conn->proxy);
+    ASSERT(CONN_KIND_IS_SERVER(conn));
 
     msg_tmo_delete(msg);
 
@@ -400,7 +400,7 @@ req_recv_next(struct context *ctx, struct conn *conn, bool alloc)
 {
     struct msg *msg;
 
-    ASSERT(conn->client && !conn->proxy);
+    ASSERT(CONN_KIND_IS_CLIENT(conn));
 
     if (conn->eof) {
         msg = conn->rmsg;
@@ -455,7 +455,7 @@ req_make_reply(struct context *ctx, struct conn *conn, struct msg *req)
 {
     struct msg *rsp;
 
-    rsp = msg_get(conn, false, conn->redis); /* replay */
+    rsp = msg_get(conn, false); /* replay */
     if (rsp == NULL) {
         conn->err = errno;
         return NC_ENOMEM;
@@ -474,7 +474,7 @@ req_make_reply(struct context *ctx, struct conn *conn, struct msg *req)
 static bool
 req_filter(struct context *ctx, struct conn *conn, struct msg *msg)
 {
-    ASSERT(conn->client && !conn->proxy);
+    ASSERT(CONN_KIND_IS_CLIENT(conn));
 
     if (msg_empty(msg)) {
         ASSERT(conn->rmsg == NULL);
@@ -519,7 +519,7 @@ req_forward_error(struct context *ctx, struct conn *conn, struct msg *msg)
 {
     rstatus_t status;
 
-    ASSERT(conn->client && !conn->proxy);
+    ASSERT(CONN_KIND_IS_CLIENT(conn));
 
     log_debug(LOG_INFO, "forward req %"PRIu64" len %"PRIu32" type %d from "
               "c %d failed: %s", msg->id, msg->mlen, msg->type, conn->sd,
@@ -562,7 +562,7 @@ req_forward(struct context *ctx, struct conn *c_conn, struct msg *msg)
     uint32_t keylen;
     struct keypos *kpos;
 
-    ASSERT(c_conn->client && !c_conn->proxy);
+    ASSERT(CONN_KIND_IS_CLIENT(c_conn));
 
     /* enqueue message (request) into client outq, if response is expected */
     if (!msg->noreply) {
@@ -581,7 +581,7 @@ req_forward(struct context *ctx, struct conn *c_conn, struct msg *msg)
         req_forward_error(ctx, c_conn, msg);
         return;
     }
-    ASSERT(!s_conn->client && !s_conn->proxy);
+    ASSERT(CONN_KIND_IS_SERVER(s_conn));
 
     /* enqueue the message (request) into server inq */
     if (TAILQ_EMPTY(&s_conn->imsg_q)) {
@@ -621,7 +621,7 @@ req_recv_done(struct context *ctx, struct conn *conn, struct msg *msg,
     struct msg *sub_msg;
     struct msg *tmsg; 			/* tmp next message */
 
-    ASSERT(conn->client && !conn->proxy);
+    ASSERT(CONN_KIND_IS_CLIENT(conn));
     ASSERT(msg->request);
     ASSERT(msg->owner == conn);
     ASSERT(conn->rmsg == msg);
@@ -697,7 +697,7 @@ req_send_next(struct context *ctx, struct conn *conn)
     rstatus_t status;
     struct msg *msg, *nmsg; /* current and next message */
 
-    ASSERT(!conn->client && !conn->proxy);
+    ASSERT(CONN_KIND_IS_SERVER(conn));
 
     if (conn->connecting) {
         server_connected(ctx, conn);
@@ -737,7 +737,7 @@ req_send_next(struct context *ctx, struct conn *conn)
 void
 req_send_done(struct context *ctx, struct conn *conn, struct msg *msg)
 {
-    ASSERT(!conn->client && !conn->proxy);
+    ASSERT(CONN_KIND_IS_SERVER(conn));
     ASSERT(msg != NULL && conn->smsg == NULL);
     ASSERT(msg->request && !msg->done);
     ASSERT(msg->owner != conn);

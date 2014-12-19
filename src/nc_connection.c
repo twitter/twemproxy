@@ -95,11 +95,11 @@ conn_to_ctx(struct conn *conn)
 {
     struct server_pool *pool;
 
-    if (conn->proxy || conn->client) {
-        pool = conn->owner;
-    } else {
+    if(CONN_KIND_IS_SERVER(conn)) {
         struct server *server = conn->owner;
         pool = server->owner;
+    } else {
+        pool = conn->owner;
     }
 
     return pool->ctx;
@@ -149,8 +149,6 @@ _conn_get(void)
     conn->send_active = 0;
     conn->send_ready = 0;
 
-    conn->client = 0;
-    conn->proxy = 0;
     conn->connecting = 0;
     conn->connected = 0;
     conn->eof = 0;
@@ -165,9 +163,10 @@ _conn_get(void)
 }
 
 struct conn *
-conn_get(void *owner, bool client, bool redis)
+conn_get(void *owner, enum conn_kind ckind)
 {
     struct conn *conn;
+    struct server *server;
 
     conn = _conn_get();
     if (conn == NULL) {
@@ -175,11 +174,11 @@ conn_get(void *owner, bool client, bool redis)
     }
 
     /* connection either handles redis or memcache messages */
-    conn->redis = redis ? 1 : 0;
+    conn->conn_kind = ckind;
 
-    conn->client = client ? 1 : 0;
-
-    if (conn->client) {
+    switch(conn->conn_kind) {
+    case NC_CONN_CLIENT_MEMCACHE:
+    case NC_CONN_CLIENT_REDIS:
         /*
          * client receives a request, possibly parsing it, and sends a
          * response downstream.
@@ -206,7 +205,9 @@ conn_get(void *owner, bool client, bool redis)
         conn->swallow_msg = NULL;
 
         ncurr_cconn++;
-    } else {
+        break;
+    case NC_CONN_SERVER_MEMCACHE:
+    case NC_CONN_SERVER_REDIS:
         /*
          * server receives a response, possibly parsing it, and sends a
          * request upstream.
@@ -229,58 +230,45 @@ conn_get(void *owner, bool client, bool redis)
         conn->dequeue_inq = req_server_dequeue_imsgq;
         conn->enqueue_outq = req_server_enqueue_omsgq;
         conn->dequeue_outq = req_server_dequeue_omsgq;
-        if (redis) {
+        if (CONN_KIND_IS_REDIS(conn)) {
           conn->post_connect = redis_post_connect;
           conn->swallow_msg = redis_swallow_msg;
         } else {
           conn->post_connect = memcache_post_connect;
           conn->swallow_msg = memcache_swallow_msg;
         }
-    }
+        break;
+    case NC_CONN_PROXY_MEMCACHE:
+    case NC_CONN_PROXY_REDIS:
+        conn->recv = proxy_recv;
+        conn->recv_next = NULL;
+        conn->recv_done = NULL;
 
-    conn->ref(conn, owner);
-    log_debug(LOG_VVERB, "get conn %p client %d", conn, conn->client);
+        conn->send = NULL;
+        conn->send_next = NULL;
+        conn->send_done = NULL;
 
-    return conn;
-}
+        conn->close = proxy_close;
+        conn->active = NULL;
 
-struct conn *
-conn_get_proxy(void *owner)
-{
-    struct server_pool *pool = owner;
-    struct conn *conn;
+        conn->ref = proxy_ref;
+        conn->unref = proxy_unref;
 
-    conn = _conn_get();
-    if (conn == NULL) {
+        conn->enqueue_inq = NULL;
+        conn->dequeue_inq = NULL;
+        conn->enqueue_outq = NULL;
+        conn->dequeue_outq = NULL;
+        break;
+    case _NC_CONN_KIND_MAX:
+    default:
+        ASSERT(!"Invalid connection kind");
+        conn_put(conn);
         return NULL;
     }
 
-    conn->redis = pool->redis;
-
-    conn->proxy = 1;
-
-    conn->recv = proxy_recv;
-    conn->recv_next = NULL;
-    conn->recv_done = NULL;
-
-    conn->send = NULL;
-    conn->send_next = NULL;
-    conn->send_done = NULL;
-
-    conn->close = proxy_close;
-    conn->active = NULL;
-
-    conn->ref = proxy_ref;
-    conn->unref = proxy_unref;
-
-    conn->enqueue_inq = NULL;
-    conn->dequeue_inq = NULL;
-    conn->enqueue_outq = NULL;
-    conn->dequeue_outq = NULL;
-
     conn->ref(conn, owner);
 
-    log_debug(LOG_VVERB, "get conn %p proxy %d", conn, conn->proxy);
+    log_debug(LOG_VVERB, "get conn %p %s", conn, CONN_KIND_AS_STRING(conn));
 
     return conn;
 }
@@ -303,7 +291,7 @@ conn_put(struct conn *conn)
     nfree_connq++;
     TAILQ_INSERT_HEAD(&free_connq, conn, conn_tqe);
 
-    if (conn->client) {
+    if (CONN_KIND_IS_CLIENT(conn)) {
         ncurr_cconn--;
     }
     ncurr_conn--;

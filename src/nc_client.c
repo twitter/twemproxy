@@ -24,7 +24,7 @@ client_ref(struct conn *conn, void *owner)
 {
     struct server_pool *pool = owner;
 
-    ASSERT(conn->client && !conn->proxy);
+    ASSERT(CONN_KIND_IS_CLIENT(conn));
     ASSERT(conn->owner == NULL);
 
     /*
@@ -51,7 +51,7 @@ client_unref(struct conn *conn)
 {
     struct server_pool *pool;
 
-    ASSERT(conn->client && !conn->proxy);
+    ASSERT(CONN_KIND_IS_CLIENT(conn));
     ASSERT(conn->owner != NULL);
 
     pool = conn->owner;
@@ -68,7 +68,7 @@ client_unref(struct conn *conn)
 bool
 client_active(struct conn *conn)
 {
-    ASSERT(conn->client && !conn->proxy);
+    ASSERT(CONN_KIND_IS_CLIENT(conn));
 
     ASSERT(TAILQ_EMPTY(&conn->imsg_q));
 
@@ -125,7 +125,7 @@ client_close(struct context *ctx, struct conn *conn)
     rstatus_t status;
     struct msg *msg, *nmsg; /* current and next message */
 
-    ASSERT(conn->client && !conn->proxy);
+    ASSERT(CONN_KIND_IS_CLIENT(conn));
 
     client_close_stats(ctx, conn->owner, conn->err, conn->eof);
 

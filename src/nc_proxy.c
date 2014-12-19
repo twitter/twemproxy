@@ -27,7 +27,7 @@ proxy_ref(struct conn *conn, void *owner)
 {
     struct server_pool *pool = owner;
 
-    ASSERT(!conn->client && conn->proxy);
+    ASSERT(CONN_KIND_IS_PROXY(conn));
     ASSERT(conn->owner == NULL);
 
     conn->family = pool->family;
@@ -48,7 +48,7 @@ proxy_unref(struct conn *conn)
 {
     struct server_pool *pool;
 
-    ASSERT(!conn->client && conn->proxy);
+    ASSERT(CONN_KIND_IS_PROXY(conn));
     ASSERT(conn->owner != NULL);
 
     pool = conn->owner;
@@ -65,7 +65,7 @@ proxy_close(struct context *ctx, struct conn *conn)
 {
     rstatus_t status;
 
-    ASSERT(!conn->client && conn->proxy);
+    ASSERT(CONN_KIND_IS_PROXY(conn));
 
     if (conn->sd < 0) {
         conn->unref(conn);
@@ -126,7 +126,7 @@ proxy_listen(struct context *ctx, struct conn *p)
     rstatus_t status;
     struct server_pool *pool = p->owner;
 
-    ASSERT(p->proxy);
+    ASSERT(CONN_KIND_IS_PROXY(p));
 
     p->sd = socket(p->family, SOCK_STREAM, 0);
     if (p->sd < 0) {
@@ -198,7 +198,8 @@ proxy_each_init(struct server_pool *pool, void *data)
     rstatus_t status;
     struct conn *p;
 
-    p = conn_get_proxy(pool);
+    p = conn_get(pool, pool->redis
+            ? NC_CONN_PROXY_REDIS : NC_CONN_PROXY_MEMCACHE);
     if (p == NULL) {
         return NC_ENOMEM;
     }
@@ -274,7 +275,7 @@ proxy_accept(struct context *ctx, struct conn *p)
     struct conn *c;
     int sd;
 
-    ASSERT(p->proxy && !p->client);
+    ASSERT(CONN_KIND_IS_PROXY(p));
     ASSERT(p->sd > 0);
     ASSERT(p->recv_active && p->recv_ready);
 
@@ -334,7 +335,8 @@ proxy_accept(struct context *ctx, struct conn *p)
         return NC_OK;
     }
 
-    c = conn_get(p->owner, true, p->redis);
+    c = conn_get(p->owner, CONN_KIND_IS_REDIS(p)
+            ? NC_CONN_CLIENT_REDIS : NC_CONN_CLIENT_MEMCACHE);
     if (c == NULL) {
         log_error("get conn for c %d from p %d failed: %s", sd, p->sd,
                   strerror(errno));
@@ -383,7 +385,7 @@ proxy_recv(struct context *ctx, struct conn *conn)
 {
     rstatus_t status;
 
-    ASSERT(conn->proxy && !conn->client);
+    ASSERT(CONN_KIND_IS_PROXY(conn));
     ASSERT(conn->recv_active);
 
     conn->recv_ready = 1;

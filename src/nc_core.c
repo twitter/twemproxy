@@ -193,9 +193,9 @@ core_recv(struct context *ctx, struct conn *conn)
 
     status = conn->recv(ctx, conn);
     if (status != NC_OK) {
-        log_debug(LOG_INFO, "recv on %c %d failed: %s",
-                  conn->client ? 'c' : (conn->proxy ? 'p' : 's'), conn->sd,
-                  strerror(errno));
+        log_debug(LOG_INFO, "recv on %s %d failed: %s",
+                  CONN_KIND_AS_STRING(conn),
+                  conn->sd, strerror(errno));
     }
 
     return status;
@@ -208,9 +208,9 @@ core_send(struct context *ctx, struct conn *conn)
 
     status = conn->send(ctx, conn);
     if (status != NC_OK) {
-        log_debug(LOG_INFO, "send on %c %d failed: status: %d errno: %d %s",
-                  conn->client ? 'c' : (conn->proxy ? 'p' : 's'), conn->sd,
-                  status, errno, strerror(errno));
+        log_debug(LOG_INFO, "send on %s %d failed: status: %d errno: %d %s",
+                  CONN_KIND_AS_STRING(conn),
+                  conn->sd, status, errno, strerror(errno));
     }
 
     return status;
@@ -220,26 +220,24 @@ static void
 core_close(struct context *ctx, struct conn *conn)
 {
     rstatus_t status;
-    char type, *addrstr;
+    char *addrstr;
 
     ASSERT(conn->sd > 0);
 
-    if (conn->client) {
-        type = 'c';
+    if (CONN_KIND_IS_CLIENT(conn)) {
         addrstr = nc_unresolve_peer_desc(conn->sd);
     } else {
-        type = conn->proxy ? 'p' : 's';
         addrstr = nc_unresolve_addr(conn->addr, conn->addrlen);
     }
-    log_debug(LOG_NOTICE, "close %c %d '%s' on event %04"PRIX32" eof %d done "
-              "%d rb %zu sb %zu%c %s", type, conn->sd, addrstr, conn->events,
+    log_debug(LOG_NOTICE, "close %s %d '%s' on event %04"PRIX32" eof %d done "
+              "%d rb %zu sb %zu%c %s", CONN_KIND_AS_STRING(conn), conn->sd, addrstr, conn->events,
               conn->eof, conn->done, conn->recv_bytes, conn->send_bytes,
               conn->err ? ':' : ' ', conn->err ? strerror(conn->err) : "");
 
     status = event_del_conn(ctx->evb, conn);
     if (status < 0) {
-        log_warn("event del conn %c %d failed, ignored: %s",
-                 type, conn->sd, strerror(errno));
+        log_warn("event del conn %s %d failed, ignored: %s",
+                 CONN_KIND_AS_STRING(conn), conn->sd, strerror(errno));
     }
 
     conn->close(ctx, conn);
@@ -249,12 +247,11 @@ static void
 core_error(struct context *ctx, struct conn *conn)
 {
     rstatus_t status;
-    char type = conn->client ? 'c' : (conn->proxy ? 'p' : 's');
 
     status = nc_get_soerror(conn->sd);
     if (status < 0) {
-        log_warn("get soerr on %c %d failed, ignored: %s", type, conn->sd,
-                  strerror(errno));
+        log_warn("get soerr on %s %d failed, ignored: %s",
+                 CONN_KIND_AS_STRING(conn), conn->sd, strerror(errno));
     }
     conn->err = errno;
 
@@ -313,8 +310,8 @@ core_core(void *arg, uint32_t events)
     struct conn *conn = arg;
     struct context *ctx = conn_to_ctx(conn);
 
-    log_debug(LOG_VVERB, "event %04"PRIX32" on %c %d", events,
-              conn->client ? 'c' : (conn->proxy ? 'p' : 's'), conn->sd);
+    log_debug(LOG_VVERB, "event %04"PRIX32" on %s %d", events,
+              CONN_KIND_AS_STRING(conn), conn->sd);
 
     conn->events = events;
 

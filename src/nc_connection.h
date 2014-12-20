@@ -50,6 +50,7 @@ enum conn_kind {
     NC_CONN_SERVER_REDIS,
     NC_CONN_PROXY_MEMCACHE,
     NC_CONN_PROXY_REDIS,
+    NC_CONN_SIGNAL,
     _NC_CONN_KIND_MAX
 };
 static const char *const conn_kind_s[] = {
@@ -58,7 +59,8 @@ static const char *const conn_kind_s[] = {
     "server:memcache",
     "server:redis",
     "proxy:memcache",
-    "proxy:redis"
+    "proxy:redis",
+    "signal"
 };
 #define CONN_KIND_AS_STRING(c)  (conn_kind_s[(c)->conn_kind])
 #define CONN_KIND_IS_REDIS(c)   (((c)->conn_kind) & 1)

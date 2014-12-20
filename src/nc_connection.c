@@ -21,6 +21,7 @@
 #include <nc_server.h>
 #include <nc_client.h>
 #include <nc_proxy.h>
+#include <nc_signal_conn.h>
 #include <proto/nc_proto.h>
 
 /*
@@ -253,6 +254,26 @@ conn_get(void *owner, enum conn_kind ckind)
 
         conn->ref = proxy_ref;
         conn->unref = proxy_unref;
+
+        conn->enqueue_inq = NULL;
+        conn->dequeue_inq = NULL;
+        conn->enqueue_outq = NULL;
+        conn->dequeue_outq = NULL;
+        break;
+    case NC_CONN_SIGNAL:
+        conn->recv = conn_signal_recv;
+        conn->recv_next = NULL;
+        conn->recv_done = NULL;
+
+        conn->send = NULL;
+        conn->send_next = NULL;
+        conn->send_done = NULL;
+
+        conn->close = conn_signal_close;
+        conn->active = NULL;
+
+        conn->ref = conn_signal_ref;
+        conn->unref = conn_signal_unref;
 
         conn->enqueue_inq = NULL;
         conn->dequeue_inq = NULL;

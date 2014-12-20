@@ -21,6 +21,7 @@
 #include <nc_conf.h>
 #include <nc_server.h>
 #include <nc_proxy.h>
+#include <nc_signal_conn.h>
 
 static uint32_t ctx_id; /* context generation */
 
@@ -113,9 +114,21 @@ core_ctx_create(struct instance *nci)
         return NULL;
     }
 
+    /* Create a channel to receive async signals synchronously. */
+    ctx->sig_conn = create_signal_listener(ctx);
+    if(ctx->sig_conn == NULL) {
+        event_base_destroy(ctx->evb);
+        stats_destroy(ctx->stats);
+        server_pools_deinit(&ctx->pools);
+        conf_destroy(ctx->cf);
+        nc_free(ctx);
+        return NULL;
+    }
+
     /* preconnect? servers in server pool */
     status = server_pools_preconnect(ctx);
     if (status != NC_OK) {
+        ctx->sig_conn->close(ctx, ctx->sig_conn);
         server_pools_disconnect(&ctx->pools);
         event_base_destroy(ctx->evb);
         stats_destroy(ctx->stats);
@@ -128,6 +141,7 @@ core_ctx_create(struct instance *nci)
     /* initialize proxy per server pool */
     status = proxy_init(ctx);
     if (status != NC_OK) {
+        ctx->sig_conn->close(ctx, ctx->sig_conn);
         server_pools_disconnect(&ctx->pools);
         event_base_destroy(ctx->evb);
         stats_destroy(ctx->stats);
@@ -146,6 +160,8 @@ static void
 core_ctx_destroy(struct context *ctx)
 {
     log_debug(LOG_VVERB, "destroy ctx %p id %"PRIu32"", ctx, ctx->id);
+    if(ctx->sig_conn)
+        ctx->sig_conn->close(ctx, ctx->sig_conn);
     proxy_deinit(ctx);
     server_pools_disconnect(&ctx->pools);
     event_base_destroy(ctx->evb);
@@ -341,6 +357,23 @@ core_core(void *arg, uint32_t events)
     return NC_OK;
 }
 
+static void
+handle_accumulated_signals(struct context *ctx) {
+    int sig;
+
+    while((sig = conn_next_signal()) > 0) {
+        switch(sig) {
+        default:
+            continue;
+        case SIGUSR1:
+            /*
+             * Reload configuration.
+             */
+            log_debug(LOG_NOTICE, "reconfiguration requested");
+        }
+    }
+}
+
 rstatus_t
 core_loop(struct context *ctx)
 {
@@ -350,6 +383,8 @@ core_loop(struct context *ctx)
     if (nsd < 0) {
         return nsd;
     }
+
+    handle_accumulated_signals(ctx);
 
     core_timeout(ctx);
 

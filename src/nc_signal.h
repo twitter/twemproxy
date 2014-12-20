@@ -31,7 +31,11 @@ rstatus_t signal_init(void);
 void signal_deinit(void);
 void signal_handler(int signo);
 
-/* Check if reload signal (USR1) received, and clear the flag if necessary. */
-int signal_reload_received(int clear);
+/*
+ * Get a read-only file descriptor which will receive signals.
+ * This is useful in case one wants to break the event loop on signal
+ * and react on it synchronously versus in the asynchronous signal handler.
+ */
+int signal_get_fd(void);
 
 #endif

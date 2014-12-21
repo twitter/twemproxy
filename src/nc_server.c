@@ -133,7 +133,7 @@ server_each_set_owner(void *elem, void *data)
 }
 
 rstatus_t
-server_init(struct array *server, struct array *conf_server,
+servers_init(struct array *server, struct array *conf_server,
             struct server_pool *sp)
 {
     rstatus_t status;
@@ -151,7 +151,7 @@ server_init(struct array *server, struct array *conf_server,
     /* transform conf server to server */
     status = array_each(conf_server, conf_server_each_transform, server);
     if (status != NC_OK) {
-        server_deinit(server);
+        servers_deinit(server);
         return status;
     }
     ASSERT(array_n(server) == nserver);
@@ -159,7 +159,7 @@ server_init(struct array *server, struct array *conf_server,
     /* set server owner */
     status = array_each(server, server_each_set_owner, sp);
     if (status != NC_OK) {
-        server_deinit(server);
+        servers_deinit(server);
         return status;
     }
 
@@ -170,7 +170,7 @@ server_init(struct array *server, struct array *conf_server,
 }
 
 void
-server_deinit(struct array *server)
+servers_deinit(struct array *server)
 {
     uint32_t i, nserver;
 
@@ -179,6 +179,9 @@ server_deinit(struct array *server)
 
         s = array_pop(server);
         ASSERT(TAILQ_EMPTY(&s->s_conn_q) && s->ns_conn_q == 0);
+
+        string_deinit(&s->pname);
+        string_deinit(&s->name);
     }
     array_deinit(server);
 }
@@ -864,6 +867,10 @@ server_pool_new()
 void
 server_pool_free(struct server_pool *pool)
 {
+    string_deinit(&pool->name);
+    string_deinit(&pool->addrstr);
+    string_deinit(&pool->hash_tag);
+    string_deinit(&pool->redis_auth);
     nc_free(pool);  /* FIXME: memory leaks here. */
 }
 
@@ -880,7 +887,7 @@ server_pool_deinit(struct server_pool *pool, void *data) {
         pool->nlive_server = 0;
     }
 
-    server_deinit(&pool->server);
+    servers_deinit(&pool->server);
 
     log_debug(LOG_DEBUG, "deinit pool %"PRIu32" '%.*s'", pool->idx,
               pool->name.len, pool->name.data);

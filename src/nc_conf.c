@@ -154,9 +154,12 @@ conf_server_each_transform(void *elem, void *data)
     s->idx = array_idx(server, s);
     s->owner = NULL;
 
-    s->pname = cs->pname;
-    s->name = cs->name;
-    s->addrstr = cs->addrstr;
+    string_init(&s->pname);
+    string_init(&s->name);
+    string_init(&s->addrstr);
+    string_duplicate(&s->pname, &cs->pname);
+    string_duplicate(&s->name, &cs->name);
+    string_duplicate(&s->addrstr, &cs->addrstr);
     s->port = (uint16_t)cs->port;
     s->weight = (uint32_t)cs->weight;
 
@@ -262,8 +265,10 @@ conf_pool_each_create(void *elem, void *data)
 
     TAILQ_INIT(&sp->c_conn_q);
 
-    sp->name = cp->name;
-    sp->addrstr = cp->listen.pname;
+    status = string_duplicate(&sp->name, &cp->name);
+    ASSERT(status == NC_OK);
+    status = string_duplicate(&sp->addrstr, &cp->listen.pname);
+    ASSERT(status == NC_OK);
     sp->port = (uint16_t)cp->listen.port;
 
     nc_memcpy(&sp->info, &cp->listen.info, sizeof(cp->listen.info));
@@ -272,7 +277,8 @@ conf_pool_each_create(void *elem, void *data)
     sp->key_hash_type = cp->hash;
     sp->key_hash = hash_algos[cp->hash];
     sp->dist_type = cp->distribution;
-    sp->hash_tag = cp->hash_tag;
+    status = string_duplicate_if_nonempty(&sp->hash_tag, &cp->hash_tag);
+    ASSERT(status == NC_OK);
 
     sp->tcpkeepalive = cp->tcpkeepalive ? 1 : 0;
 
@@ -281,7 +287,8 @@ conf_pool_each_create(void *elem, void *data)
     sp->backlog = cp->backlog;
     sp->redis_db = cp->redis_db;
 
-    sp->redis_auth = cp->redis_auth;
+    status = string_duplicate_if_nonempty(&sp->redis_auth, &cp->redis_auth);
+    ASSERT(status == NC_OK);
     sp->require_auth = cp->redis_auth.len > 0 ? 1 : 0;
 
     sp->client_connections = (uint32_t)cp->client_connections;
@@ -291,7 +298,7 @@ conf_pool_each_create(void *elem, void *data)
     sp->auto_eject_hosts = cp->auto_eject_hosts ? 1 : 0;
     sp->preconnect = cp->preconnect ? 1 : 0;
 
-    status = server_init(&sp->server, &cp->server, sp);
+    status = servers_init(&sp->server, &cp->server, sp);
     if (status != NC_OK) {
         return status;
     }

@@ -220,20 +220,23 @@ proxy_each_init(struct server_pool *pool, void *data)
 }
 
 rstatus_t
-proxy_init(struct context *ctx)
+proxy_init(struct context *ctx, struct server_pools *server_pools)
 {
     rstatus_t status;
 
-    ASSERT(server_pools_n(&ctx->pools) != 0);
+    if(server_pools_n(server_pools) == 0) {
+        log_error("no pools configured, can't initialize proxies");
+        return NC_ERROR;
+    }
 
-    status = server_pools_each(&ctx->pools, proxy_each_init, NULL);
+    status = server_pools_each(server_pools, proxy_each_init, NULL);
     if (status != NC_OK) {
-        proxy_deinit(ctx);
+        proxy_deinit(ctx, server_pools);
         return status;
     }
 
     log_debug(LOG_VVERB, "init proxy with %"PRIu32" pools",
-              server_pools_n(&ctx->pools));
+              server_pools_n(server_pools));
 
     return NC_OK;
 }
@@ -252,15 +255,14 @@ proxy_each_deinit(struct server_pool *pool, void *data)
 }
 
 void
-proxy_deinit(struct context *ctx)
+proxy_deinit(struct context *ctx, struct server_pools *server_pools)
 {
     rstatus_t status;
     uint32_t npool;
 
-    npool = server_pools_n(&ctx->pools);
-    ASSERT(npool != 0);
+    npool = server_pools_n(server_pools);
 
-    status = server_pools_each(&ctx->pools, proxy_each_deinit, NULL);
+    status = server_pools_each(server_pools, proxy_each_deinit, NULL);
     if (status != NC_OK) {
         return;
     }

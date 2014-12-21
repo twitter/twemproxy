@@ -52,15 +52,17 @@ core_ctx_create(struct instance *nci)
     rstatus_t status;
     struct context *ctx;
 
-    ctx = nc_alloc(sizeof(*ctx));
+    ctx = nc_zalloc(sizeof(*ctx));
     if (ctx == NULL) {
         return NULL;
     }
+    ctx->nci = nci;
     ctx->id = ++ctx_id;
     ctx->cf = NULL;
     ctx->stats = NULL;
     ctx->evb = NULL;
-    ctx->pools = (struct server_pools)TAILQ_HEAD_INITIALIZER(ctx->pools);
+    TAILQ_INIT(&ctx->pools);
+    TAILQ_INIT(&ctx->replacement_pools);
     ctx->max_timeout = nci->stats_interval;
     ctx->timeout = ctx->max_timeout;
     ctx->max_nfd = 0;
@@ -139,7 +141,7 @@ core_ctx_create(struct instance *nci)
     }
 
     /* initialize proxy per server pool */
-    status = proxy_init(ctx);
+    status = proxy_init(ctx, &ctx->pools);
     if (status != NC_OK) {
         ctx->sig_conn->close(ctx, ctx->sig_conn);
         server_pools_disconnect(&ctx->pools);
@@ -162,7 +164,8 @@ core_ctx_destroy(struct context *ctx)
     log_debug(LOG_VVERB, "destroy ctx %p id %"PRIu32"", ctx, ctx->id);
     if(ctx->sig_conn)
         ctx->sig_conn->close(ctx, ctx->sig_conn);
-    proxy_deinit(ctx);
+    proxy_deinit(ctx, &ctx->replacement_pools);
+    proxy_deinit(ctx, &ctx->pools);
     server_pools_disconnect(&ctx->pools);
     event_base_destroy(ctx->evb);
     stats_destroy(ctx->stats);
@@ -364,6 +367,41 @@ core_core(void *arg, uint32_t events)
     return NC_OK;
 }
 
+static void config_reload(struct context *ctx) {
+    rstatus_t status;
+
+    if(ctx->state == CTX_STATE_STEADY) {
+        log_debug(LOG_NOTICE, "reconfiguration requested, proceeding");
+        ctx->state = CTX_STATE_RELOADING;
+    } else {
+        log_debug(LOG_NOTICE, "reconfiguration is already in progress");
+        return;
+    }
+
+    struct conf *cf = conf_create(ctx->nci->conf_filename);
+    if (cf == NULL) {
+        log_error("configuration file \"%s\" reload failed: %s",
+            ctx->nci->conf_filename, strerror(errno));
+        ctx->state = CTX_STATE_STEADY;
+        return;
+    }
+
+    /* initialize server pool from configuration */
+    TAILQ_INIT(&ctx->replacement_pools);
+    status = server_pools_init(&ctx->replacement_pools, &cf->pool, ctx);
+    if (status != NC_OK) {
+        server_pools_deinit(&ctx->replacement_pools);
+        conf_destroy(cf);
+        ctx->state = CTX_STATE_STEADY;
+        return;
+    }
+
+    server_pools_deinit(&ctx->replacement_pools);
+
+    conf_destroy(cf);
+    ctx->state = CTX_STATE_STEADY;
+}
+
 static void
 handle_accumulated_signals(struct context *ctx) {
     int sig;
@@ -376,7 +414,7 @@ handle_accumulated_signals(struct context *ctx) {
             /*
              * Reload configuration.
              */
-            log_debug(LOG_NOTICE, "reconfiguration requested");
+            config_reload(ctx);
         }
     }
 }

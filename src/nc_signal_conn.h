@@ -15,20 +15,22 @@
  * limitations under the License.
  */
 
-#ifndef _NC_PROXY_H_
-#define _NC_PROXY_H_
+#ifndef _NC_SIGNAL_CONN_H_
+#define _NC_SIGNAL_CONN_H_
 
 #include <nc_core.h>
 
-void proxy_ref(struct conn *conn, void *owner);
-void proxy_unref(struct conn *conn);
-void proxy_close(struct context *ctx, struct conn *conn);
+struct conn *create_signal_listener(struct context *ctx);
 
-rstatus_t proxy_each_init(struct server_pool *pool, void *data);
-rstatus_t proxy_each_deinit(struct server_pool *pool, void *data);
+void conn_signal_ref(struct conn *conn, void *owner);
+void conn_signal_unref(struct conn *conn);
+rstatus_t conn_signal_recv(struct context *ctx, struct conn *connconn);
+void conn_signal_close(struct context *ctx, struct conn *conn);
 
-rstatus_t proxy_init(struct context *ctx, struct server_pools *server_pools);
-void proxy_deinit(struct context *ctx, struct server_pools *server_pool);
-rstatus_t proxy_recv(struct context *ctx, struct conn *conn);
+/*
+ * Return the next signal that has been received.
+ * Returns 0 if no signals have been received.
+ */
+int conn_next_signal(void);
 
 #endif

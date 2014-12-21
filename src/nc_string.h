@@ -46,6 +46,7 @@ void string_init(struct string *str);
 void string_deinit(struct string *str);
 bool string_empty(const struct string *str);
 rstatus_t string_duplicate(struct string *dst, const struct string *src);
+rstatus_t string_duplicate_if_nonempty(struct string *dst, const struct string *src);
 rstatus_t string_copy(struct string *dst, const uint8_t *src, size_t srclen);
 int string_compare(const struct string *s1, const struct string *s2);
 

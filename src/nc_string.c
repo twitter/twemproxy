@@ -82,6 +82,15 @@ string_duplicate(struct string *dst, const struct string *src)
 }
 
 rstatus_t
+string_duplicate_if_nonempty(struct string *dst, const struct string *src)
+{
+    string_deinit(dst);
+    if(src->data && src->len)
+        return string_duplicate(dst, src);
+    return NC_OK;
+}
+
+rstatus_t
 string_copy(struct string *dst, const uint8_t *src, size_t srclen)
 {
     ASSERT(dst->len == 0 && dst->data == NULL);

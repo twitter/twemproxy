@@ -77,6 +77,9 @@ static struct command conf_commands[] = {
     { string("redis_auth"),
       conf_set_string,
       offsetof(struct conf_pool, redis_auth) },
+    { string("redis_db"),
+      conf_set_num,
+      offsetof(struct conf_pool, redis_db) },
 
     { string("preconnect"),
       conf_set_bool,
@@ -189,6 +192,7 @@ conf_pool_init(struct conf_pool *cp, struct string *name)
     cp->client_connections = CONF_UNSET_NUM;
 
     cp->redis = CONF_UNSET_NUM;
+    cp->redis_db = CONF_UNSET_NUM;
     cp->preconnect = CONF_UNSET_NUM;
     cp->auto_eject_hosts = CONF_UNSET_NUM;
     cp->server_connections = CONF_UNSET_NUM;
@@ -278,6 +282,7 @@ conf_pool_each_transform(void *elem, void *data)
 
     sp->redis = cp->redis ? 1 : 0;
     sp->redis_auth = cp->redis_auth;
+    sp->redis_db = cp->redis_db;
     sp->timeout = cp->timeout;
     sp->backlog = cp->backlog;
 
@@ -1171,7 +1176,7 @@ conf_validate_server(struct conf *cf, struct conf_pool *cp)
 
         if (string_compare(&cs1->name, &cs2->name) == 0) {
             log_error("conf: pool '%.*s' has servers with same name '%.*s'",
-                      cp->name.len, cp->name.data, cs1->name.len, 
+                      cp->name.len, cp->name.data, cs1->name.len,
                       cs1->name.data);
             valid = false;
             break;
@@ -1219,6 +1224,10 @@ conf_validate_pool(struct conf *cf, struct conf_pool *cp)
 
     if (cp->redis == CONF_UNSET_NUM) {
         cp->redis = CONF_DEFAULT_REDIS;
+    }
+
+    if (cp->redis_db == CONF_UNSET_NUM) {
+        cp->redis_db = CONF_DEFAULT_REDIS_DB;
     }
 
     if (cp->preconnect == CONF_UNSET_NUM) {

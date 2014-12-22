@@ -113,6 +113,7 @@ struct server_pool {
     struct string      hash_tag;             /* key hash tag (ref in conf_pool) */
     int                timeout;              /* timeout in msec */
     int                backlog;              /* listen backlog */
+    int                redis_db;             /* redis database to connect to */
     uint32_t           client_connections;   /* maximum # client connection */
     uint32_t           server_connections;   /* maximum # server connection */
     int64_t            server_retry_timeout; /* server retry timeout in usec */

@@ -162,6 +162,7 @@ typedef enum msg_parse_result {
     ACTION( REQ_REDIS_PING )                   /* redis requests - ping/quit */                     \
     ACTION( REQ_REDIS_QUIT)                                                                         \
     ACTION( REQ_REDIS_AUTH)                                                                         \
+    ACTION( REQ_REDIS_SELECT)                  /* only during init */                               \
     ACTION( RSP_REDIS_STATUS )                 /* redis response */                                 \
     ACTION( RSP_REDIS_ERROR )                                                                       \
     ACTION( RSP_REDIS_INTEGER )                                                                     \
@@ -271,6 +272,7 @@ void req_put(struct msg *msg);
 bool req_done(struct conn *conn, struct msg *msg);
 bool req_error(struct conn *conn, struct msg *msg);
 void req_server_enqueue_imsgq(struct context *ctx, struct conn *conn, struct msg *msg);
+void req_server_enqueue_imsgq_head(struct context *ctx, struct conn *conn, struct msg *msg);
 void req_server_dequeue_imsgq(struct context *ctx, struct conn *conn, struct msg *msg);
 void req_client_enqueue_omsgq(struct context *ctx, struct conn *conn, struct msg *msg);
 void req_server_enqueue_omsgq(struct context *ctx, struct conn *conn, struct msg *msg);

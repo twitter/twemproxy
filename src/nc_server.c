@@ -338,6 +338,8 @@ server_close(struct context *ctx, struct conn *conn)
     server_close_stats(ctx, conn->owner, conn->err, conn->eof,
                        conn->connected);
 
+    conn->connected = false;
+
     if (conn->sd < 0) {
         server_failure(ctx, conn->owner);
         conn->unref(conn);
@@ -534,6 +536,10 @@ server_connected(struct context *ctx, struct conn *conn)
 
     conn->connecting = 0;
     conn->connected = 1;
+
+    if (conn->init) {
+        conn->init(ctx, conn, server);
+    }
 
     log_debug(LOG_INFO, "connected on s %d to server '%.*s'", conn->sd,
               server->pname.len, server->pname.data);

@@ -201,12 +201,12 @@ rsp_filter(struct context *ctx, struct conn *conn, struct msg *msg)
 }
 
 static void
-rsp_forward_stats(struct context *ctx, struct server *server, struct msg *msg)
+rsp_forward_stats(struct context *ctx, struct server *server, struct msg *msg, uint32_t msgsize)
 {
     ASSERT(!msg->request);
 
     stats_server_incr(ctx, server, responses);
-    stats_server_incr_by(ctx, server, response_bytes, msg->mlen);
+    stats_server_incr_by(ctx, server, response_bytes, msgsize);
 }
 
 static void
@@ -215,8 +215,10 @@ rsp_forward(struct context *ctx, struct conn *s_conn, struct msg *msg)
     rstatus_t status;
     struct msg *pmsg;
     struct conn *c_conn;
+    uint32_t msgsize;
 
     ASSERT(!s_conn->client && !s_conn->proxy);
+    msgsize = msg->mlen;
 
     /* response from server implies that server is ok and heartbeating */
     server_ok(ctx, s_conn);
@@ -245,7 +247,7 @@ rsp_forward(struct context *ctx, struct conn *s_conn, struct msg *msg)
         }
     }
 
-    rsp_forward_stats(ctx, s_conn->owner, msg);
+    rsp_forward_stats(ctx, s_conn->owner, msg, msgsize);
 }
 
 void

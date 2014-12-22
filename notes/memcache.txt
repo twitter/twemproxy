@@ -78,6 +78,11 @@
   NOT_FOUND\r\n
   DELETED\r\n
 
+  python-memcached(https://github.com/linsomniac/python-memcached)'s
+  delete_multi operation comes into conflict. To solve this problem, call like this
+
+  mc.delete_multi([key1, key2, ... keyN], time=None)
+
 - Retrival Responses:
 
   END\r\n

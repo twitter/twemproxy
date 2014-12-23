@@ -35,7 +35,7 @@ typedef void (*conn_ref_t)(struct conn *, void *);
 typedef void (*conn_unref_t)(struct conn *);
 
 typedef void (*conn_msgq_t)(struct context *, struct conn *, struct msg *);
-typedef void (*conn_initialize_t)(struct context *ctx, struct conn *, struct server *server);
+typedef void (*conn_init_t)(struct context *ctx, struct conn *, struct server *server);
 typedef void (*conn_swallow_msg_t)(struct conn *, struct msg *, struct msg *);
 
 struct conn {
@@ -60,7 +60,7 @@ struct conn {
     conn_send_done_t   send_done;     /* write done handler */
     conn_close_t       close;         /* close handler */
     conn_active_t      active;        /* active? handler */
-    conn_initialize_t  init;          /* connection initialize handler */
+    conn_init_t        init;          /* connection init handler */
     conn_swallow_msg_t swallow_msg;   /* react on messages to be swallowed */
 
     conn_ref_t         ref;           /* connection reference handler */

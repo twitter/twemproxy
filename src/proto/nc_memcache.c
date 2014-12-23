@@ -1496,6 +1496,16 @@ memcache_post_coalesce(struct msg *request)
     }
 }
 
+void
+memcache_conn_init(struct context *ctx, struct conn *conn, struct server *server)
+{
+}
+
+void
+memcache_swallow_msg(struct conn *conn, struct msg *pmsg, struct msg *msg)
+{
+}
+
 rstatus_t
 memcache_add_auth_packet(struct context *ctx, struct conn *c_conn, struct conn *s_conn)
 {

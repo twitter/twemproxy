@@ -2699,13 +2699,13 @@ redis_conn_init(struct context *ctx, struct conn *conn, struct server *server)
         msg->swallow = 1;
         msg->owner   = NULL;
 
-        /* Enqueue as head and send */
-
+        /* enqueue as head and send */
         req_server_enqueue_imsgq_head(ctx, conn, msg);
         msg_send(ctx, conn);
 
-        log_debug(LOG_NOTICE, "sent \"SELECT %d\" to %s | %s. ",
-        server->owner->redis_db, server->owner->name.data, server->name.data);
+        log_debug(LOG_NOTICE, "sent 'SELECT %d' to %s | %s",
+                  server->owner->redis_db, server->owner->name.data,
+                  server->name.data);
     }
 }
 

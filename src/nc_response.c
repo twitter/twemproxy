@@ -185,9 +185,7 @@ rsp_filter(struct context *ctx, struct conn *conn, struct msg *msg)
     ASSERT(pmsg->request && !pmsg->done);
 
     if (pmsg->swallow) {
-        if (conn->swallow_msg) {
-            conn->swallow_msg(conn, pmsg, msg);
-        }
+        conn->swallow_msg(conn, pmsg, msg);
 
         conn->dequeue_outq(ctx, conn, pmsg);
         pmsg->done = 1;

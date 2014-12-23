@@ -145,6 +145,8 @@ void memcache_post_coalesce(struct msg *r);
 rstatus_t memcache_add_auth_packet(struct context *ctx, struct conn *c_conn, struct conn *s_conn);
 rstatus_t memcache_fragment(struct msg *r, uint32_t ncontinuum, struct msg_tqh *frag_msgq);
 rstatus_t memcache_reply(struct msg *r);
+void memcache_conn_init(struct context *ctx, struct conn *conn, struct server *server);
+void memcache_swallow_msg(struct conn *conn, struct msg *pmsg, struct msg *msg);
 
 void redis_parse_req(struct msg *r);
 void redis_parse_rsp(struct msg *r);

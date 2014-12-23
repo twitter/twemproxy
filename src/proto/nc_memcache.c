@@ -1377,9 +1377,8 @@ memcache_pre_coalesce(struct msg *r)
 }
 
 /*
- * copy one response from src to dst
- * return bytes copied
- * */
+ * Copy one response from src to dst and return bytes copied
+ */
 static rstatus_t
 memcache_copy_bulk(struct msg *dst, struct msg *src)
 {
@@ -1403,9 +1402,10 @@ memcache_copy_bulk(struct msg *dst, struct msg *src)
     }
     p = mbuf->pos;
 
-    /* get : VALUE key 0 len\r\nval\r\n */
-    /* gets: VALUE key 0 len cas\r\nval\r\n */
-
+    /*
+     * get : VALUE key 0 len\r\nval\r\n
+     * gets: VALUE key 0 len cas\r\nval\r\n
+     */
     ASSERT(*p == 'V');
     for (i = 0; i < 3; i++) {                 /*  eat 'VALUE key 0 '  */
         for (; *p != ' ';) {

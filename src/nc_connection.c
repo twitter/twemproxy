@@ -214,7 +214,7 @@ conn_get(void *owner, bool client, bool redis)
         conn->dequeue_inq = NULL;
         conn->enqueue_outq = req_client_enqueue_omsgq;
         conn->dequeue_outq = req_client_dequeue_omsgq;
-        conn->init = NULL;
+        conn->post_connect = NULL;
         conn->swallow_msg = NULL;
 
         ncurr_cconn++;
@@ -246,10 +246,10 @@ conn_get(void *owner, bool client, bool redis)
         conn->enqueue_outq = req_server_enqueue_omsgq;
         conn->dequeue_outq = req_server_dequeue_omsgq;
         if (redis) {
-          conn->init = redis_conn_init;
+          conn->post_connect = redis_post_connect;
           conn->swallow_msg = redis_swallow_msg;
         } else {
-          conn->init = memcache_conn_init;
+          conn->post_connect = memcache_post_connect;
           conn->swallow_msg = memcache_swallow_msg;
         }
     }

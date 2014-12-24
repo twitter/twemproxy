@@ -2662,7 +2662,7 @@ redis_add_auth_packet(struct context *ctx, struct conn *c_conn, struct conn *s_c
 }
 
 void
-redis_conn_init(struct context *ctx, struct conn *conn, struct server *server)
+redis_post_connect(struct context *ctx, struct conn *conn, struct server *server)
 {
     rstatus_t status;
     struct server_pool *pool = server->owner;

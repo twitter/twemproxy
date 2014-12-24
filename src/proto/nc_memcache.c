@@ -1497,7 +1497,7 @@ memcache_post_coalesce(struct msg *request)
 }
 
 void
-memcache_conn_init(struct context *ctx, struct conn *conn, struct server *server)
+memcache_post_connect(struct context *ctx, struct conn *conn, struct server *server)
 {
 }
 

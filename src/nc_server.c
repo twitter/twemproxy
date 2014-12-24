@@ -537,7 +537,7 @@ server_connected(struct context *ctx, struct conn *conn)
     conn->connecting = 0;
     conn->connected = 1;
 
-    conn->init(ctx, conn, server);
+    conn->post_connect(ctx, conn, server);
 
     log_debug(LOG_INFO, "connected on s %d to server '%.*s'", conn->sd,
               server->pname.len, server->pname.data);

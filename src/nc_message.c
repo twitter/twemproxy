@@ -524,13 +524,14 @@ msg_prepend(struct msg *msg, uint8_t *pos, size_t n)
 }
 
 /*
- * prepend small(small than a mbuf) content into msg
+ * Prepend a formatted string into msg. Returns an error if the formatted
+ * string does not fit in a single mbuf.
  */
 rstatus_t
 msg_prepend_format(struct msg *msg, const char *fmt, ...)
 {
     struct mbuf *mbuf;
-    int32_t n;
+    int n, size;
     va_list args;
 
     mbuf = mbuf_get();
@@ -538,15 +539,19 @@ msg_prepend_format(struct msg *msg, const char *fmt, ...)
         return NC_ENOMEM;
     }
 
+    size = mbuf_size(mbuf);
+
     va_start(args, fmt);
-    n = nc_vscnprintf(mbuf->last, mbuf_size(mbuf), fmt, args);
+    n = nc_vsnprintf(mbuf->last, size, fmt, args);
     va_end(args);
+    if (n <= 0 || n >= size) {
+      return NC_ERROR;
+    }
 
     mbuf->last += n;
     msg->mlen += (uint32_t)n;
-
-    ASSERT(mbuf_size(mbuf) >= 0);
     STAILQ_INSERT_HEAD(&msg->mhdr, mbuf, next);
+
     return NC_OK;
 }
 

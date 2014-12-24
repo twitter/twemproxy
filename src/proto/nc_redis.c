@@ -2664,47 +2664,51 @@ redis_add_auth_packet(struct context *ctx, struct conn *c_conn, struct conn *s_c
 void
 redis_conn_init(struct context *ctx, struct conn *conn, struct server *server)
 {
+    rstatus_t status;
+    struct server_pool *pool = server->owner;
+    struct msg *msg;
+    int digits;
+
     ASSERT(!conn->client && conn->connected);
+    ASSERT(conn->redis);
 
-    if (conn->redis && server->owner->redis_db > 0) {
-        uint8_t command[64];
-        int digits;
-        size_t commandlen;
-        struct msg *msg;
-        struct mbuf *mbuf;
-
-        digits = (server->owner->redis_db >= 10)
-            ? (int)log10(server->owner->redis_db) + 1
-            : 1;
-
-        commandlen = nc_snprintf(command, sizeof(command), "*2\r\n$6\r\nSELECT\r\n$%d\r\n%d\r\n", digits, server->owner->redis_db);
-
-        /*
-         * Create a fake client message and add it to the pipeline
-         * We force this message to be head of queue as it might already contain
-         * a command that triggered the connect.
-         */
-        msg = msg_get(conn, true, conn->redis);
-        mbuf = mbuf_get();
-
-        mbuf_copy(mbuf, command, commandlen);
-        mbuf_insert(&msg->mhdr, mbuf);
-
-        msg->pos = mbuf->pos;
-        msg->mlen += (uint32_t)commandlen;
-        msg->type = MSG_REQ_REDIS_SELECT;
-        msg->result = MSG_PARSE_OK;
-        msg->swallow = 1;
-        msg->owner = NULL;
-
-        /* enqueue as head and send */
-        req_server_enqueue_imsgq_head(ctx, conn, msg);
-        msg_send(ctx, conn);
-
-        log_debug(LOG_NOTICE, "sent 'SELECT %d' to %s | %s",
-                  server->owner->redis_db, server->owner->name.data,
-                  server->name.data);
+    /*
+     * By default, every connection to redis uses the database DB 0. You
+     * can select a different one on a per-connection basis by sending
+     * a request 'SELECT <redis_db>', where <redis_db> is the configured
+     * on a per pool basis in the configuration
+     */
+    if (pool->redis_db <= 0) {
+        return;
     }
+
+    /*
+     * Create a fake client message and add it to the pipeline. We force this
+     * message to be head of queue as it might already contain a command
+     * that triggered the connect.
+     */
+    msg = msg_get(conn, true, conn->redis);
+    if (msg == NULL) {
+        return;
+    }
+
+    digits = (pool->redis_db >= 10) ? (int)log10(pool->redis_db) + 1 : 1;
+    status = msg_prepend_format(msg, "*2\r\n$6\r\nSELECT\r\n$%d\r\n%d\r\n", digits, pool->redis_db);
+    if (status != NC_OK) {
+        msg_put(msg);
+        return;
+    }
+    msg->type = MSG_REQ_REDIS_SELECT;
+    msg->result = MSG_PARSE_OK;
+    msg->swallow = 1;
+    msg->owner = NULL;
+
+    /* enqueue as head and send */
+    req_server_enqueue_imsgq_head(ctx, conn, msg);
+    msg_send(ctx, conn);
+
+    log_debug(LOG_NOTICE, "sent 'SELECT %d' to %s | %s", pool->redis_db,
+              pool->name.data, server->name.data);
 }
 
 void

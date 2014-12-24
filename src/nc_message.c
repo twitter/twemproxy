@@ -531,7 +531,8 @@ rstatus_t
 msg_prepend_format(struct msg *msg, const char *fmt, ...)
 {
     struct mbuf *mbuf;
-    int n, size;
+    int n;
+    uint32_t size;
     va_list args;
 
     mbuf = mbuf_get();
@@ -544,8 +545,8 @@ msg_prepend_format(struct msg *msg, const char *fmt, ...)
     va_start(args, fmt);
     n = nc_vsnprintf(mbuf->last, size, fmt, args);
     va_end(args);
-    if (n <= 0 || n >= size) {
-      return NC_ERROR;
+    if (n <= 0 || n >= (int)size) {
+        return NC_ERROR;
     }
 
     mbuf->last += n;

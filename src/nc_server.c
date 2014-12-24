@@ -672,7 +672,7 @@ server_pool_idx(struct server_pool *pool, uint8_t *key, uint32_t keylen)
     return idx;
 }
 
-static struct server *
+struct server *
 server_pool_server(struct server_pool *pool, uint8_t *key, uint32_t keylen)
 {
     struct server *server;

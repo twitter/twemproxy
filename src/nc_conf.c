@@ -77,6 +77,7 @@ static struct command conf_commands[] = {
     { string("redis_auth"),
       conf_set_string,
       offsetof(struct conf_pool, redis_auth) },
+
     { string("redis_db"),
       conf_set_num,
       offsetof(struct conf_pool, redis_db) },

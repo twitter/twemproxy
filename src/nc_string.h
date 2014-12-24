@@ -77,6 +77,20 @@ int string_compare(const struct string *s1, const struct string *s2);
 #define nc_strndup(_s, _n)              \
     (uint8_t *)strndup((char *)(_s), (size_t)(_n));
 
+/*
+ * snprintf(s, n, ...) will write at most n - 1 of the characters printed into
+ * the output string; the nth character then gets the terminating `\0'; if
+ * the return value is greater than or equal to the n argument, the string
+ * was too short and some of the printed characters were discarded; the output
+ * is always null-terminated.
+ *
+ * Note that, the return value of snprintf() is always the number of characters
+ * that would be printed into the output string, assuming n were limited not
+ * including the trailing `\0' used to end output.
+ *
+ * scnprintf(s, n, ...) is same as snprintf() except, it returns the number
+ * of characters printed into the output string not including the trailing '\0'
+ */
 #define nc_snprintf(_s, _n, ...)        \
     snprintf((char *)(_s), (size_t)(_n), __VA_ARGS__)
 

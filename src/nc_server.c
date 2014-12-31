@@ -659,6 +659,11 @@ server_pool_idx(struct server_pool *pool, uint8_t *key, uint32_t keylen)
         hash = server_pool_hash(pool, key, keylen);
         idx = modula_dispatch(pool->continuum, pool->ncontinuum, hash);
         break;
+		
+	case DIST_REDISARRAY:
+        hash = server_pool_hash(pool, key, keylen);
+        idx = redisarray_dispatch(pool->ncontinuum, hash);
+        break;
 
     case DIST_RANDOM:
         idx = random_dispatch(pool->continuum, pool->ncontinuum, 0);
@@ -806,6 +811,9 @@ server_pool_run(struct server_pool *pool)
 
     case DIST_MODULA:
         return modula_update(pool);
+
+    case DIST_REDISARRAY:
+        return redisarray_update(pool);
 
     case DIST_RANDOM:
         return random_update(pool);

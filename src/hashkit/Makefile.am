@@ -22,3 +22,4 @@ libhashkit_a_SOURCES =		\
 	nc_one_at_a_time.c	\
 	nc_random.c		\
 	nc_redisarray.c
+	

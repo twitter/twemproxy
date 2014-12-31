@@ -22,6 +22,11 @@
  * src/usr.bin/cksum/crc32.c.
  */
 
+/*
+ * rcrc32 hash function logic taken from phpredis redisArray
+ * https://github.com/phpredis/phpredis/blob/master/redis_array_impl.c 
+ */
+
 #include <nc_core.h>
 
 static const uint32_t crc32tab[256] = {
@@ -120,4 +125,17 @@ hash_crc32a(const char *key, size_t key_length)
     }
 
     return crc ^ ~0U;
+}
+
+uint32_t
+hash_rcrc32(const char *key, size_t key_length)
+{
+    uint64_t x;
+    uint32_t crc = UINT32_MAX;
+
+    for (x = 0; x < key_length; x++) {
+        crc = (crc >> 8) ^ crc32tab[(crc ^ (uint64_t)key[x]) & 0xff];
+    }
+
+    return (crc ^ 0xFFFFFFFF) ;
 }

@@ -93,11 +93,13 @@ nutcracker can be configured through a YAML file specified by the -c or --conf-f
  + hsieh
  + murmur
  + jenkins
+ + rcrc32 (implementation compatible with phpredis redisArray https://github.com/phpredis/phpredis/blob/master/redis_array_impl.c  )
 + **hash_tag**: A two character string that specifies the part of the key used for hashing. Eg "{}" or "$$". [Hash tag](notes/recommendation.md#hash-tags)  enable mapping different keys to the same server as long as the part of the key within the tag is the same.
 + **distribution**: The key distribution mode. Possible values are:
  + ketama
  + modula
  + random
+ + redisarray (implementation compatible with phpredis redisArray https://github.com/phpredis/phpredis/blob/master/redis_array_impl.c  )
 + **timeout**: The timeout value in msec that we wait for to establish a connection to the server or receive a response from a server. By default, we wait indefinitely.
 + **backlog**: The TCP backlog argument. Defaults to 512.
 + **preconnect**: A boolean value that controls if nutcracker should preconnect to all the servers in this pool on process start. Defaults to false.
@@ -179,6 +181,8 @@ For example, the configuration file in [conf/nutcracker.yml](conf/nutcracker.yml
       servers:
        - 127.0.0.1:11214:100000
        - 127.0.0.1:11215:1
+
+If there is a need to use key-value distribution as per phpredis redisArray [redisArray](https://github.com/phpredis/phpredis/blob/master/arrays.markdown) use hashing function 'rcrc32' and distribution mode 'redisarray'.
 
 Finally, to make writing syntactically correct configuration file easier, nutcracker provides a command-line argument -t or --test-conf that can be used to test the YAML configuration file for any syntax error.
 

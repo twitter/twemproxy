@@ -338,8 +338,6 @@ server_close(struct context *ctx, struct conn *conn)
     server_close_stats(ctx, conn->owner, conn->err, conn->eof,
                        conn->connected);
 
-    conn->connected = false;
-
     if (conn->sd < 0) {
         server_failure(ctx, conn->owner);
         conn->unref(conn);
@@ -537,8 +535,6 @@ server_connected(struct context *ctx, struct conn *conn)
     conn->connecting = 0;
     conn->connected = 1;
 
-    conn->post_connect(ctx, conn, server);
-
     log_debug(LOG_INFO, "connected on s %d to server '%.*s'", conn->sd,
               server->pname.len, server->pname.data);
 }
@@ -658,6 +654,11 @@ server_pool_idx(struct server_pool *pool, uint8_t *key, uint32_t keylen)
     case DIST_MODULA:
         hash = server_pool_hash(pool, key, keylen);
         idx = modula_dispatch(pool->continuum, pool->ncontinuum, hash);
+        break;
+		
+	case DIST_REDISARRAY:
+        hash = server_pool_hash(pool, key, keylen);
+        idx = redisarray_dispatch(pool->ncontinuum, hash);
         break;
 
     case DIST_RANDOM:
@@ -806,6 +807,9 @@ server_pool_run(struct server_pool *pool)
 
     case DIST_MODULA:
         return modula_update(pool);
+
+    case DIST_REDISARRAY:
+        return redisarray_update(pool);
 
     case DIST_RANDOM:
         return random_update(pool);

@@ -22,6 +22,7 @@
 #include <nc_server.h>
 #include <nc_proxy.h>
 #include <nc_signal_conn.h>
+#include <nc_introspect.h>
 
 static uint32_t ctx_id; /* context generation */
 
@@ -369,6 +370,7 @@ core_core(void *arg, uint32_t events)
 
 static void config_reload(struct context *ctx) {
     rstatus_t status;
+    char *formatted_layout;
 
     if(ctx->state == CTX_STATE_STEADY) {
         log_debug(LOG_NOTICE, "reconfiguration requested, proceeding");
@@ -396,9 +398,22 @@ static void config_reload(struct context *ctx) {
         return;
     }
 
+    log_debug(LOG_NOTICE, "Effective runtime:");
+    log_runtime_objects(LOG_NOTICE, ctx, &ctx->pools,
+        FRO_POOLS | FRO_SERVERS | FRO_SERVER_CONNS
+        | (ctx->nci->log_level >= LOG_DEBUG ? FRO_CLIENT_CONNS : 0)
+        | (ctx->nci->log_level >= LOG_DEBUG ? FRO_DETAIL_VERBOSE : 0));
+
+    log_debug(LOG_NOTICE, "Replacement runtime:");
+    log_runtime_objects(LOG_NOTICE, ctx, &ctx->replacement_pools,
+        FRO_POOLS | FRO_SERVERS | FRO_SERVER_CONNS
+        | (ctx->nci->log_level >= LOG_DEBUG ? FRO_CLIENT_CONNS : 0)
+        | (ctx->nci->log_level >= LOG_DEBUG ? FRO_DETAIL_VERBOSE : 0));
+
     server_pools_deinit(&ctx->replacement_pools);
 
     conf_destroy(cf);
+
     ctx->state = CTX_STATE_STEADY;
 }
 

@@ -153,4 +153,15 @@ void server_pools_disconnect(struct server_pools *server_pools);
 rstatus_t server_pools_init(struct server_pools *server_pools, struct array *conf_pool, struct context *ctx);
 void server_pools_deinit(struct server_pools *server_pools);
 
+/*
+ * A helper function to traverse the whole tree of pools/servers/connections.
+ */
+enum nc_morph_elem_type {
+    NC_ELEMENT_IS_POOL,
+    NC_ELEMENT_IS_SERVER,
+    NC_ELEMENT_IS_CONNECTION,
+};
+typedef void *(*nc_morphism_f)(enum nc_morph_elem_type, void *elem, void *acc);
+void *server_pools_fold(struct server_pools *server_pools, nc_morphism_f f, void *acc0);
+
 #endif

@@ -919,3 +919,69 @@ server_pools_n(struct server_pools *server_pools) {
 
     return npool;
 }
+
+
+/*
+ * Convert between each (flat) and hierarchical fold.
+ */
+struct morphism_and_accumulator {
+    nc_morphism_f morphism;
+    void *accumulator;
+};
+
+static rstatus_t server_pool_each_to_fold(void *elem, void *data) {
+    struct morphism_and_accumulator *mac = data;
+    struct server *server = elem;
+    struct conn *conn;
+    uint32_t count;
+
+    mac->accumulator = mac->morphism(NC_ELEMENT_IS_SERVER,
+                                     server, mac->accumulator);
+
+    count = 0;
+    /* Iterate over server connections going to a single server. */
+    TAILQ_FOREACH(conn, &server->s_conn_q, conn_tqe) {
+        mac->accumulator = mac->morphism(NC_ELEMENT_IS_CONNECTION,
+                                         conn, mac->accumulator);
+        count++;
+    }
+    ASSERT(server->ns_conn_q == count);
+
+    return NC_OK;
+}
+
+static void *
+server_pool_fold(struct server_pool *pool, nc_morphism_f f, void *acc) {
+    struct morphism_and_accumulator mac;
+    struct conn *conn;
+    rstatus_t status;
+
+    acc = f(NC_ELEMENT_IS_POOL, pool, acc);
+
+    if(pool->p_conn)
+        acc = f(NC_ELEMENT_IS_CONNECTION, pool->p_conn, acc);
+
+    /* Iterate over client connections accessing a single pool proxy. */
+    TAILQ_FOREACH(conn, &pool->c_conn_q, conn_tqe) {
+        acc = f(NC_ELEMENT_IS_CONNECTION, conn, acc);
+    }
+
+    mac.morphism = f;
+    mac.accumulator = acc;
+
+    status = array_each(&pool->server, server_pool_each_to_fold, &mac);
+    ASSERT(status == NC_OK);
+
+    return mac.accumulator;
+}
+
+void *
+server_pools_fold(struct server_pools *server_pools, nc_morphism_f f, void *acc) {
+    struct server_pool *pool;
+
+    TAILQ_FOREACH(pool, server_pools, pool_tqe) {
+        acc = server_pool_fold(pool, f, acc);
+    }
+
+    return acc;
+}

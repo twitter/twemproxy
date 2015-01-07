@@ -54,7 +54,7 @@ By default, nutcracker waits indefinitely for any request sent to the server. Ho
 
 ## Error Response
 
-Whenever a request encounters failure on a server we usually send to the client a response with the general form - `SERVER_ERROR <errno description>\r\n` (memcached) or `-ERR <errno description>` (redis).
+Whenever a request encounters failure on a server we usually send to the client a response with the general form - `SERVER_ERROR <errno description>\r\n` (memcached) or `-ERR <errno description>` (redis), or the corresponding binary-encoded error message (tarantool).
 
 For example, when a memcache server is down, this error response is usually:
 
@@ -65,7 +65,7 @@ When the request timedout, the response is usually:
 
 + `SERVER_ERROR Connection timed out\r\n`
 
-Seeing a `SERVER_ERROR` or `-ERR` response should be considered as a transient failure by a client which makes the original request an ideal candidate for a retry.
+Seeing those kind of error responses should be considered as a transient failure by a client which makes the original request an ideal candidate for a retry.
 
 ## read, writev and mbuf
 
@@ -87,6 +87,8 @@ This is the reason why for 'large number' of connections or for wide multi-get l
 
 ## Maximum Key Length
 The memcache ascii protocol [specification](notes/memcache.txt) limits the maximum length of the key to 250 characters. The key should not include whitespace, or '\r' or '\n' character. For redis, we have no such limitation. However, nutcracker requires the key to be stored in a contiguous memory region. Since all requests and responses in nutcracker are stored in mbuf, the maximum length of the redis key is limited by the size of the maximum available space for data in mbuf (mbuf_data_size()). This means that if you want your redis instances to handle large keys, you might want to choose large mbuf size set using -m or --mbuf-size=N command-line argument.
+
+For Tarantool protocol an entire request is required to fit in a single mbuf and thus, the maximum request size is limited by the mbuf size. Replies from the server can span multiple mbufs.
 
 ## Node Names for Consistent Hashing
 
@@ -124,7 +126,7 @@ For example, the configuration of server pool _beta_, also shown below, specifie
       distribution: ketama
       auto_eject_hosts: false
       timeout: 400
-      redis: true
+      protocol: redis
       servers:
        - 127.0.0.1:6380:1 server1
        - 127.0.0.1:6381:1 server2

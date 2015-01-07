@@ -155,8 +155,8 @@ _conn_get(void)
     conn->connected = 0;
     conn->eof = 0;
     conn->done = 0;
-    conn->redis = 0;
     conn->need_auth = 0;
+    conn->greeting = 0;
 
     ntotal_conn++;
     ncurr_conn++;
@@ -165,10 +165,10 @@ _conn_get(void)
 }
 
 static bool
-conn_need_auth(void *owner, bool redis) {
+conn_need_auth(void *owner, proto_type_t proto) {
     struct server_pool *pool = (struct server_pool *)(owner);
 
-    if (redis && pool->redis_auth.len > 0) {
+    if (proto == PROTO_REDIS && pool->redis_auth.len > 0) {
         return true;
     }
 
@@ -176,7 +176,7 @@ conn_need_auth(void *owner, bool redis) {
 }
 
 struct conn *
-conn_get(void *owner, bool client, bool redis)
+conn_get(void *owner, bool client, proto_type_t proto)
 {
     struct conn *conn;
 
@@ -185,8 +185,24 @@ conn_get(void *owner, bool client, bool redis)
         return NULL;
     }
 
-    /* connection either handles redis or memcache messages */
-    conn->redis = redis ? 1 : 0;
+    conn->proto = proto;
+
+    switch (proto) {
+    case PROTO_TARANTOOL:
+        conn->post_connect = tarantool_post_connect;
+        break;
+
+    case PROTO_REDIS:
+        conn->post_connect = redis_post_connect;
+        break;
+
+    case PROTO_MEMCACHED:
+        conn->post_connect = memcache_post_connect;
+        break;
+
+    default:
+        NOT_REACHED();
+    }
 
     conn->client = client ? 1 : 0;
 
@@ -208,13 +224,12 @@ conn_get(void *owner, bool client, bool redis)
 
         conn->ref = client_ref;
         conn->unref = client_unref;
-        conn->need_auth = conn_need_auth(owner, redis);
+        conn->need_auth = conn_need_auth(owner, proto);
 
         conn->enqueue_inq = NULL;
         conn->dequeue_inq = NULL;
         conn->enqueue_outq = req_client_enqueue_omsgq;
         conn->dequeue_outq = req_client_dequeue_omsgq;
-        conn->post_connect = NULL;
         conn->swallow_msg = NULL;
 
         ncurr_cconn++;
@@ -239,19 +254,34 @@ conn_get(void *owner, bool client, bool redis)
         conn->ref = server_ref;
         conn->unref = server_unref;
 
-        conn->need_auth = conn_need_auth(server->owner, redis);
+        conn->need_auth = conn_need_auth(server->owner, proto);
 
         conn->enqueue_inq = req_server_enqueue_imsgq;
         conn->dequeue_inq = req_server_dequeue_imsgq;
         conn->enqueue_outq = req_server_enqueue_omsgq;
         conn->dequeue_outq = req_server_dequeue_omsgq;
-        if (redis) {
-          conn->post_connect = redis_post_connect;
-          conn->swallow_msg = redis_swallow_msg;
-        } else {
-          conn->post_connect = memcache_post_connect;
-          conn->swallow_msg = memcache_swallow_msg;
+
+        switch (proto) {
+        case PROTO_TARANTOOL:
+            conn->swallow_msg = tarantool_swallow_msg;
+            /* Expect a greeting upon connecting to server */
+            conn->greeting = 1;
+            /* Match a response to a request according to the sync value */
+            conn->need_sync = 1;
+            break;
+
+        case PROTO_REDIS:
+            conn->swallow_msg = redis_swallow_msg;
+            break;
+
+        case PROTO_MEMCACHED:
+            conn->swallow_msg = memcache_swallow_msg;
+            break;
+
+        default:
+            NOT_REACHED();
         }
+
     }
 
     conn->ref(conn, owner);
@@ -271,7 +301,7 @@ conn_get_proxy(void *owner)
         return NULL;
     }
 
-    conn->redis = pool->redis;
+    conn->proto = pool->proto;
 
     conn->proxy = 1;
 

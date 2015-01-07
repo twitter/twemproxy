@@ -1,6 +1,6 @@
 # twemproxy (nutcracker) [![Build Status](https://secure.travis-ci.org/twitter/twemproxy.png)](http://travis-ci.org/twitter/twemproxy)
 
-**twemproxy** (pronounced "two-em-proxy"), aka **nutcracker** is a fast and lightweight proxy for [memcached](http://www.memcached.org/) and [redis](http://redis.io/) protocol. It was built primarily to reduce the number of connections to the caching servers on the backend. This, together with protocol pipeling and sharding enables you to horizontally scale your distributed caching architecture.
+**twemproxy** (pronounced "two-em-proxy"), aka **nutcracker** is a fast and lightweight proxy for [memcached](http://www.memcached.org/) and [redis](http://redis.io/)  and [tarantool](http://tarantool.org/) protocols. It was built primarily to reduce the number of connections to the caching servers on the backend. This, together with protocol pipeling and sharding enables you to horizontally scale your distributed caching architecture.
 
 ## Build
 
@@ -42,7 +42,7 @@ A quick checklist:
 + Supports proxying to multiple servers.
 + Supports multiple server pools simultaneously.
 + Shard data automatically across multiple servers.
-+ Implements the complete [memcached ascii](notes/memcache.txt) and [redis](notes/redis.md) protocol.
++ Implements the complete [memcached ascii](notes/memcache.txt), [redis](notes/redis.md) and [tarantool](notes/tarantool.md) protocols.
 + Easy configuration of server pools through a YAML file.
 + Supports multiple hashing modes including consistent hashing and distribution.
 + Can be configured to disable nodes on failures.
@@ -102,7 +102,11 @@ Twemproxy can be configured through a YAML file specified by the -c or --conf-fi
 + **timeout**: The timeout value in msec that we wait for to establish a connection to the server or receive a response from a server. By default, we wait indefinitely.
 + **backlog**: The TCP backlog argument. Defaults to 512.
 + **preconnect**: A boolean value that controls if twemproxy should preconnect to all the servers in this pool on process start. Defaults to false.
-+ **redis**: A boolean value that controls if a server pool speaks redis or memcached protocol. Defaults to false.
++ **protocol**: The name of the protocol for the server pool. Possible values are:
+  + memcached
+  + redis
+  + tarantool
++ **redis**: *DEPRECATED*. A boolean value that controls if a server pool speaks redis or memcached protocol. Defaults to false. This options is deprecated by the **protocol** option and is only supported for compatibility, so a warning is printed when this option is used. If both **redis** and **protocol** options are specified and have conflicting values, nutcracker terminates with an error on startup.
 + **redis_auth**: Authenticate to the Redis server on connect.
 + **server_connections**: The maximum number of connections that can be opened to each server. By default, we open at most 1 server connection.
 + **auto_eject_hosts**: A boolean value that controls if server should be ejected temporarily when it fails consecutively server_failure_limit times. See [liveness recommendations](notes/recommendation.md#liveness) for information. Defaults to false.
@@ -118,7 +122,7 @@ For example, the configuration file in [conf/nutcracker.yml](conf/nutcracker.yml
       hash: fnv1a_64
       distribution: ketama
       auto_eject_hosts: true
-      redis: true
+      protocol: redis
       server_retry_timeout: 2000
       server_failure_limit: 1
       servers:

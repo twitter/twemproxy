@@ -20,6 +20,7 @@
 
 #include <nc_core.h>
 
+typedef rstatus_t (*conn_connect_t)(struct context *, struct conn*, struct msg_tqh *);
 typedef rstatus_t (*conn_recv_t)(struct context *, struct conn*);
 typedef struct msg* (*conn_recv_next_t)(struct context *, struct conn *, bool);
 typedef void (*conn_recv_done_t)(struct context *, struct conn *, struct msg *, struct msg *);
@@ -35,7 +36,7 @@ typedef void (*conn_ref_t)(struct conn *, void *);
 typedef void (*conn_unref_t)(struct conn *);
 
 typedef void (*conn_msgq_t)(struct context *, struct conn *, struct msg *);
-typedef void (*conn_post_connect_t)(struct context *ctx, struct conn *, struct server *server);
+typedef void (*conn_post_connect_t)(struct context *ctx, struct conn *);
 typedef void (*conn_swallow_msg_t)(struct conn *, struct msg *, struct msg *);
 
 struct conn {
@@ -76,6 +77,7 @@ struct conn {
 
     uint32_t            events;        /* connection io events */
     err_t               err;           /* connection errno */
+    proto_type_t        proto;         /* protocol */
     unsigned            recv_active:1; /* recv active? */
     unsigned            recv_ready:1;  /* recv ready? */
     unsigned            send_active:1; /* send active? */
@@ -87,14 +89,15 @@ struct conn {
     unsigned            connected:1;   /* connected? */
     unsigned            eof:1;         /* eof? aka passive close? */
     unsigned            done:1;        /* done? aka close? */
-    unsigned            redis:1;       /* redis? */
     unsigned            need_auth:1;   /* need_auth? */
+    unsigned            greeting:1;    /* greeting expected? (tarantool) */
+    unsigned            need_sync:1;   /* out-of-order responses? (tarantool) */
 };
 
 TAILQ_HEAD(conn_tqh, conn);
 
 struct context *conn_to_ctx(struct conn *conn);
-struct conn *conn_get(void *owner, bool client, bool redis);
+struct conn *conn_get(void *owner, bool client, proto_type_t proto);
 struct conn *conn_get_proxy(void *owner);
 void conn_put(struct conn *conn);
 ssize_t conn_recv(struct conn *conn, void *buf, size_t size);

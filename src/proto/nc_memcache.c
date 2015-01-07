@@ -157,7 +157,7 @@ memcache_parse_req(struct msg *r)
     b = STAILQ_LAST(&r->mhdr, mbuf, next);
 
     ASSERT(r->request);
-    ASSERT(!r->redis);
+    ASSERT(r->proto == PROTO_MEMCACHED);
     ASSERT(state >= SW_START && state < SW_SENTINEL);
     ASSERT(b != NULL);
     ASSERT(b->pos <= b->last);
@@ -751,7 +751,7 @@ memcache_parse_rsp(struct msg *r)
     b = STAILQ_LAST(&r->mhdr, mbuf, next);
 
     ASSERT(!r->request);
-    ASSERT(!r->redis);
+    ASSERT(r->proto == PROTO_MEMCACHED);
     ASSERT(state >= SW_START && state < SW_SENTINEL);
     ASSERT(b != NULL);
     ASSERT(b->pos <= b->last);
@@ -1242,7 +1242,7 @@ memcache_fragment_retrieval(struct msg *r, uint32_t ncontinuum,
         uint32_t idx = msg_backend_idx(r, kpos->start, kpos->end - kpos->start);
 
         if (sub_msgs[idx] == NULL) {
-            sub_msgs[idx] = msg_get(r->owner, r->request, r->redis);
+            sub_msgs[idx] = msg_get(r->owner, r->request, r->proto);
             if (sub_msgs[idx] == NULL) {
                 nc_free(sub_msgs);
                 return NC_ENOMEM;
@@ -1497,7 +1497,7 @@ memcache_post_coalesce(struct msg *request)
 }
 
 void
-memcache_post_connect(struct context *ctx, struct conn *conn, struct server *server)
+memcache_post_connect(struct context *ctx, struct conn *conn)
 {
 }
 
@@ -1520,3 +1520,21 @@ memcache_reply(struct msg *r)
     return NC_OK;
 }
 
+void
+memcache_get_error(struct msg *r, struct msg *msg, const char *errstr)
+{
+    int n;
+    struct mbuf *mbuf;
+
+    mbuf = STAILQ_LAST(&msg->mhdr, mbuf, next);
+
+    ASSERT(mbuf != NULL);
+    ASSERT(msg->mlen == 0);
+
+    n = nc_scnprintf(mbuf->last, mbuf_size(mbuf), "SERVER_ERROR %s"CRLF,
+                     errstr);
+    mbuf->last += n;
+    msg->mlen = (uint32_t)n;
+
+    msg->type = MSG_RSP_MC_SERVER_ERROR;
+}

@@ -258,6 +258,13 @@ done:
     msg->rlen = 0;
     msg->integer = 0;
 
+    msg->reqlen = 0;
+    msg->code = 0;
+    msg->sync = 0;
+    msg->key_offset = 0;
+    msg->key_len = 0;
+    msg->body_start = NULL;
+
     msg->err = 0;
     msg->error = 0;
     msg->ferror = 0;
@@ -268,13 +275,13 @@ done:
     msg->done = 0;
     msg->fdone = 0;
     msg->swallow = 0;
-    msg->redis = 0;
+    msg->emitted = 0;
 
     return msg;
 }
 
 struct msg *
-msg_get(struct conn *conn, bool request, bool redis)
+msg_get(struct conn *conn, bool request, proto_type_t proto)
 {
     struct msg *msg;
 
@@ -285,9 +292,10 @@ msg_get(struct conn *conn, bool request, bool redis)
 
     msg->owner = conn;
     msg->request = request ? 1 : 0;
-    msg->redis = redis ? 1 : 0;
+    msg->proto = proto;
 
-    if (redis) {
+    switch (proto) {
+    case PROTO_REDIS:
         if (request) {
             msg->parser = redis_parse_req;
         } else {
@@ -299,7 +307,10 @@ msg_get(struct conn *conn, bool request, bool redis)
         msg->reply = redis_reply;
         msg->pre_coalesce = redis_pre_coalesce;
         msg->post_coalesce = redis_post_coalesce;
-    } else {
+        msg->get_error = redis_get_error;
+        break;
+
+    case PROTO_MEMCACHED:
         if (request) {
             msg->parser = memcache_parse_req;
         } else {
@@ -309,6 +320,25 @@ msg_get(struct conn *conn, bool request, bool redis)
         msg->fragment = memcache_fragment;
         msg->pre_coalesce = memcache_pre_coalesce;
         msg->post_coalesce = memcache_post_coalesce;
+        msg->get_error = memcache_get_error;
+        break;
+
+    case PROTO_TARANTOOL:
+        if (request) {
+            msg->parser = tarantool_parse_req;
+        } else {
+            msg->parser = tarantool_parse_rsp;
+        }
+        msg->add_auth = tarantool_add_auth_packet;
+        msg->fragment = tarantool_fragment;
+        msg->reply = tarantool_reply;
+        msg->pre_coalesce = tarantool_pre_coalesce;
+        msg->post_coalesce = tarantool_post_coalesce;
+        msg->get_error = tarantool_get_error;
+        break;
+
+    default:
+        NOT_REACHED();
     }
 
     if (log_loggable(LOG_NOTICE) != 0) {
@@ -322,13 +352,11 @@ msg_get(struct conn *conn, bool request, bool redis)
 }
 
 struct msg *
-msg_get_error(bool redis, err_t err)
+msg_get_error(struct msg *r, err_t err)
 {
     struct msg *msg;
     struct mbuf *mbuf;
-    int n;
     char *errstr = err ? strerror(err) : "unknown";
-    char *protstr = redis ? "-ERR" : "SERVER_ERROR";
 
     msg = _msg_get();
     if (msg == NULL) {
@@ -336,7 +364,6 @@ msg_get_error(bool redis, err_t err)
     }
 
     msg->state = 0;
-    msg->type = MSG_RSP_MC_SERVER_ERROR;
 
     mbuf = mbuf_get();
     if (mbuf == NULL) {
@@ -345,9 +372,7 @@ msg_get_error(bool redis, err_t err)
     }
     mbuf_insert(&msg->mhdr, mbuf);
 
-    n = nc_scnprintf(mbuf->last, mbuf_size(mbuf), "%s %s"CRLF, protstr, errstr);
-    mbuf->last += n;
-    msg->mlen = (uint32_t)n;
+    msg->get_error(r, msg, errstr);
 
     log_debug(LOG_VVERB, "get msg %p id %"PRIu64" len %"PRIu32" error '%s'",
               msg, msg->id, msg->mlen, errstr);
@@ -449,7 +474,7 @@ msg_type_string(msg_type_t type)
 bool
 msg_empty(struct msg *msg)
 {
-    return msg->mlen == 0 ? true : false;
+    return (msg->mlen == 0 && !msg->emitted) ? true : false;
 }
 
 uint32_t
@@ -562,7 +587,7 @@ msg_gen_frag_id(void)
     return ++frag_id;
 }
 
-static rstatus_t
+rstatus_t
 msg_parsed(struct context *ctx, struct conn *conn, struct msg *msg)
 {
     struct msg *nmsg;
@@ -586,7 +611,7 @@ msg_parsed(struct context *ctx, struct conn *conn, struct msg *msg)
         return NC_ENOMEM;
     }
 
-    nmsg = msg_get(msg->owner, msg->request, conn->redis);
+    nmsg = msg_get(msg->owner, msg->request, conn->proto);
     if (nmsg == NULL) {
         mbuf_put(nbuf);
         return NC_ENOMEM;

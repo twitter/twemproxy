@@ -25,7 +25,7 @@ rsp_get(struct conn *conn)
 
     ASSERT(!conn->client && !conn->proxy);
 
-    msg = msg_get(conn, false, conn->redis);
+    msg = msg_get(conn, false, conn->proto);
     if (msg == NULL) {
         conn->err = errno;
     }
@@ -80,7 +80,7 @@ rsp_make_error(struct context *ctx, struct conn *conn, struct msg *msg)
         rsp_put(pmsg);
     }
 
-    return msg_get_error(conn->redis, err);
+    return msg_get_error(msg, err);
 }
 
 struct msg *
@@ -138,6 +138,33 @@ rsp_recv_next(struct context *ctx, struct conn *conn, bool alloc)
     return msg;
 }
 
+static struct msg *
+rsp_get_peer(struct conn *conn, struct msg *msg)
+{
+    struct msg *pmsg;
+
+    ASSERT(!conn->client && !conn->proxy);
+
+    pmsg = TAILQ_FIRST(&conn->omsg_q);
+
+    if (!conn->need_sync) {
+        return pmsg;
+    }
+
+    /*
+     * Tarantool can issue out-of-order responses. We use the sync value to find
+     * the matching request.
+     */
+    while (pmsg) {
+        if (pmsg->sync == msg->sync) {
+            break;
+        }
+        pmsg = TAILQ_NEXT(pmsg, s_tqe);
+    }
+
+    return pmsg;
+}
+
 static bool
 rsp_filter(struct context *ctx, struct conn *conn, struct msg *msg)
 {
@@ -153,7 +180,7 @@ rsp_filter(struct context *ctx, struct conn *conn, struct msg *msg)
         return true;
     }
 
-    pmsg = TAILQ_FIRST(&conn->omsg_q);
+    pmsg = rsp_get_peer(conn, msg);
     if (pmsg == NULL) {
         log_debug(LOG_ERR, "filter stray rsp %"PRIu64" len %"PRIu32" on s %d",
                   msg->id, msg->mlen, conn->sd);
@@ -216,6 +243,7 @@ rsp_forward(struct context *ctx, struct conn *s_conn, struct msg *msg)
 {
     rstatus_t status;
     struct msg *pmsg;
+    struct msg *req;
     struct conn *c_conn;
     uint32_t msgsize;
 
@@ -226,7 +254,8 @@ rsp_forward(struct context *ctx, struct conn *s_conn, struct msg *msg)
     server_ok(ctx, s_conn);
 
     /* dequeue peer message (request) from server */
-    pmsg = TAILQ_FIRST(&s_conn->omsg_q);
+    pmsg = rsp_get_peer(s_conn, msg);
+
     ASSERT(pmsg != NULL && pmsg->peer == NULL);
     ASSERT(pmsg->request && !pmsg->done);
 
@@ -242,7 +271,12 @@ rsp_forward(struct context *ctx, struct conn *s_conn, struct msg *msg)
     c_conn = pmsg->owner;
     ASSERT(c_conn->client && !c_conn->proxy);
 
-    if (req_done(c_conn, TAILQ_FIRST(&c_conn->omsg_q))) {
+    req = pmsg->frag_id ? pmsg->frag_owner : pmsg;
+
+    ASSERT(s_conn->need_sync || req == TAILQ_FIRST(&c_conn->omsg_q));
+    ASSERT(!s_conn->need_sync || req == pmsg->frag_owner);
+
+    if (req_done(c_conn, req)) {
         status = event_add_out(ctx->evb, c_conn);
         if (status != NC_OK) {
             c_conn->err = errno;

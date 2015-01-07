@@ -3,7 +3,7 @@ alpha:
   hash: fnv1a_64
   distribution: ketama
   auto_eject_hosts: true
-  redis: true
+  protocol: redis
   server_retry_timeout: 2000
   server_failure_limit: 1
   servers:
@@ -16,7 +16,7 @@ beta:
   distribution: ketama
   auto_eject_hosts: false
   timeout: 400
-  redis: true
+  protocol: redis
   servers:
    - 127.0.0.1:6380:1 server1
    - 127.0.0.1:6381:1 server2

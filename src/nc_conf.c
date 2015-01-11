@@ -275,6 +275,7 @@ conf_pool_each_transform(void *elem, void *data)
     sp->family = cp->listen.info.family;
     sp->addrlen = cp->listen.info.addrlen;
     sp->addr = (struct sockaddr *)&cp->listen.info.addr;
+    sp->perm = cp->listen.perm;
 
     sp->key_hash_type = cp->hash;
     sp->key_hash = hash_algos[cp->hash];
@@ -1440,8 +1441,32 @@ conf_set_listen(struct conf *cf, struct command *cmd, void *conf)
     }
 
     if (value->data[0] == '/') {
-        name = value->data;
-        namelen = value->len;
+        uint8_t *q, *start, *perm;
+        uint32_t permlen;
+
+
+        /* parse "socket_path permissions" from the end */
+        p = value->data + value->len -1;
+        start = value->data;
+        q = nc_strrchr(p, start, ' ');
+        if (q == NULL) {
+            /* no permissions field, so use defaults */
+            name = value->data;
+            namelen = value->len;
+        } else {
+            perm = q + 1;
+            permlen = (uint32_t)(p - perm + 1);
+
+            p = q - 1;
+            name = start;
+            namelen = (uint32_t)(p - start + 1);
+
+            errno = 0;
+            field->perm = (mode_t)strtol((char *)perm, NULL, 8);
+            if (errno || field->perm > 0777) {
+                return "has an invalid file permission in \"socket_path permission\" format string";
+            }
+        }
     } else {
         uint8_t *q, *start, *port;
         uint32_t portlen;

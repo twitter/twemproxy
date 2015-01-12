@@ -107,6 +107,7 @@ struct server_pool {
     int                family;               /* socket family */
     socklen_t          addrlen;              /* socket length */
     struct sockaddr    *addr;                /* socket address (ref in conf_pool) */
+    mode_t             perm;                 /* socket permission */
     int                dist_type;            /* distribution type (dist_type_t) */
     int                key_hash_type;        /* key hash type (hash_type_t) */
     hash_t             key_hash;             /* key hasher */

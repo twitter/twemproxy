@@ -59,6 +59,7 @@ struct conf_listen {
     struct string   pname;   /* listen: as "name:port" */
     struct string   name;    /* name */
     int             port;    /* port */
+    mode_t          perm;    /* socket permissions */
     struct sockinfo info;    /* listen socket info */
     unsigned        valid:1; /* valid? */
 };

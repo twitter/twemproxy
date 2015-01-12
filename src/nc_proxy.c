@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+#include <sys/stat.h>
 #include <sys/un.h>
 
 #include <nc_core.h>
@@ -146,6 +147,16 @@ proxy_listen(struct context *ctx, struct conn *p)
         log_error("bind on p %d to addr '%.*s' failed: %s", p->sd,
                   pool->addrstr.len, pool->addrstr.data, strerror(errno));
         return NC_ERROR;
+    }
+
+    if (p->family == AF_UNIX && pool->perm) {
+        struct sockaddr_un *un = (struct sockaddr_un *)p->addr;
+        status = chmod(un->sun_path, pool->perm);
+        if (status < 0) {
+            log_error("chmod on p %d on addr '%.*s' failed: %s", p->sd,
+                      pool->addrstr.len, pool->addrstr.data, strerror(errno));
+            return NC_ERROR;
+        }
     }
 
     status = listen(p->sd, pool->backlog);

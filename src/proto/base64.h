@@ -39,7 +39,7 @@ extern "C" {
 
 #define BASE64_CHARS_PER_LINE 72
 
-inline int
+static inline int
 base64_bufsize(int binsize)
 {
         int datasize = binsize * 4/3 + 4;

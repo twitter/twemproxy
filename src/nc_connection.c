@@ -466,9 +466,9 @@ conn_authenticated(struct conn *conn)
 {
     struct server_pool *pool;
 
-    ASSERT(!conn->proxy);
+    ASSERT(!CONN_KIND_IS_PROXY(conn));
 
-    pool = conn->client ? conn->owner : ((struct server *)conn->owner)->owner;
+    pool = CONN_KIND_IS_CLIENT(conn) ? conn->owner : ((struct server *)conn->owner)->owner;
 
     if (!pool->require_auth) {
         return true;
@@ -479,4 +479,17 @@ conn_authenticated(struct conn *conn)
     }
 
     return true;
+
+char *
+conn_unresolve_descriptive(struct conn *conn)
+{
+    if(CONN_KIND_IS_CLIENT(conn)) {
+            return nc_unresolve_peer_desc(conn->sd);
+    } else {
+        if(conn->family == AF_UNIX) {
+            return ((struct sockaddr_un *)conn->addr)->sun_path;
+        } else {
+            nc_unresolve_addr((struct sockaddr *)&conn->addr, conn->addrlen);
+        }
+    }
 }

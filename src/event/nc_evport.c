@@ -105,17 +105,20 @@ event_add_out(struct event_base *evb, struct conn *c)
 {
     int status;
     int evp = evb->evp;
+    int events;
 
     ASSERT(evp > 0);
     ASSERT(c != NULL);
     ASSERT(c->sd > 0);
-    ASSERT(c->recv_active);
 
     if (c->send_active) {
         return 0;
     }
 
-    status = port_associate(evp, PORT_SOURCE_FD, c->sd, POLLIN | POLLOUT, c);
+    events = (c->recv_active ? POLLIN : 0)
+            | (c->send_active ? POLLOUT : 0);
+
+    status = port_associate(evp, PORT_SOURCE_FD, c->sd, events, c);
     if (status < 0) {
         log_error("port associate on evp %d sd %d failed: %s", evp, c->sd,
                   strerror(errno));
@@ -135,7 +138,6 @@ event_del_out(struct event_base *evb, struct conn *c)
     ASSERT(evp > 0);
     ASSERT(c != NULL);
     ASSERT(c->sd > 0);
-    ASSERT(c->recv_active);
 
     if (!c->send_active) {
         return 0;
@@ -221,15 +223,11 @@ event_reassociate(struct event_base *evb, struct conn *c)
     ASSERT(evp > 0);
     ASSERT(c != NULL);
     ASSERT(c->sd > 0);
-    ASSERT(c->recv_active);
 
-    if (c->send_active) {
-        events = POLLIN | POLLOUT;
-    } else {
-        events = POLLIN;
-    }
+    events = (c->recv_active ? POLLIN : 0)
+            | (c->send_active ? POLLOUT : 0);
 
-    status = port_associate(evp, PORT_SOURCE_FD, c->sd, events , c);
+    status = port_associate(evp, PORT_SOURCE_FD, c->sd, events, c);
     if (status < 0) {
         log_error("port associate on evp %d sd %d failed: %s", evp, c->sd,
                   strerror(errno));

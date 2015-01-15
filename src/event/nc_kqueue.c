@@ -155,7 +155,6 @@ event_add_out(struct event_base *evb, struct conn *c)
     ASSERT(evb->kq > 0);
     ASSERT(c != NULL);
     ASSERT(c->sd > 0);
-    ASSERT(c->recv_active);
     ASSERT(evb->nchange < evb->nevent);
 
     if (c->send_active) {
@@ -178,7 +177,6 @@ event_del_out(struct event_base *evb, struct conn *c)
     ASSERT(evb->kq > 0);
     ASSERT(c != NULL);
     ASSERT(c->sd > 0);
-    ASSERT(c->recv_active);
     ASSERT(evb->nchange < evb->nevent);
 
     if (!c->send_active) {

@@ -154,7 +154,6 @@ _conn_get(void)
     conn->connected = 0;
     conn->eof = 0;
     conn->done = 0;
-    conn->redis = 0;
     conn->authenticated = 0;
 
     ntotal_conn++;
@@ -167,7 +166,6 @@ struct conn *
 conn_get(void *owner, enum conn_kind ckind)
 {
     struct conn *conn;
-    struct server *server;
 
     conn = _conn_get();
     if (conn == NULL) {
@@ -479,6 +477,7 @@ conn_authenticated(struct conn *conn)
     }
 
     return true;
+}
 
 char *
 conn_unresolve_descriptive(struct conn *conn)
@@ -489,7 +488,7 @@ conn_unresolve_descriptive(struct conn *conn)
         if(conn->family == AF_UNIX) {
             return ((struct sockaddr_un *)conn->addr)->sun_path;
         } else {
-            nc_unresolve_addr((struct sockaddr *)&conn->addr, conn->addrlen);
+            return nc_unresolve_addr((struct sockaddr *)&conn->addr, conn->addrlen);
         }
     }
 }

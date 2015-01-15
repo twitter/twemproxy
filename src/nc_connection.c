@@ -471,3 +471,17 @@ conn_ncurr_cconn(void)
 {
     return ncurr_cconn;
 }
+
+char *
+conn_unresolve_descriptive(struct conn *conn)
+{
+    if(CONN_KIND_IS_CLIENT(conn)) {
+            return nc_unresolve_peer_desc(conn->sd);
+    } else {
+        if(conn->family == AF_UNIX) {
+            return ((struct sockaddr_un *)conn->addr)->sun_path;
+        } else {
+            nc_unresolve_addr((struct sockaddr *)&conn->addr, conn->addrlen);
+        }
+    }
+}

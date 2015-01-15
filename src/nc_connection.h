@@ -134,5 +134,8 @@ void conn_deinit(void);
 uint32_t conn_ncurr_conn(void);
 uint64_t conn_ntotal_conn(void);
 uint32_t conn_ncurr_cconn(void);
+/* Return formatted local end of the connection for proxy conn;
+ * remote address for server and client. */
+char *conn_unresolve_descriptive(struct conn *);
 
 #endif

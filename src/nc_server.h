@@ -123,6 +123,14 @@ struct server_pool {
     unsigned           auto_eject_hosts:1;   /* auto_eject_hosts? */
     unsigned           preconnect:1;         /* preconnect? */
     unsigned           redis:1;              /* redis? */
+    enum server_pools_reload_state {
+        RSTATE_OLD_AND_ACTIVE,     /* Normal state for an active pool */
+        RSTATE_OLD_TO_SHUTDOWN,    /* To shut down for replacement */
+        RSTATE_OLD_DRAINING,       /* Shutting down; being replaced */
+        RSTATE_NEW_WAIT_FOR_OLD,   /* Waiting for old pool to wrap up */
+        RSTATE_NEW,                /* Totally pool, with nothing to wait */
+    } reload_state;
+    struct server_pool *pool_counterpart;   /* old->new or new->old link */
 };
 
 TAILQ_HEAD(server_pools, server_pool);
@@ -154,6 +162,11 @@ void server_pools_disconnect(struct server_pools *server_pools);
 rstatus_t server_pools_init(struct server_pools *server_pools, struct array *conf_pool, struct context *ctx);
 void server_pools_deinit(struct server_pools *server_pools);
 
+/* Initiate the pool replacement process. */
+rstatus_t server_pools_kick_replacement(struct server_pools *old, struct server_pools *new);
+/* Attempt to complete the replacement and return true if reload succeeded. */
+bool server_pools_finish_replacement(struct server_pools *old);
+
 /*
  * A helper function to traverse the whole tree of pools/servers/connections.
  */
@@ -164,5 +177,7 @@ enum nc_morph_elem_type {
 };
 typedef void *(*nc_morphism_f)(enum nc_morph_elem_type, void *elem, void *acc);
 void *server_pools_fold(struct server_pools *server_pools, nc_morphism_f f, void *acc0);
+
+void server_pools_log(int level, const char *prefix, struct server_pools *);
 
 #endif

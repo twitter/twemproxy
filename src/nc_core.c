@@ -22,7 +22,6 @@
 #include <nc_server.h>
 #include <nc_proxy.h>
 #include <nc_signal_conn.h>
-#include <nc_introspect.h>
 
 static uint32_t ctx_id; /* context generation */
 
@@ -363,13 +362,13 @@ core_core(void *arg, uint32_t events)
 
 static void config_reload(struct context *ctx) {
     rstatus_t status;
-    char *formatted_layout;
 
     if(ctx->state == CTX_STATE_STEADY) {
         log_debug(LOG_NOTICE, "reconfiguration requested, proceeding");
         ctx->state = CTX_STATE_RELOADING;
     } else {
         log_debug(LOG_NOTICE, "reconfiguration is already in progress");
+        server_pools_log(ctx->nci->log_level, "Current runtime:", &ctx->pools);
         return;
     }
 
@@ -391,23 +390,30 @@ static void config_reload(struct context *ctx) {
         return;
     }
 
-    log_debug(LOG_NOTICE, "Effective runtime:");
-    log_runtime_objects(LOG_NOTICE, ctx, &ctx->pools,
-        FRO_POOLS | FRO_SERVERS | FRO_SERVER_CONNS
-        | (ctx->nci->log_level >= LOG_DEBUG ? FRO_CLIENT_CONNS : 0)
-        | (ctx->nci->log_level >= LOG_DEBUG ? FRO_DETAIL_VERBOSE : 0));
-
-    log_debug(LOG_NOTICE, "Replacement runtime:");
-    log_runtime_objects(LOG_NOTICE, ctx, &ctx->replacement_pools,
-        FRO_POOLS | FRO_SERVERS | FRO_SERVER_CONNS
-        | (ctx->nci->log_level >= LOG_DEBUG ? FRO_CLIENT_CONNS : 0)
-        | (ctx->nci->log_level >= LOG_DEBUG ? FRO_DETAIL_VERBOSE : 0));
-
-    server_pools_deinit(&ctx->replacement_pools);
-
     conf_destroy(cf);
 
-    ctx->state = CTX_STATE_STEADY;
+    server_pools_log(ctx->nci->log_level, "Effective runtime:", &ctx->pools);
+    server_pools_log(ctx->nci->log_level, "Replacement runtime:", &ctx->replacement_pools);
+
+    ctx->stats->command = AC_PAUSE;
+
+    /*
+     * Replacement is a complex project, done in stages. We initiate the
+     * replacement process here and mark context as pending until the
+     * pool replacement process finishs.
+     */
+    if(server_pools_kick_replacement(&ctx->pools, &ctx->replacement_pools)) {
+        server_pools_deinit(&ctx->replacement_pools);
+        ctx->state = CTX_STATE_STEADY;
+        ctx->stats->command = AC_NONE;
+        log_debug(LOG_NOTICE, "Reload failed, current config:");
+        server_pools_log(ctx->nci->log_level,
+            "Reload failed, current config:", &ctx->pools);
+    } else {
+        ctx->state = CTX_STATE_RELOADING;
+        server_pools_log(ctx->nci->log_level,
+            "Reload in progress; config:", &ctx->pools);
+    }
 }
 
 static void
@@ -431,8 +437,35 @@ rstatus_t
 core_loop(struct context *ctx)
 {
     int nsd;
+    int effective_timeout = ctx->timeout;
 
-    nsd = event_wait(ctx->evb, ctx->timeout);
+    /*
+     * A logic concerning reload: try to finish the reload
+     * (pool replacement) every few dozen milliseconds, and switch
+     * back to the normal mode when it finally succeeds.
+     */
+    switch(ctx->state) {
+    case CTX_STATE_STEADY:
+        stats_swap(ctx->stats);
+        break;
+    case CTX_STATE_RELOADING:
+        if(server_pools_finish_replacement(&ctx->pools)) {
+            stats_destroy(ctx->stats);
+            ctx->stats = stats_create(ctx->nci->stats_port,
+                                      ctx->nci->stats_addr,
+                                      ctx->nci->stats_interval,
+                                      ctx->nci->hostname, &ctx->pools);
+            ASSERT(ctx->stats);
+            ctx->state = CTX_STATE_STEADY;
+            server_pools_log(ctx->nci->log_level,
+                "Current config:", &ctx->pools);
+        } else {
+            effective_timeout = 10;
+        }
+        break;
+    }
+
+    nsd = event_wait(ctx->evb, effective_timeout);
     if (nsd < 0) {
         return nsd;
     }
@@ -440,8 +473,6 @@ core_loop(struct context *ctx)
     handle_accumulated_signals(ctx);
 
     core_timeout(ctx);
-
-    stats_swap(ctx->stats);
 
     return NC_OK;
 }

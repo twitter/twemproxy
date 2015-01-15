@@ -31,6 +31,8 @@ struct stats_desc {
     char *desc; /* stats description */
 };
 
+#define ALLOW_STATS_COLLECTION(ctx) ((ctx)->state == CTX_STATE_STEADY)
+
 #define DEFINE_ACTION(_name, _type, _desc) { .type = _type, .name = string(#_name) },
 static struct stats_metric stats_pool_codec[] = {
     STATS_POOL_CODEC( DEFINE_ACTION )
@@ -172,7 +174,8 @@ stats_server_init(struct stats_server *sts, struct server *s)
 {
     rstatus_t status;
 
-    sts->name = s->name;
+    string_init(&sts->name);
+    string_duplicate(&sts->name, &s->name);
     array_null(&sts->metric);
 
     status = stats_server_metric_init(sts);
@@ -225,6 +228,7 @@ stats_server_unmap(struct array *stats_server)
 
     for (i = 0; i < nserver; i++) {
         struct stats_server *sts = array_pop(stats_server);
+        string_deinit(&sts->name);
         stats_metric_deinit(&sts->metric);
     }
     array_deinit(stats_server);
@@ -237,7 +241,8 @@ stats_pool_init(struct stats_pool *stp, struct server_pool *sp)
 {
     rstatus_t status;
 
-    stp->name = sp->name;
+    string_init(&stp->name);
+    string_duplicate(&stp->name, &sp->name);
     array_null(&stp->metric);
     array_null(&stp->server);
 
@@ -319,6 +324,7 @@ stats_pool_unmap(struct array *stats_pool)
 
     for (i = 0; i < npool; i++) {
         struct stats_pool *stp = array_pop(stats_pool);
+        string_deinit(&stp->name);
         stats_metric_deinit(&stp->metric);
         stats_server_unmap(&stp->server);
     }
@@ -794,6 +800,15 @@ stats_loop_callback(void *arg1, void *arg2)
     struct stats *st = arg1;
     int n = *((int *)arg2);
 
+    switch(st->command) {
+    case AC_NONE:
+        break;
+    case AC_PAUSE:
+        return;
+    case AC_EXIT:
+        pthread_exit(0);
+    }
+
     /* aggregate stats from shadow (b) -> sum (c) */
     stats_aggregate(st);
 
@@ -885,6 +900,7 @@ stats_stop_aggregator(struct stats *st)
     }
 
     close(st->sd);
+    st->sd = -1;
 }
 
 struct stats *
@@ -933,6 +949,7 @@ stats_create(uint16_t stats_port, char *stats_ip, int stats_interval,
 
     st->updated = 0;
     st->aggregate = 0;
+    st->command = AC_NONE;
 
     /* map server pool to current (a), shadow (b) and sum (c) */
 
@@ -971,10 +988,12 @@ error:
 void
 stats_destroy(struct stats *st)
 {
-    stats_stop_aggregator(st);
+    st->command = AC_EXIT;
+    pthread_join(st->tid, 0);   /* FIXME: do it faster */
     stats_pool_unmap(&st->sum);
     stats_pool_unmap(&st->shadow);
     stats_pool_unmap(&st->current);
+    stats_stop_aggregator(st);
     stats_destroy_buf(st);
     nc_free(st);
 }
@@ -1022,6 +1041,8 @@ stats_pool_to_metric(struct context *ctx, struct server_pool *pool,
     struct stats_metric *stm;
     uint32_t pidx;
 
+    ASSERT(ALLOW_STATS_COLLECTION(ctx));
+
     pidx = pool->idx;
 
     st = ctx->stats;
@@ -1042,6 +1063,9 @@ _stats_pool_incr(struct context *ctx, struct server_pool *pool,
 {
     struct stats_metric *stm;
 
+    if(!ALLOW_STATS_COLLECTION(ctx))
+        return;
+
     stm = stats_pool_to_metric(ctx, pool, fidx);
 
     ASSERT(stm->type == STATS_COUNTER || stm->type == STATS_GAUGE);
@@ -1056,6 +1080,9 @@ _stats_pool_decr(struct context *ctx, struct server_pool *pool,
                  stats_pool_field_t fidx)
 {
     struct stats_metric *stm;
+
+    if(!ALLOW_STATS_COLLECTION(ctx))
+        return;
 
     stm = stats_pool_to_metric(ctx, pool, fidx);
 
@@ -1072,6 +1099,9 @@ _stats_pool_incr_by(struct context *ctx, struct server_pool *pool,
 {
     struct stats_metric *stm;
 
+    if(!ALLOW_STATS_COLLECTION(ctx))
+        return;
+
     stm = stats_pool_to_metric(ctx, pool, fidx);
 
     ASSERT(stm->type == STATS_COUNTER || stm->type == STATS_GAUGE);
@@ -1087,6 +1117,9 @@ _stats_pool_decr_by(struct context *ctx, struct server_pool *pool,
 {
     struct stats_metric *stm;
 
+    if(!ALLOW_STATS_COLLECTION(ctx))
+        return;
+
     stm = stats_pool_to_metric(ctx, pool, fidx);
 
     ASSERT(stm->type == STATS_GAUGE);
@@ -1101,6 +1134,9 @@ _stats_pool_set_ts(struct context *ctx, struct server_pool *pool,
                    stats_pool_field_t fidx, int64_t val)
 {
     struct stats_metric *stm;
+
+    if(!ALLOW_STATS_COLLECTION(ctx))
+        return;
 
     stm = stats_pool_to_metric(ctx, pool, fidx);
 
@@ -1120,6 +1156,8 @@ stats_server_to_metric(struct context *ctx, struct server *server,
     struct stats_server *sts;
     struct stats_metric *stm;
     uint32_t pidx, sidx;
+
+    ASSERT(ALLOW_STATS_COLLECTION(ctx));
 
     sidx = server->idx;
     pidx = server->owner->idx;
@@ -1143,6 +1181,9 @@ _stats_server_incr(struct context *ctx, struct server *server,
 {
     struct stats_metric *stm;
 
+    if(!ALLOW_STATS_COLLECTION(ctx))
+        return;
+
     stm = stats_server_to_metric(ctx, server, fidx);
 
     ASSERT(stm->type == STATS_COUNTER || stm->type == STATS_GAUGE);
@@ -1157,6 +1198,9 @@ _stats_server_decr(struct context *ctx, struct server *server,
                    stats_server_field_t fidx)
 {
     struct stats_metric *stm;
+
+    if(!ALLOW_STATS_COLLECTION(ctx))
+        return;
 
     stm = stats_server_to_metric(ctx, server, fidx);
 
@@ -1173,6 +1217,9 @@ _stats_server_incr_by(struct context *ctx, struct server *server,
 {
     struct stats_metric *stm;
 
+    if(!ALLOW_STATS_COLLECTION(ctx))
+        return;
+
     stm = stats_server_to_metric(ctx, server, fidx);
 
     ASSERT(stm->type == STATS_COUNTER || stm->type == STATS_GAUGE);
@@ -1188,6 +1235,9 @@ _stats_server_decr_by(struct context *ctx, struct server *server,
 {
     struct stats_metric *stm;
 
+    if(!ALLOW_STATS_COLLECTION(ctx))
+        return;
+
     stm = stats_server_to_metric(ctx, server, fidx);
 
     ASSERT(stm->type == STATS_GAUGE);
@@ -1202,6 +1252,9 @@ _stats_server_set_ts(struct context *ctx, struct server *server,
                      stats_server_field_t fidx, int64_t val)
 {
     struct stats_metric *stm;
+
+    if(!ALLOW_STATS_COLLECTION(ctx))
+        return;
 
     stm = stats_server_to_metric(ctx, server, fidx);
 

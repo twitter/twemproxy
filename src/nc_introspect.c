@@ -98,6 +98,13 @@ static void format_pool(struct server_pool *pool, struct accumulator *acc) {
 #define TO_STRING(_hash, _name)    #_name,
     static const char * const hash_string[] = { HASH_CODEC(TO_STRING) };
     static const char * const dist_string[] = { DIST_CODEC(TO_STRING) };
+    static const char * const reload_state_to_string[] = {
+        "active",
+        "to-shutdown",
+        "draining",
+        "new-wait4old",
+        "new"
+    };
 
     buffer_sprintf(&acc->buf, "%s%s:\n",
         acc->buf.offset ? "\n" : "",
@@ -116,6 +123,9 @@ static void format_pool(struct server_pool *pool, struct accumulator *acc) {
         buffer_sprintf(&acc->buf, "  hash_tag: %s\n", pool->hash_tag.data);
     buffer_sprintf(&acc->buf, "  preconnect: %s\n",
                    pool->preconnect ? "true" : "false");
+    ASSERT(pool->reload_state <= sizeof(reload_state_to_string)/sizeof(reload_state_to_string[0]));
+    buffer_sprintf(&acc->buf, "  reload_state: %s\n",
+                    reload_state_to_string[pool->reload_state]);
     if(acc->detail & FRO_SERVERS)
         buffer_sprintf(&acc->buf, "  servers:\n");
 }

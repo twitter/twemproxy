@@ -34,8 +34,9 @@ hash_fnv1_64(const char *key, size_t key_length)
     size_t x;
 
     for (x = 0; x < key_length; x++) {
+      uint64_t val = (uint64_t)key[x];
       hash *= FNV_64_PRIME;
-      hash ^= (uint64_t)key[x];
+      hash ^= val;
     }
 
     return (uint32_t)hash;
@@ -44,7 +45,7 @@ hash_fnv1_64(const char *key, size_t key_length)
 uint32_t
 hash_fnv1a_64(const char *key, size_t key_length)
 {
-    uint32_t hash = (uint32_t) FNV_64_INIT;
+    uint32_t hash = (uint32_t) FNV_64_INIT; // buggy!!!
     size_t x;
 
     for (x = 0; x < key_length; x++) {
@@ -99,8 +100,9 @@ hash_fnv1_64a(const char *key, size_t key_length)
     const uint8_t* unsigned_key = (uint8_t*)key;
 
     for (x = 0; x < key_length; x++) {
+      uint64_t val = (uint64_t)unsigned_key[x];
       hash *= FNV_64_PRIME;
-      hash ^= (uint64_t)unsigned_key[x];
+      hash ^= val;
     }
 
     return (uint32_t)hash;
@@ -109,14 +111,14 @@ hash_fnv1_64a(const char *key, size_t key_length)
 uint32_t
 hash_fnv1a_64a(const char *key, size_t key_length)
 {
-    uint32_t hash = (uint32_t) FNV_64_INIT;
+    uint64_t hash = FNV_64_INIT;
     size_t x;
     const uint8_t* unsigned_key = (uint8_t*)key;
 
     for (x = 0; x < key_length; x++) {
-      uint32_t val = (uint32_t)unsigned_key[x];
+      uint64_t val = (uint64_t)unsigned_key[x];
       hash ^= val;
-      hash *= (uint32_t) FNV_64_PRIME;
+      hash *= FNV_64_PRIME;
     }
 
     return hash;

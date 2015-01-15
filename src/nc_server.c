@@ -825,30 +825,6 @@ server_pool_run(struct server_pool *pool)
     return NC_OK;
 }
 
-static void
-server_pools_reindex(struct server_pools *server_pools) {
-    struct server_pool *pool;
-    uint32_t max_idx = 0;
-
-    /* Figure out the max index */
-    TAILQ_FOREACH(pool, server_pools, pool_tqe) {
-        if(pool->idx != POOL_NOINDEX && pool->idx > max_idx)
-            max_idx = pool->idx;
-    }
-
-    /* Assign pool indexes starting with max_index+1 */
-    TAILQ_FOREACH(pool, server_pools, pool_tqe) {
-        if(pool->idx == POOL_NOINDEX)
-            pool->idx = ++max_idx;
-    }
-
-    /* FIXME: need to start from 0, which is not possible to do at all times due to reload */
-    max_idx = 0;
-    TAILQ_FOREACH(pool, server_pools, pool_tqe) {
-        pool->idx = max_idx++;
-    }
-}
-
 rstatus_t
 server_pools_init(struct server_pools *server_pools, struct array *conf_pool,
                  struct context *ctx)
@@ -893,7 +869,6 @@ server_pool_new()
 {
     struct server_pool *pool;
     pool = nc_calloc(1, sizeof(struct server_pool));
-    pool->idx = POOL_NOINDEX;
     return pool;
 }
 
@@ -1211,7 +1186,6 @@ server_pools_kick_state_machine(struct server_pools *pools) {
 
                 npool->pool_counterpart = 0;
                 pool->pool_counterpart = 0;
-                npool->idx = pool->idx; /* Assume old pool's index */
 
                 /* Move proxy connection */
                 npool->p_conn = pool->p_conn;
@@ -1354,11 +1328,6 @@ server_pools_finish_replacement(struct server_pools *pools) {
     finished = server_pools_check_reload_state(pools, RSTATE_OLD_AND_ACTIVE);
     log_debug(LOG_DEBUG, "replacement %s",
         finished ? "is finished" : "is still in progress");
-
-    /* Reindex the pools, for stats */
-    if(finished) {
-        server_pools_reindex(pools);
-    }
 
     return finished;
 }

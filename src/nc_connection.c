@@ -481,7 +481,7 @@ conn_unresolve_descriptive(struct conn *conn)
         if(conn->family == AF_UNIX) {
             return ((struct sockaddr_un *)conn->addr)->sun_path;
         } else {
-            nc_unresolve_addr((struct sockaddr *)&conn->addr, conn->addrlen);
+            return nc_unresolve_addr((struct sockaddr *)&conn->addr, conn->addrlen);
         }
     }
 }

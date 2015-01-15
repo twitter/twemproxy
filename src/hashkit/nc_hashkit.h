@@ -31,6 +31,10 @@
     ACTION( HASH_FNV1A_64,      fnv1a_64      ) \
     ACTION( HASH_FNV1_32,       fnv1_32       ) \
     ACTION( HASH_FNV1A_32,      fnv1a_32      ) \
+    ACTION( HASH_FNV1_64A,      fnv1_64a      ) \
+    ACTION( HASH_FNV1A_64A,     fnv1a_64a     ) \
+    ACTION( HASH_FNV1_32A,      fnv1_32a      ) \
+    ACTION( HASH_FNV1A_32A,     fnv1a_32a     ) \
     ACTION( HASH_HSIEH,         hsieh         ) \
     ACTION( HASH_MURMUR,        murmur        ) \
     ACTION( HASH_JENKINS,       jenkins       ) \
@@ -64,6 +68,10 @@ uint32_t hash_fnv1_64(const char *key, size_t key_length);
 uint32_t hash_fnv1a_64(const char *key, size_t key_length);
 uint32_t hash_fnv1_32(const char *key, size_t key_length);
 uint32_t hash_fnv1a_32(const char *key, size_t key_length);
+uint32_t hash_fnv1_64a(const char *key, size_t key_length);
+uint32_t hash_fnv1a_64a(const char *key, size_t key_length);
+uint32_t hash_fnv1_32a(const char *key, size_t key_length);
+uint32_t hash_fnv1a_32a(const char *key, size_t key_length);
 uint32_t hash_hsieh(const char *key, size_t key_length);
 uint32_t hash_jenkins(const char *key, size_t length);
 uint32_t hash_murmur(const char *key, size_t length);

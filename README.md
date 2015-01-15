@@ -86,10 +86,14 @@ nutcracker can be configured through a YAML file specified by the -c or --conf-f
  + crc16
  + crc32 (crc32 implementation compatible with [libmemcached](http://libmemcached.org/))
  + crc32a (correct crc32 implementation as per the spec)
- + fnv1_64
+ + fnv1_64 (fnv\* implementations compatible with [libmemcached](http://libmemcached.org/), same below)
  + fnv1a_64
  + fnv1_32
  + fnv1a_32
+ + fnv1_64a (correct fnv\* implementations as per the spec, same below)
+ + fnv1a_64a
+ + fnv1_32a
+ + fnv1a_32a
  + hsieh
  + murmur
  + jenkins

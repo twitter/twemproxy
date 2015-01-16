@@ -22,6 +22,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <poll.h>
 
 #include <nc_core.h>
 #include <nc_server.h>
@@ -682,6 +683,8 @@ stats_aggregate(struct stats *st)
     log_debug(LOG_PVERB, "aggregate stats shadow %p to sum %p", st->shadow.elem,
               st->sum.elem);
 
+    pthread_mutex_lock(&st->shadow_lock);
+
     for (i = 0; i < array_n(&st->shadow); i++) {
         struct stats_pool *stp1, *stp2;
         uint32_t j;
@@ -698,6 +701,8 @@ stats_aggregate(struct stats *st)
             stats_aggregate_metric(&sts2->metric, &sts1->metric);
         }
     }
+
+    pthread_mutex_unlock(&st->shadow_lock);
 
     st->aggregate = 0;
 }
@@ -794,36 +799,86 @@ stats_send_rsp(struct stats *st)
     return NC_OK;
 }
 
+#define CONTROL_BYTE_PAUSE  'P'
+#define CONTROL_BYTE_RESUME 'R'
+#define CONTROL_BYTE_EXIT   'E'
+
 static void
-stats_loop_callback(void *arg1, void *arg2)
-{
-    struct stats *st = arg1;
-    int n = *((int *)arg2);
-
-    switch(st->command) {
-    case AC_NONE:
-        break;
-    case AC_PAUSE:
-        return;
-    case AC_EXIT:
-        pthread_exit(0);
+stats_aggregator_ctl(struct stats *st, const char cbyte) {
+    if(st->control_wr != -1) {
+        /* Kick the aggregator */
+        (void)write(st->control_wr, &cbyte, 1);
     }
-
-    /* aggregate stats from shadow (b) -> sum (c) */
-    stats_aggregate(st);
-
-    if (n == 0) {
-        return;
-    }
-
-    /* send aggregate stats sum (c) to collector */
-    stats_send_rsp(st);
 }
 
+void stats_pause(struct stats *st) {
+    stats_aggregator_ctl(st, CONTROL_BYTE_PAUSE);
+}
+
+void stats_resume(struct stats *st) {
+    stats_aggregator_ctl(st, CONTROL_BYTE_RESUME);
+}
+
+/*
+ * We have the control channel and the stats client acceptor channel.
+ * Use standard poll here, because it is fast enough for
+ * the infrequent task of stats reporting, and because the event
+ * subsystem has to be replaced with something generic before
+ * it'll be usable for this task.
+ */
 static void *
 stats_loop(void *arg)
 {
-    event_loop_stats(stats_loop_callback, arg);
+    struct stats *st = arg;
+    struct pollfd fds[] = {
+        { st->sd, POLLIN, 0 },          /* listen() */
+        { st->control_rd, POLLIN, 0 }   /* control channel */
+    };
+    unsigned int fds_size = sizeof(fds)/sizeof(fds[0]);
+
+    for(;;) {
+        int timeout_ms = st->interval ? st->interval : -1;
+        int ret = poll(fds, fds_size, timeout_ms);
+        switch(ret) {
+        case -1:
+            if(errno == EINTR) {
+                continue;
+            }
+            log_error("Exiting stats loop due to %s", strerror(errno));
+            return NULL;
+        case 0: /* Timeout */
+            /* Aggregate each given interval */
+            /* aggregate stats from shadow (b) -> sum (c) */
+            stats_aggregate(st);
+            continue;
+        default:
+            break;
+        }
+
+        for(unsigned i = 0; i < fds_size; i++) {
+            if(fds[i].revents & POLLIN) {
+                int fd = fds[i].fd;
+                if(fd == st->sd) {
+                    stats_aggregate(st);
+                    stats_send_rsp(st);
+                } else if(fd == st->control_rd) {
+                    char c = '\0';
+                    (void)read(fd, &c, 1);
+                    switch(c) {
+                    case CONTROL_BYTE_PAUSE:
+                        fds[0].events &= ~POLLIN;
+                        break;
+                    case CONTROL_BYTE_RESUME:
+                        fds[0].events &= ~POLLIN;
+                        break;
+                    case CONTROL_BYTE_EXIT:
+                        return NULL;
+                    }
+                }
+            }
+        }
+    }
+
     return NULL;
 }
 
@@ -878,6 +933,17 @@ stats_start_aggregator(struct stats *st)
         return NC_OK;
     }
 
+    /* Establish a control channel to aggregator */
+    if(st->control_rd == -1) {
+        int fds[2];
+        if(pipe(fds) == 0) {
+            st->control_rd = fds[0];
+            st->control_wr = fds[1];
+        } else {
+            return NC_ERROR;
+        }
+    }
+
     status = stats_listen(st);
     if (status != NC_OK) {
         return status;
@@ -899,8 +965,14 @@ stats_stop_aggregator(struct stats *st)
         return;
     }
 
+    stats_aggregator_ctl(st, CONTROL_BYTE_EXIT);
+    pthread_join(st->tid, 0);   /* FIXME: do it faster */
+
+    close(st->control_wr);
+    close(st->control_rd);
     close(st->sd);
-    st->sd = -1;
+
+    st->sd = st->control_rd = st->control_wr = -1;
 }
 
 struct stats *
@@ -925,12 +997,15 @@ stats_create(uint16_t stats_port, char *stats_ip, int stats_interval,
     st->buf.data = NULL;
     st->buf.size = 0;
 
+    pthread_mutex_init(&st->shadow_lock, 0);
     array_null(&st->current);
     array_null(&st->shadow);
     array_null(&st->sum);
 
     st->tid = (pthread_t) -1;
     st->sd = -1;
+    st->control_rd = -1;
+    st->control_wr = -1;
 
     string_set_text(&st->service_str, "service");
     string_set_text(&st->service, "nutcracker");
@@ -949,7 +1024,6 @@ stats_create(uint16_t stats_port, char *stats_ip, int stats_interval,
 
     st->updated = 0;
     st->aggregate = 0;
-    st->command = AC_NONE;
 
     /* map server pool to current (a), shadow (b) and sum (c) */
 
@@ -988,13 +1062,12 @@ error:
 void
 stats_destroy(struct stats *st)
 {
-    st->command = AC_EXIT;
-    pthread_join(st->tid, 0);   /* FIXME: do it faster */
+    stats_stop_aggregator(st);
     stats_pool_unmap(&st->sum);
     stats_pool_unmap(&st->shadow);
     stats_pool_unmap(&st->current);
-    stats_stop_aggregator(st);
     stats_destroy_buf(st);
+    pthread_mutex_destroy(&st->shadow_lock);
     nc_free(st);
 }
 
@@ -1020,13 +1093,16 @@ stats_swap(struct stats *st)
     log_debug(LOG_PVERB, "swap stats current %p shadow %p", st->current.elem,
               st->shadow.elem);
 
+    pthread_mutex_lock(&st->shadow_lock);
     array_swap(&st->current, &st->shadow);
+    pthread_mutex_unlock(&st->shadow_lock);
 
     /*
      * Reset current (a) stats before giving it back to generator to keep
      * stats addition idempotent
      */
     stats_pool_reset(&st->current);
+
     st->updated = 0;
 
     st->aggregate = 1;

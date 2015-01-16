@@ -94,12 +94,21 @@ struct stats {
     int64_t             start_ts;        /* start timestamp of nutcracker */
     struct stats_buffer buf;             /* output buffer */
 
-    struct array        current;         /* stats_pool[] (a) */
+    /*
+     * (shadow, sum) belong to aggregator thread.
+     * (current) belongs to the main thread.
+     * When we move current to shadow we keep a swap lock.
+     */
+    pthread_mutex_t     shadow_lock;
     struct array        shadow;          /* stats_pool[] (b) */
     struct array        sum;             /* stats_pool[] (c = a + b) */
+    struct array        current;         /* stats_pool[] (a) */
 
     pthread_t           tid;             /* stats aggregator thread */
     int                 sd;              /* stats descriptor */
+
+    int                 control_wr;      /* Control ch to rule aggregator */
+    int                 control_rd;      /* Control channel, read by agg-r */
 
     struct string       service_str;     /* service string */
     struct string       service;         /* service */
@@ -114,7 +123,6 @@ struct stats {
 
     volatile int        aggregate;       /* shadow (b) aggregate? */
     volatile int        updated;         /* current (a) updated? */
-    volatile enum { AC_NONE, AC_PAUSE, AC_EXIT } command;
 };
 
 #define DEFINE_ACTION(_name, _type, _desc) STATS_POOL_##_name,
@@ -213,5 +221,8 @@ struct server_pools;
 struct stats *stats_create(uint16_t stats_port, char *stats_ip, int stats_interval, char *source, struct server_pools *server_pools);
 void stats_destroy(struct stats *stats);
 void stats_swap(struct stats *stats);
+
+void stats_pause(struct stats *stats);
+void stats_resume(struct stats *stats);
 
 #endif

@@ -402,7 +402,7 @@ static void config_reload(struct context *ctx) {
     server_pools_log(ctx->nci->log_level, "Effective runtime:", &ctx->pools);
     server_pools_log(ctx->nci->log_level, "Replacement runtime:", &ctx->replacement_pools);
 
-    ctx->stats->command = AC_PAUSE;
+    stats_pause(ctx->stats);
 
     /*
      * Replacement is a complex project, done in stages. We initiate the
@@ -412,7 +412,7 @@ static void config_reload(struct context *ctx) {
     if(server_pools_kick_replacement(&ctx->pools, &ctx->replacement_pools)) {
         server_pools_deinit(&ctx->replacement_pools);
         ctx->state = CTX_STATE_STEADY;
-        ctx->stats->command = AC_NONE;
+        stats_resume(ctx->stats);
         log_debug(LOG_NOTICE, "Reload failed, current config:");
         server_pools_log(ctx->nci->log_level,
             "Reload failed, current config:", &ctx->pools);

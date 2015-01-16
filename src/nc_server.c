@@ -1099,10 +1099,10 @@ server_pool_resume_incoming_client_traffic(struct server_pool *pool) {
               nc_unresolve_addr(pool->p_conn->addr,
                                 pool->p_conn->addrlen));
 
-    /* Pause proxy connection (not accepting new clients) */
+    /* Resume proxy connection (accepting new clients) */
     event_add_in(pool->ctx->evb, pool->p_conn);
 
-    /* Unpause client connections */
+    /* Resume client connections */
     struct conn *conn;
     TAILQ_FOREACH(conn, &pool->c_conn_q, conn_tqe) {
         event_add_in(pool->ctx->evb, conn);

@@ -450,11 +450,13 @@ core_loop(struct context *ctx)
         break;
     case CTX_STATE_RELOADING:
         if(server_pools_finish_replacement(&ctx->pools)) {
+            int64_t original_start_ts = ctx->stats->start_ts;
             stats_destroy(ctx->stats);
             ctx->stats = stats_create(ctx->nci->stats_port,
                                       ctx->nci->stats_addr,
                                       ctx->nci->stats_interval,
                                       ctx->nci->hostname, &ctx->pools);
+            ctx->stats->start_ts = original_start_ts;
             ASSERT(ctx->stats);
             ctx->state = CTX_STATE_STEADY;
             server_pools_log(ctx->nci->log_level,

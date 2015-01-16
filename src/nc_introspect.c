@@ -110,8 +110,8 @@ static void format_pool(struct server_pool *pool, struct accumulator *acc) {
         acc->buf.offset ? "\n" : "",
         pool->name.data);
     if(pool->p_conn) {
-        buffer_sprintf(&acc->buf, "  listen: ");
-        format_morphism(NC_ELEMENT_IS_CONNECTION, pool->p_conn, acc);
+        buffer_sprintf(&acc->buf, "  listen: %s\n",
+            conn_unresolve_descriptive(pool->p_conn));
     }
     buffer_sprintf(&acc->buf, "  redis: %s\n",
                    pool->redis ? "true" : "false");
@@ -141,9 +141,9 @@ static void format_connection(struct conn *conn, struct accumulator *acc) {
     if(CONN_KIND_IS_CLIENT(conn)) {   
         buffer_sprintf(&acc->buf, "- %s\n",
             nc_unresolve_peer_desc(conn->sd));
-    } else {
-        if(CONN_KIND_IS_SERVER(conn)) {
-        }
+    } else if(CONN_KIND_IS_SERVER(conn)) {
+        if(!(acc->detail & FRO_SERVERS))
+                return;
         if(conn->family == AF_UNIX) {
             buffer_sprintf(&acc->buf, "- %s\n",
                 ((struct sockaddr_un *)conn->addr)->sun_path);
@@ -152,6 +152,9 @@ static void format_connection(struct conn *conn, struct accumulator *acc) {
                 nc_unresolve_addr((struct sockaddr *)&conn->addr,
                                   conn->addrlen));
         }
+    } else if(CONN_KIND_IS_PROXY(conn)) {
+        /* Do not print anything, printed separately. */
+        return;
     }
 }
 

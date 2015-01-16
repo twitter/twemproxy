@@ -202,8 +202,9 @@ req_done(struct conn *conn, struct msg *msg)
 
     msg->post_coalesce(msg->frag_owner);
 
-    log_debug(LOG_DEBUG, "req from c %d with fid %"PRIu64" and %"PRIu32" "
-              "fragments is done", conn->sd, id, nfragment);
+    log_debug(LOG_DEBUG, "req from %s %d with fid %"PRIu64" and %"PRIu32" "
+              "fragments is done", CONN_KIND_AS_STRING(conn), conn->sd,
+              id, nfragment);
 
     return true;
 }
@@ -285,8 +286,9 @@ ferror:
         nfragment++;
     }
 
-    log_debug(LOG_DEBUG, "req from c %d with fid %"PRIu64" and %"PRIu32" "
-              "fragments is in error", conn->sd, id, nfragment);
+    log_debug(LOG_DEBUG, "req from %s %d with fid %"PRIu64" and %"PRIu32" "
+              "fragments is in error", CONN_KIND_AS_STRING(conn), conn->sd,
+              id, nfragment);
 
     return true;
 }
@@ -478,8 +480,8 @@ req_filter(struct context *ctx, struct conn *conn, struct msg *msg)
 
     if (msg_empty(msg)) {
         ASSERT(conn->rmsg == NULL);
-        log_debug(LOG_VERB, "filter empty req %"PRIu64" from c %d", msg->id,
-                  conn->sd);
+        log_debug(LOG_VERB, "filter empty req %"PRIu64" from %s %d", msg->id,
+                  CONN_KIND_AS_STRING(conn), conn->sd);
         req_put(msg);
         return true;
     }
@@ -490,8 +492,8 @@ req_filter(struct context *ctx, struct conn *conn, struct msg *msg)
      * as soon as all pending replies have been written to the client.
      */
     if (msg->quit) {
-        log_debug(LOG_INFO, "filter quit req %"PRIu64" from c %d", msg->id,
-                  conn->sd);
+        log_debug(LOG_INFO, "filter quit req %"PRIu64" from %s %d", msg->id,
+                  CONN_KIND_AS_STRING(conn), conn->sd);
         if (conn->rmsg != NULL) {
             log_debug(LOG_INFO, "discard invalid req %"PRIu64" len %"PRIu32" "
                       "from c %d sent after quit req", conn->rmsg->id,
@@ -606,8 +608,10 @@ req_forward(struct context *ctx, struct conn *c_conn, struct msg *msg)
 
     req_forward_stats(ctx, s_conn->owner, msg);
 
-    log_debug(LOG_VERB, "forward from c %d to s %d req %"PRIu64" len %"PRIu32
-              " type %d with key '%.*s'", c_conn->sd, s_conn->sd, msg->id,
+    log_debug(LOG_VERB, "forward from %s %d to %s %d req %"PRIu64" len %"PRIu32
+              " type %d with key '%.*s'",
+              CONN_KIND_AS_STRING(c_conn), c_conn->sd,
+              CONN_KIND_AS_STRING(s_conn), s_conn->sd, msg->id,
               msg->mlen, msg->type, keylen, key);
 }
 
@@ -729,7 +733,8 @@ req_send_next(struct context *ctx, struct conn *conn)
     ASSERT(nmsg->request && !nmsg->done);
 
     log_debug(LOG_VVERB, "send next req %"PRIu64" len %"PRIu32" type %d on "
-              "s %d", nmsg->id, nmsg->mlen, nmsg->type, conn->sd);
+              "%s %d", nmsg->id, nmsg->mlen, nmsg->type,
+              CONN_KIND_AS_STRING(conn), conn->sd);
 
     return nmsg;
 }
@@ -743,7 +748,8 @@ req_send_done(struct context *ctx, struct conn *conn, struct msg *msg)
     ASSERT(msg->owner != conn);
 
     log_debug(LOG_VVERB, "send done req %"PRIu64" len %"PRIu32" type %d on "
-              "s %d", msg->id, msg->mlen, msg->type, conn->sd);
+              "%s %d", msg->id, msg->mlen, msg->type,
+              CONN_KIND_AS_STRING(conn), conn->sd);
 
     /* dequeue the message (request) from server inq */
     conn->dequeue_inq(ctx, conn, msg);

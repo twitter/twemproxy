@@ -84,30 +84,18 @@ bool
 server_active(struct conn *conn)
 {
     ASSERT(CONN_KIND_IS_SERVER(conn));
+    int active;
 
-    if (!TAILQ_EMPTY(&conn->imsg_q)) {
-        log_debug(LOG_VVERB, "s %d is active", conn->sd);
-        return true;
-    }
+    active = !TAILQ_EMPTY(&conn->imsg_q)
+           || !TAILQ_EMPTY(&conn->omsg_q)
+           || (conn->rmsg != NULL)
+           || (conn->smsg != NULL);
 
-    if (!TAILQ_EMPTY(&conn->omsg_q)) {
-        log_debug(LOG_VVERB, "s %d is active", conn->sd);
-        return true;
-    }
+    log_debug(LOG_VVERB, "%s %d is %s",
+              CONN_KIND_AS_STRING(conn), conn->sd,
+              active ? "active" : "inactive");
 
-    if (conn->rmsg != NULL) {
-        log_debug(LOG_VVERB, "s %d is active", conn->sd);
-        return true;
-    }
-
-    if (conn->smsg != NULL) {
-        log_debug(LOG_VVERB, "s %d is active", conn->sd);
-        return true;
-    }
-
-    log_debug(LOG_VVERB, "s %d is inactive", conn->sd);
-
-    return false;
+    return active;
 }
 
 static rstatus_t
@@ -367,8 +355,9 @@ server_close(struct context *ctx, struct conn *conn)
          * 2. client has already closed its connection
          */
         if (msg->swallow || msg->noreply) {
-            log_debug(LOG_INFO, "close s %d swallow req %"PRIu64" len %"PRIu32
-                      " type %d", conn->sd, msg->id, msg->mlen, msg->type);
+            log_debug(LOG_INFO, "close %s %d swallow req %"PRIu64" len %"PRIu32
+                      " type %d", CONN_KIND_AS_STRING(conn), conn->sd,
+                      msg->id, msg->mlen, msg->type);
             req_put(msg);
         } else {
             c_conn = msg->owner;
@@ -386,9 +375,12 @@ server_close(struct context *ctx, struct conn *conn)
                 event_add_out(ctx->evb, msg->owner);
             }
 
-            log_debug(LOG_INFO, "close s %d schedule error for req %"PRIu64" "
-                      "len %"PRIu32" type %d from c %d%c %s", conn->sd, msg->id,
-                      msg->mlen, msg->type, c_conn->sd, conn->err ? ':' : ' ',
+            log_debug(LOG_INFO, "close %s %d schedule error for req %"PRIu64" "
+                      "len %"PRIu32" type %d from %c %d%c %s",
+                      CONN_KIND_AS_STRING(conn), conn->sd, msg->id,
+                      msg->mlen, msg->type,
+                      CONN_KIND_AS_STRING(c_conn), c_conn->sd,
+                      conn->err ? ':' : ' ',
                       conn->err ? strerror(conn->err): " ");
         }
     }
@@ -401,8 +393,9 @@ server_close(struct context *ctx, struct conn *conn)
         conn->dequeue_outq(ctx, conn, msg);
 
         if (msg->swallow) {
-            log_debug(LOG_INFO, "close s %d swallow req %"PRIu64" len %"PRIu32
-                      " type %d", conn->sd, msg->id, msg->mlen, msg->type);
+            log_debug(LOG_INFO, "close %s %d swallow req %"PRIu64" len %"PRIu32
+                      " type %d", CONN_KIND_AS_STRING(conn), conn->sd,
+                      msg->id, msg->mlen, msg->type);
             req_put(msg);
         } else {
             c_conn = msg->owner;
@@ -419,9 +412,12 @@ server_close(struct context *ctx, struct conn *conn)
                 event_add_out(ctx->evb, msg->owner);
             }
 
-            log_debug(LOG_INFO, "close s %d schedule error for req %"PRIu64" "
-                      "len %"PRIu32" type %d from c %d%c %s", conn->sd, msg->id,
-                      msg->mlen, msg->type, c_conn->sd, conn->err ? ':' : ' ',
+            log_debug(LOG_INFO, "close %s %d schedule error for req %"PRIu64" "
+                      "len %"PRIu32" type %d from %s %d%c %s",
+                      CONN_KIND_AS_STRING(conn), conn->sd, msg->id,
+                      msg->mlen, msg->type,
+                      CONN_KIND_AS_STRING(c_conn), c_conn->sd,
+                      conn->err ? ':' : ' ',
                       conn->err ? strerror(conn->err): " ");
         }
     }
@@ -436,8 +432,9 @@ server_close(struct context *ctx, struct conn *conn)
 
         rsp_put(msg);
 
-        log_debug(LOG_INFO, "close s %d discarding rsp %"PRIu64" len %"PRIu32" "
-                  "in error", conn->sd, msg->id, msg->mlen);
+        log_debug(LOG_INFO, "close %s %d discarding rsp %"PRIu64" len %"PRIu32" "
+                  "in error", CONN_KIND_AS_STRING(conn), conn->sd,
+                  msg->id, msg->mlen);
     }
 
     ASSERT(conn->smsg == NULL);
@@ -448,7 +445,8 @@ server_close(struct context *ctx, struct conn *conn)
 
     status = close(conn->sd);
     if (status < 0) {
-        log_error("close s %d failed, ignored: %s", conn->sd, strerror(errno));
+        log_error("close %s %d failed, ignored: %s",
+                  CONN_KIND_AS_STRING(conn), conn->sd, strerror(errno));
     }
     conn->sd = -1;
 
@@ -480,25 +478,27 @@ server_connect(struct context *ctx, struct server *server, struct conn *conn)
 
     status = nc_set_nonblocking(conn->sd);
     if (status != NC_OK) {
-        log_error("set nonblock on s %d for server '%.*s' failed: %s",
-                  conn->sd, server->pname.len, server->pname.data,
-                  strerror(errno));
+        log_error("set nonblock on %s %d for server '%.*s' failed: %s",
+                  CONN_KIND_AS_STRING(conn), conn->sd,
+                  server->pname.len, server->pname.data, strerror(errno));
         goto error;
     }
 
     if (server->pname.data[0] != '/') {
         status = nc_set_tcpnodelay(conn->sd);
         if (status != NC_OK) {
-            log_warn("set tcpnodelay on s %d for server '%.*s' failed, ignored: %s",
-                     conn->sd, server->pname.len, server->pname.data,
+            log_warn("set tcpnodelay on %s %d for server '%.*s' failed, ignored: %s",
+                     CONN_KIND_AS_STRING(conn), conn->sd,
+                     server->pname.len, server->pname.data,
                      strerror(errno));
         }
     }
 
     status = event_add_conn(ctx->evb, conn);
     if (status != NC_OK) {
-        log_error("event add conn s %d for server '%.*s' failed: %s",
-                  conn->sd, server->pname.len, server->pname.data,
+        log_error("event add conn %s %d for server '%.*s' failed: %s",
+                  CONN_KIND_AS_STRING(conn), conn->sd,
+                  server->pname.len, server->pname.data,
                   strerror(errno));
         goto error;
     }
@@ -509,12 +509,14 @@ server_connect(struct context *ctx, struct server *server, struct conn *conn)
     if (status != NC_OK) {
         if (errno == EINPROGRESS) {
             conn->connecting = 1;
-            log_debug(LOG_DEBUG, "connecting on s %d to server '%.*s'",
-                      conn->sd, server->pname.len, server->pname.data);
+            log_debug(LOG_DEBUG, "connecting on %s %d to server '%.*s'",
+                      CONN_KIND_AS_STRING(conn), conn->sd,
+                      server->pname.len, server->pname.data);
             return NC_OK;
         }
 
-        log_error("connect on s %d to server '%.*s' failed: %s", conn->sd,
+        log_error("connect on %s %d to server '%.*s' failed: %s",
+                  CONN_KIND_AS_STRING(conn), conn->sd,
                   server->pname.len, server->pname.data, strerror(errno));
 
         goto error;
@@ -522,7 +524,8 @@ server_connect(struct context *ctx, struct server *server, struct conn *conn)
 
     ASSERT(!conn->connecting);
     conn->connected = 1;
-    log_debug(LOG_INFO, "connected on s %d to server '%.*s'", conn->sd,
+    log_debug(LOG_INFO, "connected on %s %d to server '%.*s'",
+              CONN_KIND_AS_STRING(conn), conn->sd,
               server->pname.len, server->pname.data);
 
     return NC_OK;
@@ -547,7 +550,8 @@ server_connected(struct context *ctx, struct conn *conn)
 
     conn->post_connect(ctx, conn, server);
 
-    log_debug(LOG_INFO, "connected on s %d to server '%.*s'", conn->sd,
+    log_debug(LOG_INFO, "connected on %s %d to server '%.*s'",
+              CONN_KIND_AS_STRING(conn), conn->sd,
               server->pname.len, server->pname.data);
 }
 

@@ -367,7 +367,8 @@ conn_recv(struct conn *conn, void *buf, size_t size)
     for (;;) {
         n = nc_read(conn->sd, buf, size);
 
-        log_debug(LOG_VERB, "recv on sd %d %zd of %zu", conn->sd, n, size);
+        log_debug(LOG_VERB, "recv on %s %d %zd of %zu",
+                  CONN_KIND_AS_STRING(conn), conn->sd, n, size);
 
         if (n > 0) {
             if (n < (ssize_t) size) {
@@ -380,22 +381,26 @@ conn_recv(struct conn *conn, void *buf, size_t size)
         if (n == 0) {
             conn->recv_ready = 0;
             conn->eof = 1;
-            log_debug(LOG_INFO, "recv on sd %d eof rb %zu sb %zu", conn->sd,
+            log_debug(LOG_INFO, "recv on %s %d eof rb %zu sb %zu",
+                      CONN_KIND_AS_STRING(conn), conn->sd,
                       conn->recv_bytes, conn->send_bytes);
             return n;
         }
 
         if (errno == EINTR) {
-            log_debug(LOG_VERB, "recv on sd %d not ready - eintr", conn->sd);
+            log_debug(LOG_VERB, "recv on %s %d not ready - eintr",
+                      CONN_KIND_AS_STRING(conn), conn->sd);
             continue;
         } else if (errno == EAGAIN || errno == EWOULDBLOCK) {
             conn->recv_ready = 0;
-            log_debug(LOG_VERB, "recv on sd %d not ready - eagain", conn->sd);
+            log_debug(LOG_VERB, "recv on %s %d not ready - eagain",
+                      CONN_KIND_AS_STRING(conn), conn->sd);
             return NC_EAGAIN;
         } else {
             conn->recv_ready = 0;
             conn->err = errno;
-            log_error("recv on sd %d failed: %s", conn->sd, strerror(errno));
+            log_error("recv on %s %d failed: %s",
+                      CONN_KIND_AS_STRING(conn), conn->sd, strerror(errno));
             return NC_ERROR;
         }
     }
@@ -417,8 +422,8 @@ conn_sendv(struct conn *conn, struct array *sendv, size_t nsend)
     for (;;) {
         n = nc_writev(conn->sd, sendv->elem, sendv->nelem);
 
-        log_debug(LOG_VERB, "sendv on sd %d %zd of %zu in %"PRIu32" buffers",
-                  conn->sd, n, nsend, sendv->nelem);
+        log_debug(LOG_VERB, "sendv on %s %d %zd of %zu in %"PRIu32" buffers",
+                  CONN_KIND_AS_STRING(conn), conn->sd, n, nsend, sendv->nelem);
 
         if (n > 0) {
             if (n < (ssize_t) nsend) {
@@ -429,22 +434,26 @@ conn_sendv(struct conn *conn, struct array *sendv, size_t nsend)
         }
 
         if (n == 0) {
-            log_warn("sendv on sd %d returned zero", conn->sd);
+            log_warn("sendv on %s %d returned zero",
+                     CONN_KIND_AS_STRING(conn), conn->sd);
             conn->send_ready = 0;
             return 0;
         }
 
         if (errno == EINTR) {
-            log_debug(LOG_VERB, "sendv on sd %d not ready - eintr", conn->sd);
+            log_debug(LOG_VERB, "sendv on %s %d not ready - eintr",
+                      CONN_KIND_AS_STRING(conn), conn->sd);
             continue;
         } else if (errno == EAGAIN || errno == EWOULDBLOCK) {
             conn->send_ready = 0;
-            log_debug(LOG_VERB, "sendv on sd %d not ready - eagain", conn->sd);
+            log_debug(LOG_VERB, "sendv on %s %d not ready - eagain",
+                      CONN_KIND_AS_STRING(conn), conn->sd);
             return NC_EAGAIN;
         } else {
             conn->send_ready = 0;
             conn->err = errno;
-            log_error("sendv on sd %d failed: %s", conn->sd, strerror(errno));
+            log_error("sendv on %s %d failed: %s",
+                      CONN_KIND_AS_STRING(conn), conn->sd, strerror(errno));
             return NC_ERROR;
         }
     }

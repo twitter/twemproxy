@@ -1,0 +1,5 @@
+# Ignore everything
+*
+
+# Except me
+!.gitignore

@@ -21,6 +21,7 @@
 # Packages
 *.tar.gz
 *.tar.bz2
+*.zip
 
 # Logs
 *.log
@@ -35,8 +36,9 @@
 core*
 nutcracker
 
-# extracted yaml
+# extracted yaml gtest
 !/contrib/yaml-0.1.4.tar.gz
+!/contrib/gtest-1.7.0.zip
 
 # Autotools
 .deps
@@ -66,3 +68,9 @@ nutcracker
 
 Makefile
 Makefile.in
+
+# Test ReSults
+tests/*.trs
+
+# UnitTest executable
+tests/test_hashkit

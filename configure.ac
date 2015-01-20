@@ -202,13 +202,39 @@ AC_CONFIG_COMMANDS_PRE([tar xvfz contrib/yaml-0.1.4.tar.gz -C contrib])
 # Call yaml-0.1.4 ./configure recursively
 AC_CONFIG_SUBDIRS([contrib/yaml-0.1.4])
 
+# Unzip the gtest-1.7.0 in contrib/ before config.status is rerun
+AC_CONFIG_COMMANDS_PRE([unzip -o contrib/gtest-1.7.0.zip -d contrib])
+
+# Call gtest-1.7.0 ./configure recursively
+AC_CONFIG_SUBDIRS([contrib/gtest-1.7.0])
+
+# Define gtest variables
+GTEST_VERSION="1.7.0"
+if test "x$have_pthread" = "xyes"; then
+  GTEST_CPPFLAGS="-DGTEST_HAS_PTHREAD=1"
+  GTEST_CXXFLAGS="$PTHREAD_CFLAGS"
+  GTEST_LDFLAGS=
+  GTEST_LIBS="$PTHREAD_LIBS"
+else
+  GTEST_CPPFLAGS="-DGTEST_HAS_PTHREAD=0"
+  GTEST_CXXFLAGS=
+  GTEST_LDFLAGS=
+  GTEST_LIBS=
+fi
+AC_SUBST([GTEST_VERSION])
+AC_SUBST([GTEST_CPPFLAGS])
+AC_SUBST([GTEST_CXXFLAGS])
+AC_SUBST([GTEST_LDFLAGS])
+AC_SUBST([GTEST_LIBS])
+
 # Define Makefiles
 AC_CONFIG_FILES([Makefile
                  contrib/Makefile
                  src/Makefile
                  src/hashkit/Makefile
                  src/proto/Makefile
-                 src/event/Makefile])
+                 src/event/Makefile
+                 tests/Makefile])
 
 # Generate the "configure" script
 AC_OUTPUT

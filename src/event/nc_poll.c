@@ -53,7 +53,7 @@ event_base_create(int nevent, event_cb_t cb)
 
     evb->fu_array = nc_calloc(nevent, sizeof(*evb->fu_array)); 
 
-    log_debug(LOG_INFO, "poll with npoll_event %d", evb->nevent);
+    log_debug(LOG_INFO, "poll with nevent %d", evb->nevent);
 
     return evb;
 }
@@ -174,7 +174,7 @@ event_add_conn(struct event_base *evb, struct conn *c)
 
     if(i >= evb->nevent)
     {
-        log_error("addconn sd %d failed: %s",  c->sd,
+        log_error("add conn sd %d failed: %s",  c->sd,
                   strerror(errno));
         return -1;
     } 
@@ -272,8 +272,8 @@ event_wait(struct event_base *evb, int timeout)
 
         if (nsd == 0) {
             if (timeout == -1) {
-               log_error("poll with %d poll_events and %d timeout "
-                         "returned no poll_events", nevent, timeout);
+               log_error("poll with %d poll_event and %d timeout "
+                         "returned no poll_event", nevent, timeout);
                 return -1;
             }
 
@@ -284,7 +284,7 @@ event_wait(struct event_base *evb, int timeout)
             continue;
         }
 
-        log_error("poll on with %d poll_events failed: %s", nevent, strerror(errno));
+        log_error("poll on with %d poll_event failed: %s", nevent, strerror(errno));
         return -1;
     }
 

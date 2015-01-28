@@ -452,6 +452,61 @@ msg_empty(struct msg *msg)
     return msg->mlen == 0 ? true : false;
 }
 
+/* read a line from msg's mbuf, then write to line_buf,
+ * if line_num is n, we will skip front n - 1 lines in the msg
+ */
+void
+msg_read_line(struct msg* msg, struct mbuf *line_buf, int line_num)
+{
+    struct mbuf *mbuf;
+    uint32_t mlen, buf_size, copy_size, search_size;
+    uint8_t *p;
+
+    mbuf_rewind(line_buf);
+
+    p = NULL;
+    for (mbuf = STAILQ_FIRST(&msg->mhdr);
+         mbuf != NULL && p == NULL; ) {
+
+        if (mbuf_empty(mbuf)) {
+            mbuf = STAILQ_NEXT(mbuf, next);
+            continue;
+        }
+
+        mlen = mbuf_length(mbuf);
+        buf_size = mbuf_size(line_buf);
+
+        search_size = mlen < buf_size ? mlen : buf_size;
+
+        p = nc_strchr(mbuf->pos, mbuf->pos + search_size, LF);
+        if(p == NULL) {
+            if (line_num == 1 && search_size >= buf_size) {
+                log_error("msg read line exceed buf size.");
+                return;
+            }
+            else {
+                copy_size = search_size;
+            }
+        }
+        else {
+            copy_size = (uint8_t *)p - mbuf->pos + 1;
+        }
+
+        /* line_num equals 1 means this line is wanted, so copy it.
+         * or else if the p is not null, let line_num minus 1,
+         * stand for skiped one line.
+         */
+        if (line_num == 1) {
+            nc_memcpy(line_buf->last, mbuf->pos, copy_size);
+            line_buf->last += copy_size;
+        } else if (p != NULL) {
+            line_num--;
+            p = NULL;
+        }
+        mbuf->pos += copy_size;
+    }
+}
+
 uint32_t
 msg_backend_idx(struct msg *msg, uint8_t *key, uint32_t keylen)
 {

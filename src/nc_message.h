@@ -258,6 +258,7 @@ void msg_put(struct msg *msg);
 struct msg *msg_get_error(bool redis, err_t err);
 void msg_dump(struct msg *msg, int level);
 bool msg_empty(struct msg *msg);
+void msg_read_line(struct msg* msg, struct mbuf *line_buf, int line_num);
 rstatus_t msg_recv(struct context *ctx, struct conn *conn);
 rstatus_t msg_send(struct context *ctx, struct conn *conn);
 uint64_t msg_gen_frag_id(void);
@@ -280,6 +281,7 @@ void req_client_dequeue_omsgq(struct context *ctx, struct conn *conn, struct msg
 void req_server_dequeue_omsgq(struct context *ctx, struct conn *conn, struct msg *msg);
 struct msg *req_recv_next(struct context *ctx, struct conn *conn, bool alloc);
 void req_recv_done(struct context *ctx, struct conn *conn, struct msg *msg, struct msg *nmsg);
+struct msg *req_fake(struct context *ctx, struct conn *conn);
 struct msg *req_send_next(struct context *ctx, struct conn *conn);
 void req_send_done(struct context *ctx, struct conn *conn, struct msg *msg);
 

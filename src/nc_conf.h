@@ -138,5 +138,6 @@ rstatus_t conf_pool_each_transform(void *elem, void *data);
 
 struct conf *conf_create(char *filename);
 void conf_destroy(struct conf *cf);
+void conf_rewrite(struct context *ctx);
 
 #endif

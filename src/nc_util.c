@@ -130,6 +130,54 @@ nc_set_rcvbuf(int sd, int size)
 }
 
 int
+nc_set_keepalive(int sd, int interval)
+{
+    int keepalive, keepidle, keepintvl, keepcnt;
+    socklen_t len;
+
+
+    keepalive = 1;
+    len = sizeof(keepalive);
+    if (setsockopt(sd, SOL_SOCKET, SO_KEEPALIVE, &keepalive, len) == -1)
+    {
+        return NC_ERROR;
+    }
+
+#ifdef __linux__
+    /* Default settings are more or less garbage, with the keepalive time
+     * set to 7200 by default on Linux. Modify settings to make the feature
+     * actually useful. */
+
+    /* Send first probe after interval. */
+    keepidle = interval;
+    len = sizeof(keepidle);
+    if (setsockopt(sd, IPPROTO_TCP, TCP_KEEPIDLE, &keepidle, len) < 0) {
+        return NC_ERROR;
+    }
+
+    /* Send next probes after the specified interval. Note that we set the
+     * delay as interval / 3, as we send three probes before detecting
+     * an error (see the next setsockopt call). */
+    keepintvl = interval/3;
+    len = sizeof(keepintvl);
+    if (keepintvl == 0) keepintvl = 1;
+    if (setsockopt(sd, IPPROTO_TCP, TCP_KEEPINTVL, &keepintvl, len) < 0) {
+        return NC_ERROR;
+    }
+
+    /* Consider the socket in error state after three we send three ACK
+     * probes without getting a reply. */
+    keepcnt = 3;
+    len = sizeof(keepcnt);
+    if (setsockopt(sd, IPPROTO_TCP, TCP_KEEPCNT, &keepcnt, len) < 0) {
+        return NC_ERROR;
+    }
+#endif
+
+    return NC_OK;
+}
+
+int
 nc_get_soerror(int sd)
 {
     int status, err;

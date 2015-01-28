@@ -274,6 +274,7 @@ conf_pool_each_transform(void *elem, void *data)
     TAILQ_INIT(&sp->c_conn_q);
 
     array_null(&sp->server);
+    array_null(&sp->sentinel);
     sp->ncontinuum = 0;
     sp->nserver_continuum = 0;
     sp->continuum = NULL;
@@ -309,6 +310,11 @@ conf_pool_each_transform(void *elem, void *data)
     sp->preconnect = cp->preconnect ? 1 : 0;
 
     status = server_init(&sp->server, &cp->server, sp);
+    if (status != NC_OK) {
+        return status;
+    }
+
+    status = server_init(&sp->sentinel, &cp->sentinel, sp);
     if (status != NC_OK) {
         return status;
     }
@@ -375,6 +381,144 @@ conf_dump(struct conf *cf)
                 log_debug(LOG_VVERB, "    %.*s", s->len, s->data);
             }
         }
+    }
+}
+
+static rstatus_t
+conf_write(FILE *fh, const char *fmt, ...)
+{
+    size_t size, n;
+    int len;
+    char buf[256];
+    va_list args;
+
+    len = 0;
+    size = sizeof(buf);
+    va_start(args, fmt);
+    len = nc_vscnprintf(buf, size, fmt, args);
+    va_end(args);
+
+    buf[len++] = '\n';
+
+    n = fwrite(buf, (size_t)len, (size_t)1, fh);
+    if (n == 0) {
+        return NC_ERROR;
+    }
+
+    return NC_OK;
+}
+
+void
+conf_rewrite(struct context *ctx)
+{
+    uint32_t i, j, npool, nserver;
+    struct conf *cf;
+    struct conf_pool *cp;
+    struct conf_server *cs;
+    struct string true_str, false_str, bool_str;
+    FILE *fh;
+    char tmp_conf_file[256];
+
+    cf = ctx->cf;
+
+    npool = array_n(&cf->pool);
+    if (npool == 0) {
+        return;
+    }
+
+    log_debug(LOG_VVERB, "%"PRIu32" pools in configuration file '%s'", npool,
+              cf->fname);
+
+    /* open tmp conf file to rewrite */
+    nc_snprintf(tmp_conf_file, 256, "%s.%d.tmp", cf->fname, (int) getpid());
+    fh = fopen(tmp_conf_file,"w");
+    if (fh == NULL) {
+        log_error("conf: failed to open tmp configuration file to rewrite");
+        return;
+    }
+
+    string_set_text(&true_str, "true");
+    string_set_text(&false_str, "false");
+
+    for (i = 0; i < npool; i++) {
+        cp = array_get(&cf->pool, i);
+
+        conf_write(fh, "%.*s:", cp->name.len, cp->name.data);
+        conf_write(fh, "  listen: %.*s",
+                  cp->listen.pname.len, cp->listen.pname.data);
+        conf_write(fh, "  hash: %.*s",
+                hash_strings[cp->hash].len, hash_strings[cp->hash].data);
+        if (cp->hash_tag.len > 0) {
+            conf_write(fh, "  hash_tag: \"%.*s\"", cp->hash_tag.len,
+                    cp->hash_tag.data);
+        }
+        conf_write(fh, "  distribution: %.*s",
+                dist_strings[cp->distribution].len, dist_strings[cp->distribution].data);
+
+        bool_str = cp->preconnect ? true_str : false_str;
+        conf_write(fh,"  preconnect: %.*s", bool_str.len, bool_str.data);
+
+        bool_str = cp->auto_eject_hosts ? true_str : false_str;
+        conf_write(fh, "  auto_eject_hosts: %.*s", bool_str.len, bool_str.data);
+
+        bool_str = cp->redis ? true_str : false_str;
+        conf_write(fh, "  redis: %.*s", bool_str.len, bool_str.data);
+        if (cp->timeout >= 0) {
+            conf_write(fh, "  timeout: %d", cp->timeout);
+        }
+        conf_write(fh, "  backlog: %d", cp->backlog);
+        conf_write(fh, "  client_connections: %d",
+                  cp->client_connections);
+        conf_write(fh, "  server_connections: %d",
+                  cp->server_connections);
+        conf_write(fh, "  server_retry_timeout: %d",
+                  cp->server_retry_timeout);
+        conf_write(fh, "  server_failure_limit: %d",
+                  cp->server_failure_limit);
+
+        nserver = array_n(&cp->server);
+        conf_write(fh, "  servers:");
+
+        for (j = 0; j < nserver; j++) {
+            cs = array_get(&cp->server, j);
+            if (cs->name.len >= cs->pname.len
+                    || nc_strncmp(cs->pname.data, cs->name.data, cs->name.len)) {
+                conf_write(fh, "   - %.*s %.*s",
+                        cs->pname.len, cs->pname.data,
+                        cs->name.len, cs->name.data);
+            } else {
+                conf_write(fh, "   - %.*s",
+                        cs->pname.len, cs->pname.data);
+            }
+        }
+
+        nserver = array_n(&cp->sentinel);
+        conf_write(fh, "  sentinels:");
+
+        for (j = 0; j < nserver; j++) {
+            cs = array_get(&cp->sentinel, j);
+            if (cs->name.len >= cs->pname.len
+                    || nc_strncmp(cs->pname.data, cs->name.data, cs->name.len)) {
+                conf_write(fh, "   - %.*s %.*s",
+                        cs->pname.len, cs->pname.data,
+                        cs->name.len, cs->name.data);
+            } else {
+                conf_write(fh, "   - %.*s",
+                        cs->pname.len, cs->pname.data);
+            }
+        }
+
+        /* write a empty line to conf when a pool is writen except the last one. */
+        if (i < npool - 1) {
+            conf_write(fh, "");
+        }
+    }
+
+    fclose(fh);
+
+    if (rename(tmp_conf_file, cf->fname) == -1) {
+        log_error("Error moving temp conf file on the final destination: %s", strerror(errno));
+        unlink(tmp_conf_file);
     }
 }
 

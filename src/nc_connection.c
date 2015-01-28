@@ -21,6 +21,7 @@
 #include <nc_server.h>
 #include <nc_client.h>
 #include <nc_proxy.h>
+#include <nc_sentinel.h>
 #include <proto/nc_proto.h>
 
 /*
@@ -151,6 +152,7 @@ _conn_get(void)
 
     conn->client = 0;
     conn->proxy = 0;
+    conn->sentinel = 0;
     conn->connecting = 0;
     conn->connected = 0;
     conn->eof = 0;
@@ -256,6 +258,46 @@ conn_get(void *owner, bool client, bool redis)
 
     conn->ref(conn, owner);
     log_debug(LOG_VVERB, "get conn %p client %d", conn, conn->client);
+
+    return conn;
+}
+
+struct conn *
+conn_get_sentinel(void *owner)
+{
+    struct conn *conn;
+
+    conn = _conn_get();
+    if (conn == NULL) {
+        return NULL;
+    }
+
+    conn->redis = 1;
+    conn->client = 0;
+    conn->sentinel = 1;
+
+    conn->recv = msg_recv;
+    conn->recv_next = rsp_recv_next;
+    conn->recv_done = sentinel_recv_done;
+
+    conn->send = msg_send;
+    conn->send_next = req_send_next;
+    conn->send_done = req_send_done;
+
+    conn->close = sentinel_close;
+    conn->active = server_active;
+
+    conn->ref = server_ref;
+    conn->unref = server_unref;
+
+    conn->enqueue_inq = req_server_enqueue_imsgq;
+    conn->dequeue_inq = req_server_dequeue_imsgq;
+    conn->enqueue_outq = req_server_enqueue_omsgq;
+    conn->dequeue_outq = req_server_dequeue_omsgq;
+
+    conn->ref(conn, owner);
+
+    log_debug(LOG_VVERB, "get conn %p sentinel %d", conn, conn->sentinel);
 
     return conn;
 }

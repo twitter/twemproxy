@@ -20,6 +20,7 @@
 
 #include <nc_core.h>
 #include <nc_server.h>
+#include <nc_sentinel.h>
 #include <nc_conf.h>
 
 void
@@ -125,7 +126,11 @@ server_init(struct array *server, struct array *conf_server,
     uint32_t nserver;
 
     nserver = array_n(conf_server);
-    ASSERT(nserver != 0);
+    if (nserver == 0) {
+        /* no sentinels is configured */
+        return NC_OK;
+    }
+
     ASSERT(array_n(server) == 0);
 
     status = array_init(server, nserver, sizeof(struct server));
@@ -736,6 +741,11 @@ server_pool_each_preconnect(void *elem, void *data)
         return status;
     }
 
+    if (array_n(&sp->sentinel)) {
+        /* try to connect the first sentinel */
+        sentinel_connect(sp->ctx, array_get(&sp->sentinel, 0));
+    }
+
     return NC_OK;
 }
 
@@ -790,6 +800,10 @@ server_pool_each_calc_connections(void *elem, void *data)
     struct context *ctx = data;
 
     ctx->max_nsconn += sp->server_connections * array_n(&sp->server);
+    if (array_n(&sp->sentinel)) {
+        /* only one sentinel conn at the same time */
+        ctx->max_nsconn += 1;
+    }
     ctx->max_nsconn += 1; /* pool listening socket */
 
     return NC_OK;

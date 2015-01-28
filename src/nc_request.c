@@ -470,6 +470,28 @@ req_make_reply(struct context *ctx, struct conn *conn, struct msg *req)
     return NC_OK;
 }
 
+struct msg *
+req_fake(struct context *ctx, struct conn *conn)
+{
+    struct msg *request;
+
+    /* the fake req don't have client conn */
+    request = msg_get(NULL, true, conn->redis);
+    if (request == NULL) {
+        log_error("get msg for fake req failed");
+        return NULL;
+    }
+
+    /* the fake req don't have client conn to reply.
+     * we know the response order, so we don't need the peer request.
+     * mark it noreply to release it when sent or socket error.
+     */
+    request->noreply = 1;
+
+    conn->enqueue_inq(ctx, conn, request);
+    return request;
+}
+
 static bool
 req_filter(struct context *ctx, struct conn *conn, struct msg *msg)
 {

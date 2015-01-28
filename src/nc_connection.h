@@ -83,6 +83,7 @@ struct conn {
 
     unsigned            client:1;      /* client? or server? */
     unsigned            proxy:1;       /* proxy? */
+    unsigned            sentinel:1;    /* sentinel? */
     unsigned            connecting:1;  /* connecting? */
     unsigned            connected:1;   /* connected? */
     unsigned            eof:1;         /* eof? aka passive close? */
@@ -96,6 +97,7 @@ TAILQ_HEAD(conn_tqh, conn);
 struct context *conn_to_ctx(struct conn *conn);
 struct conn *conn_get(void *owner, bool client, bool redis);
 struct conn *conn_get_proxy(void *owner);
+struct conn *conn_get_sentinel(void *owner);
 void conn_put(struct conn *conn);
 ssize_t conn_recv(struct conn *conn, void *buf, size_t size);
 ssize_t conn_sendv(struct conn *conn, struct array *sendv, size_t nsend);

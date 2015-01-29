@@ -95,17 +95,17 @@ sentinel_close(struct context *ctx, struct conn *conn)
 }
 
 static rstatus_t
-sentinel_proc_sentinel_info(struct context *ctx, struct msg *msg)
+sentinel_proc_sentinel_info(struct context *ctx, struct server *sentinel, struct msg *msg)
 {
     rstatus_t status;
     int i, master_num, switch_num;
-    struct string pool_name, server_name, server_ip,
+    struct string server_name, server_ip,
                   tmp_string, sentinel_masters_prefix, master_ok;
+    struct server *server;
     struct mbuf *line_buf;
     int server_port;
 
     string_init(&tmp_string);
-    string_init(&pool_name);
     string_init(&server_name);
     string_init(&server_ip);
     string_set_text(&sentinel_masters_prefix, "sentinel_masters");
@@ -167,17 +167,16 @@ sentinel_proc_sentinel_info(struct context *ctx, struct msg *msg)
             goto error;
         }
 
-        /* get server pool name */
-        status = mbuf_read_string(line_buf, SENTINEL_SERVERNAME_SPLIT, &pool_name);
-        if (status != NC_OK) {
-            log_error("get server pool name failed.");
-            goto error;
-        }
-
         /* get server name */
         status = mbuf_read_string(line_buf, ',', &server_name);
         if (status != NC_OK) {
             log_error("get server name failed.");
+            goto error;
+        }
+
+        server = server_find_by_name(ctx, sentinel->owner, &server_name);
+        if (server == NULL) {
+            log_error("unknown server name:%.*s", server_name.len, server_name.data);
             goto error;
         }
 
@@ -217,7 +216,7 @@ sentinel_proc_sentinel_info(struct context *ctx, struct msg *msg)
             goto error;
         }
 
-        status = server_switch(ctx, &pool_name, &server_name, &server_ip, server_port);
+        status = server_switch(ctx, server, &server_ip, server_port);
         /* if server is switched, add switch number */
         if (status == NC_OK) {
             switch_num++;
@@ -235,7 +234,6 @@ done:
         mbuf_put(line_buf);
     }
     string_deinit(&tmp_string);
-    string_deinit(&pool_name);
     string_deinit(&server_name);
     string_deinit(&server_ip);
     return status;
@@ -440,7 +438,7 @@ sentinel_recv_done(struct context *ctx, struct conn *conn, struct msg *msg,
 
     switch (sentinel_status) {
     case SENTINEL_CONN_SEND_REQ:
-        status = sentinel_proc_sentinel_info(ctx, msg);
+        status = sentinel_proc_sentinel_info(ctx, conn->owner, msg);
         if (status == NC_OK) {
             sentinel_status = SENTINEL_CONN_ACK_INFO;
         }

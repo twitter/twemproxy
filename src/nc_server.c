@@ -610,6 +610,116 @@ server_pool_update(struct server_pool *pool)
     return NC_OK;
 }
 
+struct server*
+server_find_by_name(struct context *ctx, struct server_pool *server_pool, struct string *server_name)
+{
+    struct server *server;
+    uint32_t i;
+
+    server = NULL;
+    for(i = 0; i < array_n(&server_pool->server); i++) {
+        server = array_get(&server_pool->server, i);
+        if (!string_compare(&server->name, server_name)) {
+            break;
+        } else {
+            server = NULL;
+        }
+    }
+    
+    return server;
+}
+
+static rstatus_t
+server_set_address(struct server *server, struct string *server_ip, int server_port)
+{
+    rstatus_t status;
+    struct conf_server *conf_server;
+    struct sockinfo info;
+    char pname_buf[NC_PNAME_MAXLEN];
+
+    status = nc_resolve(server_ip, server_port, &info);
+    if (status != NC_OK) {
+        log_error("server address %.*s:%d resolve error",
+                server_ip->len, server_ip->data, server_port);
+        return status;
+    }
+
+    /* conf_server's pname and server's pname point to the same data string,
+     * so deinit once enough.
+     */
+    conf_server = server->conf_server;
+    string_deinit(&conf_server->pname);
+
+    nc_snprintf(pname_buf, NC_PNAME_MAXLEN, "%.*s:%d:%d",
+            server_ip->len, server_ip->data, server_port, server->weight);
+
+    /* update conf_server's pname to used for conf update */
+    status = string_copy(&conf_server->pname, pname_buf, (uint32_t)(nc_strlen(pname_buf)));
+    if (status != NC_OK) {
+        return status;
+    }
+
+    /* make server's pname points to conf_server's pname */
+    server->pname = conf_server->pname;
+    conf_server->port = (uint16_t)server_port;
+    server->port = (uint16_t)server_port;
+    ASSERT(server->family == info.family);
+    ASSERT(server->addrlen == info.addrlen);
+    /* server'addr is a pointer to conf_server->info->addr,
+     * so update conf_server'info can update server's addr
+     */
+    conf_server->info = info;
+
+    return NC_OK;
+}
+
+rstatus_t
+server_switch(struct context *ctx, struct server *server,
+        struct string *server_ip, int server_port)
+{
+    rstatus_t status;
+    struct server_pool *server_pool;
+    struct string pname, new_addr, slave_addr;
+    char pname_buf[NC_PNAME_MAXLEN];
+    uint32_t i;
+
+    string_init(&pname);
+    nc_snprintf(pname_buf, NC_PNAME_MAXLEN, "%.*s:%d:%d",
+            server_ip->len, server_ip->data, server_port, server->weight);
+    status = string_copy(&pname, pname_buf, (uint32_t)(nc_strlen(pname_buf)));
+    if (status != NC_OK) {
+        return status;
+    }
+    
+    /* if the address is the same, return */
+    if (!string_compare(&server->pname, &pname)) {
+        string_deinit(&pname);
+        return NC_ERROR;
+    }
+
+    /* pname is no longer used, release it */
+    string_deinit(&pname);
+
+    /* change the server's address */
+    status = server_set_address(server, server_ip, server_port);
+    if (status != NC_OK) {
+        return status;
+    }
+
+    /* disconnect all the connection include the slaves's.
+     * use the timer to disconnect after the file event loop.
+     */
+    event_add_timer(ctx, (long long)0, server_disconnect, server, NULL);
+
+    server_pool = server->owner;
+    log_warn("success switch %.*s-%.*s to %.*s",
+            server_pool->name.len, server_pool->name.data,
+            server->name.len, server->name.data,
+            server->pname.len, server->pname.data);
+
+    return NC_OK;
+}
+
 static uint32_t
 server_pool_hash(struct server_pool *pool, uint8_t *key, uint32_t keylen)
 {

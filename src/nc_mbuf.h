@@ -63,5 +63,6 @@ void mbuf_insert(struct mhdr *mhdr, struct mbuf *mbuf);
 void mbuf_remove(struct mhdr *mhdr, struct mbuf *mbuf);
 void mbuf_copy(struct mbuf *mbuf, uint8_t *pos, size_t n);
 struct mbuf *mbuf_split(struct mhdr *h, uint8_t *pos, mbuf_copy_t cb, void *cbarg);
+rstatus_t mbuf_read_string(struct mbuf *mbuf, char c, struct string *read_string);
 
 #endif

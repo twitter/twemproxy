@@ -297,12 +297,13 @@ error:
 }
 
 static rstatus_t
-sentinel_proc_pub(struct context *ctx, struct msg *msg)
+sentinel_proc_pub(struct context *ctx, struct server *sentinel, struct msg *msg)
 {
     rstatus_t status;
     struct string pool_name, server_name, server_ip, tmp_string,
                   pub_titile, pub_channel_switch, pub_channel_redirect;
     struct mbuf *line_buf;
+    struct server *server;
     int server_port;
 
     string_init(&tmp_string);
@@ -366,6 +367,12 @@ sentinel_proc_pub(struct context *ctx, struct msg *msg)
         goto error;
     }
 
+    server = server_find_by_name(ctx, sentinel->owner, &server_name);
+    if (server == NULL) {
+        log_error("unknown server name:%.*s", server_name.len, server_name.data);
+        goto error;
+    }
+
     /* skip old ip and port string */
     status = mbuf_read_string(line_buf, ' ', NULL);
     if (status != NC_OK) {
@@ -397,7 +404,7 @@ sentinel_proc_pub(struct context *ctx, struct msg *msg)
         goto error;
     }
 
-    status = server_switch(ctx, &pool_name, &server_name, &server_ip, server_port);
+    status = server_switch(ctx, server, &server_ip, server_port);
     if (status == NC_OK) {
         conf_rewrite(ctx);
     }
@@ -461,7 +468,7 @@ sentinel_recv_done(struct context *ctx, struct conn *conn, struct msg *msg,
         break;
 
     case SENTINEL_CONN_ACK_REDIRECT_SUB:
-        status = sentinel_proc_pub(ctx, msg);
+        status = sentinel_proc_pub(ctx, conn->owner, msg);
         break;
 
     default:

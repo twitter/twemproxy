@@ -59,6 +59,8 @@
  *            //
  */
 
+#define NC_PNAME_MAXLEN                 32
+
 typedef uint32_t (*hash_t)(const char *, size_t);
 
 struct continuum {
@@ -69,6 +71,9 @@ struct continuum {
 struct server {
     uint32_t           idx;           /* server index */
     struct server_pool *owner;        /* owner pool */
+
+    /* use this pointer to modify conf_server when switch server happens */
+    struct conf_server *conf_server;   /* conf_server transformed from */
 
     struct string      pname;         /* name:port:weight (ref in conf_server) */
     struct string      name;          /* name (ref in conf_server) */

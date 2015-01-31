@@ -316,7 +316,7 @@ msg_get(struct conn *conn, bool request, bool redis)
     }
 
     log_debug(LOG_VVERB, "get msg %p id %"PRIu64" request %d owner sd %d",
-              msg, msg->id, msg->request, conn->sd);
+              msg, msg->id, msg->request, conn ? conn->sd : -1);
 
     return msg;
 }

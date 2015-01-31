@@ -709,7 +709,7 @@ server_switch(struct context *ctx, struct server *server,
     /* disconnect all the connection include the slaves's.
      * use the timer to disconnect after the file event loop.
      */
-    event_add_timer(ctx, (long long)0, server_disconnect, server, NULL);
+    //event_add_timer(ctx, (long long)0, server_disconnect, server, NULL);
 
     server_pool = server->owner;
     log_warn("success switch %.*s-%.*s to %.*s",

@@ -151,6 +151,7 @@ conf_server_each_transform(void *elem, void *data)
 
     s->idx = array_idx(server, s);
     s->owner = NULL;
+    s->conf_server = cs;
 
     s->pname = cs->pname;
     s->name = cs->name;
@@ -493,18 +494,20 @@ conf_rewrite(struct context *ctx)
         }
 
         nserver = array_n(&cp->sentinel);
-        conf_write(fh, "  sentinels:");
+        if (nserver) {
+            conf_write(fh, "  sentinels:");
 
-        for (j = 0; j < nserver; j++) {
-            cs = array_get(&cp->sentinel, j);
-            if (cs->name.len >= cs->pname.len
-                    || nc_strncmp(cs->pname.data, cs->name.data, cs->name.len)) {
-                conf_write(fh, "   - %.*s %.*s",
-                        cs->pname.len, cs->pname.data,
-                        cs->name.len, cs->name.data);
-            } else {
-                conf_write(fh, "   - %.*s",
-                        cs->pname.len, cs->pname.data);
+            for (j = 0; j < nserver; j++) {
+                cs = array_get(&cp->sentinel, j);
+                if (cs->name.len >= cs->pname.len
+                        || nc_strncmp(cs->pname.data, cs->name.data, cs->name.len)) {
+                    conf_write(fh, "   - %.*s %.*s",
+                            cs->pname.len, cs->pname.data,
+                            cs->name.len, cs->name.data);
+                } else {
+                    conf_write(fh, "   - %.*s",
+                            cs->pname.len, cs->pname.data);
+                }
             }
         }
 

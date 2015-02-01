@@ -46,6 +46,11 @@ req_log(struct msg *req)
         return;
     }
 
+    /* a fake request? */
+    if (req->owner == NULL) {
+        return;
+    }
+
     /* a fragment? */
     if (req->frag_id != 0 && req->frag_owner != req) {
         return;
@@ -84,11 +89,7 @@ req_log(struct msg *req)
      * Maybe we can store addrstr just like server_pool in conn struct
      * when connections are resolved
      */
-    if (req->owner == NULL) {
-        peer_str = "fake_client";
-    } else {
-        peer_str = nc_unresolve_peer_desc(req->owner->sd);
-    }
+    peer_str = nc_unresolve_peer_desc(req->owner->sd);
 
     req_type = msg_type_string(req->type);
 

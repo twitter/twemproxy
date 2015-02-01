@@ -836,10 +836,18 @@ server_pool_conn(struct context *ctx, struct server_pool *pool, uint8_t *key,
 }
 
 static rstatus_t
-server_pool_each_preconnect(void *elem, void *data)
+server_pool_each_connect(void *elem, void *data)
 {
     rstatus_t status;
     struct server_pool *sp = elem;
+
+    if (array_n(&sp->sentinel)) {
+        /* try to connect the first sentinel */
+        status = sentinel_connect(sp->ctx, array_get(&sp->sentinel, 0));
+        if (status != NC_OK) {
+            return status;
+        }
+    }
 
     if (!sp->preconnect) {
         return NC_OK;
@@ -850,20 +858,15 @@ server_pool_each_preconnect(void *elem, void *data)
         return status;
     }
 
-    if (array_n(&sp->sentinel)) {
-        /* try to connect the first sentinel */
-        sentinel_connect(sp->ctx, array_get(&sp->sentinel, 0));
-    }
-
     return NC_OK;
 }
 
 rstatus_t
-server_pool_preconnect(struct context *ctx)
+server_pool_connect(struct context *ctx)
 {
     rstatus_t status;
 
-    status = array_each(&ctx->pool, server_pool_each_preconnect, NULL);
+    status = array_each(&ctx->pool, server_pool_each_connect, NULL);
     if (status != NC_OK) {
         return status;
     }
@@ -880,6 +883,13 @@ server_pool_each_disconnect(void *elem, void *data)
     status = array_each(&sp->server, server_each_disconnect, NULL);
     if (status != NC_OK) {
         return status;
+    }
+
+    if (array_n(&sp->sentinel)) {
+        status = array_each(&sp->server, server_each_disconnect, NULL);
+        if (status != NC_OK) {
+            return status;
+        }
     }
 
     return NC_OK;

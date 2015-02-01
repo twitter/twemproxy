@@ -30,7 +30,7 @@ sentinel_connect(struct context *ctx, struct server *sentinel)
 {
     rstatus_t status;
     struct conn *conn;
-    struct msg *request;
+    struct msg *msg;
     int cmd_num;
     int i;
 
@@ -57,21 +57,14 @@ sentinel_connect(struct context *ctx, struct server *sentinel)
 
     cmd_num = sizeof(sentinel_reqs) / sizeof(char *);
     for (i = 0; i < cmd_num; i++) {
-        request = req_fake(ctx, conn);
-        if(request == NULL) {
+        msg = req_fake(ctx, conn);
+        if(msg == NULL) {
             conn->err = errno;
             sentinel_close(ctx, conn);
             return NC_ENOMEM;
         }
 
-        status = msg_append(request, (uint8_t *)(sentinel_reqs[i]), nc_strlen(sentinel_reqs[i]));
-        if (status != NC_OK) {
-            conn->err = errno;
-            sentinel_close(ctx, conn);
-            return status;
-        }
-
-        status = event_add_out(ctx->evb, conn);
+        status = msg_append(msg, (uint8_t *)(sentinel_reqs[i]), nc_strlen(sentinel_reqs[i]));
         if (status != NC_OK) {
             conn->err = errno;
             sentinel_close(ctx, conn);

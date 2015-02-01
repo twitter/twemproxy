@@ -84,7 +84,11 @@ req_log(struct msg *req)
      * Maybe we can store addrstr just like server_pool in conn struct
      * when connections are resolved
      */
-    peer_str = nc_unresolve_peer_desc(req->owner->sd);
+    if (req->owner == NULL) {
+        peer_str = "fake_client";
+    } else {
+        peer_str = nc_unresolve_peer_desc(req->owner->sd);
+    }
 
     req_type = msg_type_string(req->type);
 
@@ -473,11 +477,12 @@ req_make_reply(struct context *ctx, struct conn *conn, struct msg *req)
 struct msg *
 req_fake(struct context *ctx, struct conn *conn)
 {
-    struct msg *request;
+    rstatus_t status;
+    struct msg *msg;
 
     /* the fake req don't have client conn */
-    request = msg_get(NULL, true, conn->redis);
-    if (request == NULL) {
+    msg = msg_get(NULL, true, conn->redis);
+    if (msg == NULL) {
         log_error("get msg for fake req failed");
         return NULL;
     }
@@ -486,10 +491,20 @@ req_fake(struct context *ctx, struct conn *conn)
      * we know the response order, so we don't need the peer request.
      * mark it noreply to release it when sent or socket error.
      */
-    request->noreply = 1;
+    msg->noreply = 1;
 
-    conn->enqueue_inq(ctx, conn, request);
-    return request;
+    /* enqueue the message (request) into server inq */
+    if (TAILQ_EMPTY(&conn->imsg_q)) {
+        status = event_add_out(ctx->evb, conn);
+        if (status != NC_OK) {
+            conn->err = errno;
+            req_put(msg);
+            return NULL;
+        }
+    }
+
+    conn->enqueue_inq(ctx, conn, msg);
+    return msg;
 }
 
 static bool

@@ -489,7 +489,7 @@ msg_read_line(struct msg* msg, struct mbuf *line_buf, int line_num)
             }
         }
         else {
-            copy_size = (uint8_t *)p - mbuf->pos + 1;
+            copy_size = (uint32_t)(p - mbuf->pos + 1);
         }
 
         /* line_num equals 1 means this line is wanted, so copy it.

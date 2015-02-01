@@ -7,8 +7,6 @@ static char *sentinel_reqs[] = {
     SUB_SWITCH_REDIRECT
 };
 
-static sentinel_conn_status_t sentinel_status;
-
 struct conn *
 sentinel_conn(struct server *sentinel)
 {
@@ -22,6 +20,7 @@ sentinel_conn(struct server *sentinel)
 
     conn = TAILQ_FIRST(&sentinel->s_conn_q);
     ASSERT(!conn->client && !conn->proxy);
+    ASSERT(conn->status == CONN_DISCONNECTED);
 
     return conn;
 }
@@ -34,8 +33,6 @@ sentinel_connect(struct context *ctx, struct server *sentinel)
     struct msg *request;
     int cmd_num;
     int i;
-
-    ASSERT(sentinel_status == SENTINEL_CONN_DISCONNECTED);
 
     /* get the only connect of sentinel */
     conn = sentinel_conn(sentinel);
@@ -82,7 +79,7 @@ sentinel_connect(struct context *ctx, struct server *sentinel)
         }
     }
 
-    sentinel_status = SENTINEL_CONN_SEND_REQ;
+    conn->status = CONN_SEND_REQ;
 
     return NC_OK;
 }
@@ -91,7 +88,7 @@ void
 sentinel_close(struct context *ctx, struct conn *conn)
 {
     server_close(ctx, conn);
-    sentinel_status = SENTINEL_CONN_DISCONNECTED;
+    conn->status = CONN_DISCONNECTED;
 }
 
 static rstatus_t
@@ -352,14 +349,6 @@ sentinel_proc_pub(struct context *ctx, struct server *sentinel, struct msg *msg)
         goto error;
     }
 
-    /* parse switch master info */
-    /* get pool name */
-    status = mbuf_read_string(line_buf, SENTINEL_SERVERNAME_SPLIT, &pool_name);
-    if (status != NC_OK) {
-        log_error("get pool name string failed.");
-        goto error;
-    }
-
     /* get server name */
     status = mbuf_read_string(line_buf, ' ', &server_name);
     if (status != NC_OK) {
@@ -405,9 +394,8 @@ sentinel_proc_pub(struct context *ctx, struct server *sentinel, struct msg *msg)
     }
 
     status = server_switch(ctx, server, &server_ip, server_port);
-    if (status == NC_OK) {
-        conf_rewrite(ctx);
-    }
+    ASSERT(status == NC_OK);
+    conf_rewrite(ctx);
 
     status = NC_OK;
 
@@ -438,36 +426,36 @@ sentinel_recv_done(struct context *ctx, struct conn *conn, struct msg *msg,
     ASSERT(!msg->request);
     ASSERT(msg->owner == conn);
     ASSERT(nmsg == NULL || !nmsg->request);
-    ASSERT(sentinel_status != SENTINEL_CONN_DISCONNECTED);
+    ASSERT(conn->status != CONN_DISCONNECTED);
 
     /* enqueue next message (response), if any */
     conn->rmsg = nmsg;
 
-    switch (sentinel_status) {
-    case SENTINEL_CONN_SEND_REQ:
+    switch (conn->status) {
+    case CONN_SEND_REQ:
         status = sentinel_proc_sentinel_info(ctx, conn->owner, msg);
         if (status == NC_OK) {
-            sentinel_status = SENTINEL_CONN_ACK_INFO;
+            conn->status = CONN_ACK_INFO;
         }
         break;
 
-    case SENTINEL_CONN_ACK_INFO:
+    case CONN_ACK_INFO:
         string_set_text(&sub_channel, SENTINEL_SWITCH_CHANNEL);
         status = sentinel_proc_acksub(ctx, msg, &sub_channel);
         if (status == NC_OK) {
-            sentinel_status = SENTINEL_CONN_ACK_SWITCH_SUB;
+            conn->status = CONN_ACK_SWITCH_SUB;
         }
         break;
 
-    case SENTINEL_CONN_ACK_SWITCH_SUB:
+    case CONN_ACK_SWITCH_SUB:
         string_set_text(&sub_channel, SENTINEL_REDIRECT_CHANNEL);
         status = sentinel_proc_acksub(ctx, msg, &sub_channel);
         if (status == NC_OK) {
-            sentinel_status = SENTINEL_CONN_ACK_REDIRECT_SUB;
+            conn->status = CONN_ACK_REDIRECT_SUB;
         }
         break;
 
-    case SENTINEL_CONN_ACK_REDIRECT_SUB:
+    case CONN_ACK_REDIRECT_SUB:
         status = sentinel_proc_pub(ctx, conn->owner, msg);
         break;
 

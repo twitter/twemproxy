@@ -654,7 +654,7 @@ server_set_address(struct server *server, struct string *server_ip, int server_p
             server_ip->len, server_ip->data, server_port, server->weight);
 
     /* update conf_server's pname to used for conf update */
-    status = string_copy(&conf_server->pname, pname_buf, (uint32_t)(nc_strlen(pname_buf)));
+    status = string_copy(&conf_server->pname, (uint8_t *)pname_buf, (uint32_t)(nc_strlen(pname_buf)));
     if (status != NC_OK) {
         return status;
     }
@@ -679,14 +679,13 @@ server_switch(struct context *ctx, struct server *server,
 {
     rstatus_t status;
     struct server_pool *server_pool;
-    struct string pname, new_addr, slave_addr;
+    struct string pname;
     char pname_buf[NC_PNAME_MAXLEN];
-    uint32_t i;
 
     string_init(&pname);
     nc_snprintf(pname_buf, NC_PNAME_MAXLEN, "%.*s:%d:%d",
             server_ip->len, server_ip->data, server_port, server->weight);
-    status = string_copy(&pname, pname_buf, (uint32_t)(nc_strlen(pname_buf)));
+    status = string_copy(&pname, (uint8_t *)pname_buf, (uint32_t)(nc_strlen(pname_buf)));
     if (status != NC_OK) {
         return status;
     }

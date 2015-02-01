@@ -275,6 +275,7 @@ conn_get_sentinel(void *owner)
     conn->redis = 1;
     conn->client = 0;
     conn->sentinel = 1;
+    conn->status = CONN_DISCONNECTED;
 
     conn->recv = msg_recv;
     conn->recv_next = rsp_recv_next;

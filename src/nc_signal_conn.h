@@ -18,6 +18,7 @@
 #ifndef _NC_SIGNAL_CONN_H_
 #define _NC_SIGNAL_CONN_H_
 
+#include <signal.h>
 #include <nc_core.h>
 
 struct conn *create_signal_listener(struct context *ctx);

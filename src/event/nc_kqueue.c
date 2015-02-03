@@ -103,6 +103,18 @@ event_base_destroy(struct event_base *evb)
     nc_free(evb);
 }
 
+static void
+eliminate_pending_events(struct event_base *evb, struct conn *c, int16_t filter) {
+    for (int i = evb->nprocessed + 1; i < evb->nreturned; i++) {
+        struct kevent *ev = &evb->event[i];
+        if (ev->udata == c && (!filter || filter == ev->filter)) {
+            ev->flags = 0;
+            ev->filter = 0;
+            break;
+        }
+    }
+}
+
 int
 event_add_in(struct event_base *evb, struct conn *c)
 {
@@ -143,6 +155,12 @@ event_del_in(struct event_base *evb, struct conn *c)
     EV_SET(event, c->sd, EVFILT_READ, EV_DELETE, 0, 0, c);
 
     c->recv_active = 0;
+
+    /*
+     * Eliminate subsequent READ events, if we have disabled READ during
+     * processing one of the previous ones.
+     */
+    eliminate_pending_events(evb, c, EVFILT_READ);
 
     return 0;
 }
@@ -188,6 +206,12 @@ event_del_out(struct event_base *evb, struct conn *c)
 
     c->send_active = 0;
 
+    /*
+     * Eliminate subsequent WRITE events, if we have disabled WRITE during
+     * processing one of the previous ones.
+     */
+    eliminate_pending_events(evb, c, EVFILT_WRITE);
+
     return 0;
 }
 
@@ -210,8 +234,6 @@ event_add_conn(struct event_base *evb, struct conn *c)
 int
 event_del_conn(struct event_base *evb, struct conn *c)
 {
-    int i;
-
     ASSERT(evb->kq > 0);
     ASSERT(c != NULL);
     ASSERT(c->sd > 0);
@@ -221,18 +243,10 @@ event_del_conn(struct event_base *evb, struct conn *c)
     event_del_in(evb, c);
 
     /*
-     * Now, eliminate pending events for c->sd (there should be at most one
-     * other event). This is important because we will close c->sd and free
-     * c when we return.
+     * Now, eliminate all outstanding pending events for (c).
+     * This is important because we will close and free (c) when we return.
      */
-    for (i = evb->nprocessed + 1; i < evb->nreturned; i++) {
-        struct kevent *ev = &evb->event[i];
-        if (ev->ident == (uintptr_t)c->sd) {
-            ev->flags = 0;
-            ev->filter = 0;
-            break;
-        }
-    }
+    eliminate_pending_events(evb, c, 0);
 
     return 0;
 }

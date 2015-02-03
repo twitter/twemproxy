@@ -460,8 +460,9 @@ core_loop(struct context *ctx)
             ASSERT(ctx->stats);
             ctx->state = CTX_STATE_STEADY;
             server_pools_log(ctx->nci->log_level,
-                "Current config:", &ctx->pools);
+                "Config reloaded, current runtime:", &ctx->pools);
         } else {
+            /* Check whether we finished reloading every 10 milliseconds. */
             effective_timeout = 10;
         }
         break;

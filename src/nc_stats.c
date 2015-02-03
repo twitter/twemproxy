@@ -837,6 +837,8 @@ stats_loop(void *arg)
     unsigned int fds_size = sizeof(fds)/sizeof(fds[0]);
 
     for(;;) {
+        unsigned i;
+
         int timeout_ms = st->interval ? st->interval : -1;
         int ret = poll(fds, fds_size, timeout_ms);
         switch(ret) {
@@ -855,7 +857,7 @@ stats_loop(void *arg)
             break;
         }
 
-        for(unsigned i = 0; i < fds_size; i++) {
+        for(i = 0; i < fds_size; i++) {
             if(fds[i].revents & POLLIN) {
                 int fd = fds[i].fd;
                 if(fd == st->sd) {

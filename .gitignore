@@ -24,6 +24,7 @@
 
 # Logs
 *.log
+*.trs
 
 # Temporary
 *.swp

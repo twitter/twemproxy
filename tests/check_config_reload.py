@@ -101,8 +101,13 @@ ncfg = nutcracker_config_file()
 
 print("Nutcracker config is in %s" % ncfg.name)
 
-ncfg.write(srv_A_cfg)
-ncfg.flush()
+def enact_config(nutcracker_config_yml):
+    ncfg.seek(0)
+    ncfg.truncate(0)
+    ncfg.write(nutcracker_config_yml)
+    ncfg.flush()
+
+enact_config(srv_A_cfg);
 
 print("Opening nutcracker with config:\n%s" % srv_A_cfg);
 
@@ -134,14 +139,11 @@ else:
 
 print("Now, reloading the nutcracker with config:\n%s" % srv_B_cfg);
 
-ncfg.seek(0)
-ncfg.truncate(0)
-ncfg.write(srv_B_cfg)
-ncfg.flush()
-
+enact_config(srv_B_cfg)
 # Send the "config reload" signal.
 nut_proc.send_signal(signal.SIGUSR1)
 time.sleep(0.1)
+
 client.send("get KEY_FOR_B\r\n")
 
 (srv_B, _) = listen_B.accept()

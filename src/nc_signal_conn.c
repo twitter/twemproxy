@@ -89,9 +89,10 @@ static uint32_t signals_received;
 
 int
 conn_next_signal() {
+    int i;
 
     if(signals_received) {
-        for(int i = SIGUSR1; i <= SIGUSR2; i++) {
+        for(i = SIGUSR1; i <= SIGUSR2; i++) {
             if(signals_received & (1 << (i-1))) {
                 signals_received &= ~(1 << (i - 1));
                 return i;

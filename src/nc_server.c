@@ -1121,7 +1121,8 @@ connection_is_drained(enum nc_morph_elem_type etype, void *elem, void *acc0) {
         struct conn *conn = elem;
         struct last_not_drained *nd = acc0;
 
-        if(conn->rmsg == NULL
+        if((conn->rmsg == NULL
+                || msg_empty(conn->rmsg))
             && conn->smsg == NULL
             && TAILQ_EMPTY(&conn->imsg_q)
             && (TAILQ_EMPTY(&conn->omsg_q) 

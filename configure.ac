@@ -205,6 +205,7 @@ AC_CONFIG_SUBDIRS([contrib/yaml-0.1.4])
 # Define Makefiles
 AC_CONFIG_FILES([Makefile
                  contrib/Makefile
+                 tests/Makefile
                  src/Makefile
                  src/hashkit/Makefile
                  src/proto/Makefile

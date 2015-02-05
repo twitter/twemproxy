@@ -168,6 +168,9 @@ conf_server_each_transform(void *elem, void *data)
     s->next_retry = 0LL;
     s->failure_count = 0;
 
+    /* proxy will set sentinel flag after server transform */
+    s->sentinel = 0;
+
     log_debug(LOG_VERB, "transform to server %"PRIu32" '%.*s'",
               s->idx, s->pname.len, s->pname.data);
 
@@ -310,12 +313,12 @@ conf_pool_each_transform(void *elem, void *data)
     sp->auto_eject_hosts = cp->auto_eject_hosts ? 1 : 0;
     sp->preconnect = cp->preconnect ? 1 : 0;
 
-    status = server_init(&sp->server, &cp->server, sp);
+    status = server_init(&sp->server, &cp->server, sp, false);
     if (status != NC_OK) {
         return status;
     }
 
-    status = server_init(&sp->sentinel, &cp->sentinel, sp);
+    status = server_init(&sp->sentinel, &cp->sentinel, sp, true);
     if (status != NC_OK) {
         return status;
     }

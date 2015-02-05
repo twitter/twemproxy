@@ -88,18 +88,15 @@ static rstatus_t
 sentinel_proc_sentinel_info(struct context *ctx, struct server *sentinel, struct msg *msg)
 {
     rstatus_t status;
-    int i, master_num, switch_num;
-    struct string server_name, server_ip,
-                  tmp_string, sentinel_masters_prefix, master_ok;
+    int i, master_num, switch_num, server_port;
+    struct string server_name, server_ip, sentinel_masters_prefix, tmp_string;
     struct server *server;
     struct mbuf *line_buf;
-    int server_port;
 
     string_init(&tmp_string);
     string_init(&server_name);
     string_init(&server_ip);
     string_set_text(&sentinel_masters_prefix, "sentinel_masters");
-    string_set_text(&master_ok, "status=ok");
 
     line_buf = mbuf_get();
     if (line_buf == NULL) {
@@ -141,19 +138,11 @@ sentinel_proc_sentinel_info(struct context *ctx, struct server *sentinel, struct
             log_error("read line failed from sentinel ack info when parse master item.");
             goto error;
         }
-        log_debug(LOG_INFO, "master item line : %.*s", mbuf_length(line_buf), line_buf->pos);
-
-        /* skip master item prefix */
-        status = mbuf_read_string(line_buf, ':', NULL);
-        if (status != NC_OK) {
-            log_error("skip master item prefix failed");
-            goto error;
-        }
 
         /* skip master item server name prefix */
         status = mbuf_read_string(line_buf, '=', NULL);
         if (status != NC_OK) {
-            log_error("skip master item server name prefix failed.");
+            log_error("skip server name prefix failed.");
             goto error;
         }
 
@@ -170,14 +159,11 @@ sentinel_proc_sentinel_info(struct context *ctx, struct server *sentinel, struct
             goto error;
         }
 
-        /* get master status */
-        status = mbuf_read_string(line_buf, ',', &tmp_string);
+        /* skip master status */
+        status = mbuf_read_string(line_buf, ',', NULL);
         if (status != NC_OK) {
             log_error("get master status failed.");
             goto error;
-        }
-        if (string_compare(&master_ok, &tmp_string)) { 
-            log_error("master item status is not ok, use it anyway");
         }
 
         /* skip ip string prefix name */
@@ -290,20 +276,16 @@ static rstatus_t
 sentinel_proc_pub(struct context *ctx, struct server *sentinel, struct msg *msg)
 {
     rstatus_t status;
-    struct string pool_name, server_name, server_ip, tmp_string,
-                  pub_titile, pub_channel_switch, pub_channel_redirect;
+    int server_port;
+    struct string server_name, server_ip, tmp_string, pub_titile;
     struct mbuf *line_buf;
     struct server *server;
-    int server_port;
 
     string_init(&tmp_string);
-    string_init(&pool_name);
     string_init(&server_name);
     string_init(&server_ip);
 
     string_set_text(&pub_titile, "message");
-    string_set_text(&pub_channel_switch, SENTINEL_SWITCH_CHANNEL);
-    string_set_text(&pub_channel_redirect, SENTINEL_REDIRECT_CHANNEL);
 
     line_buf = mbuf_get();
     if (line_buf == NULL) {
@@ -322,33 +304,19 @@ sentinel_proc_pub(struct context *ctx, struct server *sentinel, struct msg *msg)
         goto error;
     }
 
-    /* get line in line num 5 for pub channel */
-    msg_read_line(msg, line_buf, 2);
-    if (mbuf_length(line_buf) == 0) {
-        log_error("read line failed from sentinel pmessage when skip line not used.");
-        goto error;
-    }
-    status = mbuf_read_string(line_buf, CR, &tmp_string);
-    if (status != NC_OK || (string_compare(&pub_channel_switch, &tmp_string) &&
-        string_compare(&pub_channel_redirect, &tmp_string))) {
-        log_error("pub channel error(line info %.*s)", tmp_string.len, tmp_string.data);
-        goto error;
-    }
-
     /* get line in line num 7 for pub info */
-    msg_read_line(msg, line_buf, 2);
+    msg_read_line(msg, line_buf, 4);
     if (mbuf_length(line_buf) == 0) {
         log_error("read line failed from sentinel pmessage when skip line not used.");
         goto error;
     }
 
-    /* get server name */
+    /* get server */
     status = mbuf_read_string(line_buf, ' ', &server_name);
     if (status != NC_OK) {
         log_error("get server name string failed.");
         goto error;
     }
-
     server = server_find_by_name(ctx, sentinel->owner, &server_name);
     if (server == NULL) {
         log_error("unknown server name:%.*s", server_name.len, server_name.data);
@@ -399,7 +367,6 @@ done:
     string_deinit(&tmp_string);
     string_deinit(&server_ip);
     string_deinit(&server_name);
-    string_deinit(&pool_name);
     return status;
 
 error:

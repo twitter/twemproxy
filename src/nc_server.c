@@ -118,9 +118,19 @@ server_each_set_owner(void *elem, void *data)
     return NC_OK;
 }
 
+static rstatus_t
+server_each_set_sentinel(void *elem, void *data)
+{
+    struct server *s = elem;
+
+    s->sentinel = 1;
+
+    return NC_OK;
+}
+
 rstatus_t
 server_init(struct array *server, struct array *conf_server,
-            struct server_pool *sp)
+            struct server_pool *sp, bool sentinel)
 {
     rstatus_t status;
     uint32_t nserver;
@@ -151,6 +161,15 @@ server_init(struct array *server, struct array *conf_server,
     if (status != NC_OK) {
         server_deinit(server);
         return status;
+    }
+
+    if (sentinel) {
+        /* set server sentinel flag */
+        status = array_each(server, server_each_set_sentinel, NULL);
+        if (status != NC_OK) {
+            server_deinit(server);
+            return status;
+        }
     }
 
     log_debug(LOG_DEBUG, "init %"PRIu32" servers in pool %"PRIu32" '%.*s'",
@@ -259,7 +278,8 @@ server_failure(struct context *ctx, struct server *server)
     int64_t now, next;
     rstatus_t status;
 
-    if (!pool->auto_eject_hosts) {
+    /* sentinel do not need eject */
+    if (server->sentinel || !pool->auto_eject_hosts) {
         return;
     }
 
@@ -842,11 +862,10 @@ server_pool_each_connect(void *elem, void *data)
     struct server_pool *sp = elem;
 
     if (array_n(&sp->sentinel)) {
-        /* try to connect the first sentinel */
-        status = sentinel_connect(sp->ctx, array_get(&sp->sentinel, 0));
-        if (status != NC_OK) {
-            return status;
-        }
+        /* Try to connect the first sentinel. Proxy will try to reconnect
+         * if it connects fail. So it's ok to ignore the return status.
+         */
+        sentinel_connect(sp->ctx, array_get(&sp->sentinel, 0));
     }
 
     if (!sp->preconnect) {
@@ -1028,6 +1047,8 @@ server_pool_deinit(struct array *server_pool)
         }
 
         server_deinit(&sp->server);
+
+        server_deinit(&sp->sentinel);
 
         log_debug(LOG_DEBUG, "deinit pool %"PRIu32" '%.*s'", sp->idx,
                   sp->name.len, sp->name.data);

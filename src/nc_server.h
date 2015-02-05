@@ -88,6 +88,8 @@ struct server {
 
     int64_t            next_retry;    /* next retry time in usec */
     uint32_t           failure_count; /* # consecutive failures */
+
+    unsigned           sentinel:1;    /* redis sentinel? */
 };
 
 struct server_pool {
@@ -134,7 +136,7 @@ void server_ref(struct conn *conn, void *owner);
 void server_unref(struct conn *conn);
 int server_timeout(struct conn *conn);
 bool server_active(struct conn *conn);
-rstatus_t server_init(struct array *server, struct array *conf_server, struct server_pool *sp);
+rstatus_t server_init(struct array *server, struct array *conf_server, struct server_pool *sp, bool sentinel);
 void server_deinit(struct array *server);
 struct conn *server_conn(struct server *server);
 rstatus_t server_connect(struct context *ctx, struct server *server, struct conn *conn);

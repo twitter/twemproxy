@@ -3,9 +3,8 @@
 import os
 import time
 import signal
-import socket
-import tempfile
 import subprocess
+from test_helper import *
 
 try:
     nutcracker_exe = os.environ["NUTCRACKER_PROGRAM"]
@@ -97,17 +96,11 @@ srv_B_cfg = simple_nutcracker_config(proxy_port, srv_B_port)
 
 print("Prepared proxy port %d and stats port %d" % (proxy_port, stats_port))
 
-ncfg = nutcracker_config_file()
+ncfg = create_nutcracker_config_file()
 
 print("Nutcracker config is in %s" % ncfg.name)
 
-def enact_config(nutcracker_config_yml):
-    ncfg.seek(0)
-    ncfg.truncate(0)
-    ncfg.write(nutcracker_config_yml)
-    ncfg.flush()
-
-enact_config(srv_A_cfg);
+enact_nutcracker_config(ncfg, srv_A_cfg);
 
 print("Opening nutcracker with config:\n%s" % srv_A_cfg);
 
@@ -139,7 +132,7 @@ else:
 
 print("Now, reloading the nutcracker with config:\n%s" % srv_B_cfg);
 
-enact_config(srv_B_cfg)
+enact_nutcracker_config(ncfg, srv_B_cfg)
 # Send the "config reload" signal.
 nut_proc.send_signal(signal.SIGUSR1)
 time.sleep(0.1)

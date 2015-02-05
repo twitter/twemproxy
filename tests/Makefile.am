@@ -5,4 +5,9 @@ EXTRA_DIST = test_helper.py
 
 TESTS = $(dist_check_SCRIPTS)
 
-TESTS_ENVIRONMENT = NUTCRACKER_PROGRAM="$(top_builddir)/src/nutcracker"
+TESTS_ENVIRONMENT =	\
+	PYTHONDONTWRITEBYTECODE=avoid_pyc_files	\
+	NUTCRACKER_PROGRAM="$(top_builddir)/src/nutcracker"
+
+clean-local:
+	rm -f *.pyc

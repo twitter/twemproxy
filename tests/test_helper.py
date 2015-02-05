@@ -31,18 +31,19 @@ def tcp_connect(port):
 Create a simple yaml config with a given port as a server.
 """
 
-def simple_nutcracker_config(proxy_port, server_port,
-                             auto_eject_hosts = True,
-                             server_retry_timeout = 2000,
-                             server_failure_limit = 2000,
-                             preconnect = True
-                            ):
+def simple_nutcracker_config(proxy_port, server_port, dict):
+    auto_eject_hosts = dict.get("auto_eject_hosts", False)
+    server_retry_timeout = dict.get("server_retry_timeout", 2000)
+    server_failure_limit = dict.get("server_failure_limit", 1)
+    preconnect = dict.get("preconnect", True)
+
     return ("alpha:\n"
             + "  listen: 127.0.0.1:%s\n" % proxy_port
             + "  hash: fnv1a_64\n"
             + "  distribution: ketama\n"
             + "  auto_eject_hosts: %s\n" % ("true" if auto_eject_hosts else "false")
-            + "  server_retry_timeout: %d\n" % server_retry_timeout
+            + ("" if server_retry_timeout is None else
+              "  server_retry_timeout: %s\n" % server_retry_timeout)
             + "  server_failure_limit: %d\n" % server_failure_limit
             + "  preconnect: %s\n" % ("true" if preconnect else "false")
             + "  servers:\n"

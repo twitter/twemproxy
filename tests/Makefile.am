@@ -1,5 +1,5 @@
 
-dist_check_SCRIPTS = check_server_restart.py check_config_reload.py
+dist_check_SCRIPTS = check_server_fail_between_requests.py check_server_fail_during_requests.py check_config_reload.py
 
 EXTRA_DIST = test_helper.py
 

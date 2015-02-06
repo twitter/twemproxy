@@ -82,7 +82,8 @@ proxy_close(struct context *ctx, struct conn *conn)
 
     status = close(conn->sd);
     if (status < 0) {
-        log_error("close p %d failed, ignored: %s", conn->sd, strerror(errno));
+        log_error("close %s %d failed, ignored: %s",
+                  CONN_KIND_AS_STRING(conn), conn->sd, strerror(errno));
     }
     conn->sd = -1;
 
@@ -136,15 +137,16 @@ proxy_listen(struct context *ctx, struct conn *p)
 
     status = proxy_reuse(p);
     if (status < 0) {
-        log_error("reuse of addr '%.*s' for listening on p %d failed: %s",
-                  pool->addrstr.len, pool->addrstr.data, p->sd,
-                  strerror(errno));
+        log_error("reuse of addr '%.*s' for listening on %s %d failed: %s",
+                  pool->addrstr.len, pool->addrstr.data,
+                  CONN_KIND_AS_STRING(p), p->sd, strerror(errno));
         return NC_ERROR;
     }
 
     status = bind(p->sd, p->addr, p->addrlen);
     if (status < 0) {
-        log_error("bind on p %d to addr '%.*s' failed: %s", p->sd,
+        log_error("bind on %s %d to addr '%.*s' failed: %s",
+                  CONN_KIND_AS_STRING(p), p->sd,
                   pool->addrstr.len, pool->addrstr.data, strerror(errno));
         return NC_ERROR;
     }
@@ -161,30 +163,34 @@ proxy_listen(struct context *ctx, struct conn *p)
 
     status = listen(p->sd, pool->backlog);
     if (status < 0) {
-        log_error("listen on p %d on addr '%.*s' failed: %s", p->sd,
+        log_error("listen on %s %d on addr '%.*s' failed: %s",
+                  CONN_KIND_AS_STRING(p), p->sd,
                   pool->addrstr.len, pool->addrstr.data, strerror(errno));
         return NC_ERROR;
     }
 
     status = nc_set_nonblocking(p->sd);
     if (status < 0) {
-        log_error("set nonblock on p %d on addr '%.*s' failed: %s", p->sd,
+        log_error("set nonblock on %s %d on addr '%.*s' failed: %s",
+                  CONN_KIND_AS_STRING(p), p->sd,
                   pool->addrstr.len, pool->addrstr.data, strerror(errno));
         return NC_ERROR;
     }
 
     status = event_add_conn(ctx->evb, p);
     if (status < 0) {
-        log_error("event add conn p %d on addr '%.*s' failed: %s",
-                  p->sd, pool->addrstr.len, pool->addrstr.data,
+        log_error("event add conn %s %d on addr '%.*s' failed: %s",
+                  CONN_KIND_AS_STRING(p), p->sd,
+                  pool->addrstr.len, pool->addrstr.data,
                   strerror(errno));
         return NC_ERROR;
     }
 
     status = event_del_out(ctx->evb, p);
     if (status < 0) {
-        log_error("event del out p %d on addr '%.*s' failed: %s",
-                  p->sd, pool->addrstr.len, pool->addrstr.data,
+        log_error("event del out %s %d on addr '%.*s' failed: %s",
+                  CONN_KIND_AS_STRING(p), p->sd,
+                  pool->addrstr.len, pool->addrstr.data,
                   strerror(errno));
         return NC_ERROR;
     }
@@ -328,12 +334,17 @@ proxy_accept(struct context *ctx, struct conn *p)
         break;
     }
 
+    const char *conn_kind = conn_kind_s[CONN_KIND_IS_REDIS(p)
+                                ? NC_CONN_CLIENT_MEMCACHE
+                                : NC_CONN_CLIENT_REDIS];
+
     if (conn_ncurr_cconn() >= ctx->max_ncconn) {
         log_debug(LOG_CRIT, "client connections %"PRIu32" exceed limit %"PRIu32,
                   conn_ncurr_cconn(), ctx->max_ncconn);
         status = close(sd);
         if (status < 0) {
-            log_error("close c %d failed, ignored: %s", sd, strerror(errno));
+            log_error("close %s %d failed, ignored: %s",
+                      conn_kind, sd, strerror(errno));
         }
         return NC_OK;
     }
@@ -341,11 +352,13 @@ proxy_accept(struct context *ctx, struct conn *p)
     c = conn_get(p->owner, CONN_KIND_IS_REDIS(p)
             ? NC_CONN_CLIENT_REDIS : NC_CONN_CLIENT_MEMCACHE);
     if (c == NULL) {
-        log_error("get conn for c %d from p %d failed: %s", sd, p->sd,
+        log_error("get conn for %s %d from %s %d failed: %s",
+                  conn_kind, sd, CONN_KIND_AS_STRING(p), p->sd,
                   strerror(errno));
         status = close(sd);
         if (status < 0) {
-            log_error("close c %d failed, ignored: %s", sd, strerror(errno));
+            log_error("close %s %d failed, ignored: %s",
+                conn_kind, sd, strerror(errno));
         }
         return NC_ENOMEM;
     }
@@ -355,8 +368,9 @@ proxy_accept(struct context *ctx, struct conn *p)
 
     status = nc_set_nonblocking(c->sd);
     if (status < 0) {
-        log_error("set nonblock on c %d from p %d failed: %s", c->sd, p->sd,
-                  strerror(errno));
+        log_error("set nonblock on %s %d from %s %d failed: %s",
+                  CONN_KIND_AS_STRING(c), c->sd,
+                  CONN_KIND_AS_STRING(p), p->sd, strerror(errno));
         c->close(ctx, c);
         return status;
     }
@@ -372,20 +386,23 @@ proxy_accept(struct context *ctx, struct conn *p)
     if (p->family == AF_INET || p->family == AF_INET6) {
         status = nc_set_tcpnodelay(c->sd);
         if (status < 0) {
-            log_warn("set tcpnodelay on c %d from p %d failed, ignored: %s",
-                     c->sd, p->sd, strerror(errno));
+            log_warn("set tcpnodelay on %s %d from %s %d failed, ignored: %s",
+                     CONN_KIND_AS_STRING(c), c->sd,
+                     CONN_KIND_AS_STRING(p), p->sd, strerror(errno));
         }
     }
 
     status = event_add_conn(ctx->evb, c);
     if (status < 0) {
-        log_error("event add conn from p %d failed: %s", p->sd,
-                  strerror(errno));
+        log_error("event add conn from %s %d failed: %s",
+                  CONN_KIND_AS_STRING(p), p->sd, strerror(errno));
         c->close(ctx, c);
         return status;
     }
 
-    log_debug(LOG_NOTICE, "accepted c %d on p %d from '%s'", c->sd, p->sd,
+    log_debug(LOG_NOTICE, "accepted %s %d on %s %d from '%s'",
+              CONN_KIND_AS_STRING(c), c->sd,
+              CONN_KIND_AS_STRING(p), p->sd,
               nc_unresolve_peer_desc(c->sd));
 
     return NC_OK;

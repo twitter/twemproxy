@@ -17,35 +17,21 @@ def test_server_fail_during_requests(cfg_yml_params):
 
     print("Opened server on port %d" % server_port)
 
-    """
-    Open the server on a port which we'll later assign to be a proxy port
-    for nutcracker. This is a little bit dangerous due to potential race
-    condition with other servers on the local system, but we can't do much
-    better than that within the time and space constraints provided for testing.
-    Just don't run high load servers or clients on this development machine
-    which does integration testing.
-    """
-
-    (proxy, proxy_port) = open_server_socket()
-    proxy.close()
-    (stats, stats_port) = open_server_socket()
-    stats.close()
-
-    print("Prepared proxy port %d and stats port %d" % (proxy_port, stats_port))
+    port = suggest_spare_ports({'proxy':None, 'stats':None})
 
     # Create the nutcracker configuration out of the proxy and server ports.
-    yml_cfg = simple_nutcracker_config(proxy_port, server_port, cfg_yml_params)
+    yml_cfg = simple_nutcracker_config(port['proxy'], server_port, cfg_yml_params)
     ncfg = create_nutcracker_config_file(yml_cfg)
 
     print("Opening nutcracker with config:\n%s" % yml_cfg);
 
     nut = NutcrackerProcess(["-c", ncfg.name,
-                             "--stats-port", "%d" % stats_port])
+                             "--stats-port", "%d" % port['stats']])
 
     # Send the request to the proxy. It is supposed to be captured by our
     # server socket, so check it immediately afterwards.
 
-    client = tcp_connect(proxy_port)
+    client = tcp_connect(port['proxy'])
     client.send("get KEY\r\n")
 
     print("Accepting connection from proxy...")

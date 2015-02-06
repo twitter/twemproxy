@@ -89,7 +89,7 @@ Testing that server restart works across many parameters.
 
 variants_explored = []
 
-for fail_during_request in [True, False]:   # Fail during or between requests
+for fail_during_request in [False, True]:   # Fail during or between requests
   for pc in [False, True]:
     cfg_yml_params = {'preconnect': pc,
         'server_retry_timeout': 42, # ms, Retry fast.

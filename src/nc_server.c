@@ -905,7 +905,7 @@ server_pool_each_disconnect(void *elem, void *data)
     }
 
     if (array_n(&sp->sentinel)) {
-        status = array_each(&sp->server, server_each_disconnect, NULL);
+        status = array_each(&sp->sentinel, server_each_disconnect, NULL);
         if (status != NC_OK) {
             return status;
         }
@@ -1048,7 +1048,9 @@ server_pool_deinit(struct array *server_pool)
 
         server_deinit(&sp->server);
 
-        server_deinit(&sp->sentinel);
+        if (array_n(&sp->sentinel)) {
+            server_deinit(&sp->sentinel);
+        }
 
         log_debug(LOG_DEBUG, "deinit pool %"PRIu32" '%.*s'", sp->idx,
                   sp->name.len, sp->name.data);

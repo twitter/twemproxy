@@ -239,17 +239,12 @@ static void
 core_close(struct context *ctx, struct conn *conn)
 {
     rstatus_t status;
-    char *addrstr;
 
     ASSERT(conn->sd > 0);
 
-    if (CONN_KIND_IS_CLIENT(conn)) {
-        addrstr = nc_unresolve_peer_desc(conn->sd);
-    } else {
-        addrstr = nc_unresolve_addr(conn->addr, conn->addrlen);
-    }
     log_debug(LOG_NOTICE, "close %s %d '%s' on event %04"PRIX32" eof %d done "
-              "%d rb %zu sb %zu%c %s", CONN_KIND_AS_STRING(conn), conn->sd, addrstr, conn->events,
+              "%d rb %zu sb %zu%c %s", CONN_KIND_AS_STRING(conn), conn->sd,
+              conn_unresolve_descriptive(conn), conn->events,
               conn->eof, conn->done, conn->recv_bytes, conn->send_bytes,
               conn->err ? ':' : ' ', conn->err ? strerror(conn->err) : "");
 

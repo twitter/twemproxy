@@ -1,7 +1,10 @@
 
 import os
+import time
+import signal
 import socket
 import tempfile
+import subprocess
 
 """
 Teach python to open a socket on some first available local port.
@@ -66,4 +69,28 @@ def enact_nutcracker_config(ncfg, nutcracker_config_yml):
     ncfg.truncate(0)
     ncfg.write(nutcracker_config_yml)
     ncfg.flush()
+
+
+class NutcrackerProcess(object):
+    def __init__(self, args):
+        self.proc = subprocess.Popen(args)
+        time.sleep(0.1)
+        self.proc.poll()
+        if self.proc.returncode is not None:
+            print("Could not start the nutcracker process: %r\n"
+                    % nut_proc.returncode);
+            raise
+        print("Started nutcracker pid %r" % self.proc.pid);
+
+    def config_reload(self):
+        self.proc.send_signal(signal.SIGUSR1)
+        time.sleep(0.1)
+
+    def __del__(self):
+        self.proc.kill()
+        self.proc.wait()
+        if self.proc.returncode is None:
+            print("Could not stop the nutcracker process\n");
+            raise
+        print("Stopped nutcracker pid %r" % self.proc.pid);
 

@@ -11,8 +11,6 @@ changes and reload is requested. Two properties are checked:
 
 import os
 import time
-import signal
-import subprocess
 from test_helper import *
 
 try:
@@ -67,14 +65,8 @@ def test_code_reload(cfg_yml_params):
 
     print("Opening nutcracker with config:\n%s" % srv_A_cfg);
 
-    nut_proc = subprocess.Popen([nutcracker_exe, "-c", ncfg.name,
-                                 "-a", "127.0.0.1", "-s", "%d" % stats_port])
-    time.sleep(0.1)
-    nut_proc.poll()
-    if nut_proc.returncode is not None:
-        print("Could not start the nutcracker process: %s\n" % nut_proc.returncode);
-        exit(1)
-
+    nut = NutcrackerProcess([nutcracker_exe, "-c", ncfg.name,
+                             "-a", "127.0.0.1", "-s", "%d" % stats_port])
 
     # Send the request to the proxy. It is supposed to be captured by our
     # server socket, so check it immediately afterwards.
@@ -96,9 +88,7 @@ def test_code_reload(cfg_yml_params):
     print("Now, reloading the nutcracker with config:\n%s" % srv_B_cfg);
 
     enact_nutcracker_config(ncfg, srv_B_cfg)
-    # Send the "config reload" signal.
-    nut_proc.send_signal(signal.SIGUSR1)
-    time.sleep(0.3)
+    nut.config_reload()
 
     client.send("get KEY_FOR_B\r\n")
 
@@ -109,14 +99,6 @@ def test_code_reload(cfg_yml_params):
         srv_B.send("END\r\n")
     else:
         print("Expectation failed: received data: \"%s\"" % data)
-        exit(1)
-
-
-
-    nut_proc.kill()
-    nut_proc.wait()
-    if nut_proc.returncode is None:
-        print("Could not stop the nutcracker process\n");
         exit(1)
 
     srv_A.close()

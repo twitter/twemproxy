@@ -2,14 +2,14 @@
 
 """
 This script tests that the client is not disconnected when the server restarts
-during the request or between the requests.
+between the requests.
 """
 
 import time
 from test_helper import *
 
 
-def test_server_restart(cfg_yml_params, fail_during_request):
+def test_server_fail_between_requests(cfg_yml_params):
 
     print("Testing server restart with parameters\n  %s" % cfg_yml_params)
 
@@ -33,12 +33,8 @@ def test_server_restart(cfg_yml_params, fail_during_request):
 
     print("Prepared proxy port %d and stats port %d" % (proxy_port, stats_port))
 
-    """
-    Create the nutcracker configuration out of the proxy and server ports.
-    """
-
+    # Create the nutcracker configuration out of the proxy and server ports.
     yml_cfg = simple_nutcracker_config(proxy_port, server_port, cfg_yml_params)
-
     ncfg = create_nutcracker_config_file(yml_cfg)
 
     print("Opening nutcracker with config:\n%s" % yml_cfg);
@@ -56,26 +52,18 @@ def test_server_restart(cfg_yml_params, fail_during_request):
 
     (server, _) = listen_socket.accept()
     should_receive(server, "get KEY \r\n")
+    server.send("END\r\n")
 
-    if fail_during_request:
-        server.close()
-        should_receive(client, "SERVER_ERROR unknown\r\n")
+    # Close, open, then try to send the request again. Should do just fine.
+    server.close()
+    should_receive(client, "END\r\n")
 
-        print("Accepting a new connection from proxy...")
-        (server, _) = listen_socket.accept()
+    # Do the request again. Should do just fine on a new connection.
+    client.send("get KEY-after-close\r\n")
 
-        # Do the request again. Should do just fine on a new connection.
-        client.send("get KEY-after-close\r\n")
-        should_receive(server, "get KEY-after-close \r\n")
-    else:   # Fail between requests.
-        server.send("END\r\n")
-        # Close, open, then try to send the request again. Should do just fine.
-        time.sleep(0.1)
-        server.close()
-        time.sleep(0.1)
-        client.send("get KEY-after-close\r\n")
-        (server, _) = listen_socket.accept()
-        should_receive(server, "get KEY-after-close \r\n")
+    print("Accepting a new connection from proxy...")
+    (server, _) = listen_socket.accept()
+    should_receive(server, "get KEY-after-close \r\n")
 
     server.close()
     listen_socket.close()
@@ -89,22 +77,20 @@ Testing that server restart works across many parameters.
 
 variants_explored = []
 
-for fail_during_request in [False, True]:   # Fail during or between requests
-  for pc in [False, True]:
-    cfg_yml_params = {'preconnect': pc,
-        'server_retry_timeout': 42, # ms, Retry fast.
-        # Disable auto_eject_hosts.
-        # Otherwise we shall and will fail this test.
-        'auto_eject_hosts': False,
-        # (The server_failure_limit is only meaningful if aeh=True)
-        }
-    try:
-        test_server_restart(cfg_yml_params, fail_during_request)
-    except:
-        print("Error while testing configuration: %s (%s requests)"
-            % (cfg_yml_params, ("between", "during")[fail_during_request]))
-        raise
-    variants_explored.append(cfg_yml_params)
+for pc in [False, True]:
+  cfg_yml_params = {'preconnect': pc,
+      'server_retry_timeout': 42, # ms, Retry fast.
+      # Disable auto_eject_hosts.
+      # Otherwise we shall and will fail this test.
+      'auto_eject_hosts': False,
+      # (The server_failure_limit is only meaningful if aeh=True)
+      }
+  try:
+      test_server_fail_between_requests(cfg_yml_params)
+  except:
+      print("Error while testing configuration: %s" % cfg_yml_params)
+      raise
+  variants_explored.append(cfg_yml_params)
 
 print("%d nutcracker configuration variants successfully explored:\n%s"
         % (len(variants_explored), variants_explored))

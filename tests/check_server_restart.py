@@ -7,8 +7,6 @@ between the request.
 
 import os
 import time
-import signal
-import subprocess
 from test_helper import *
 
 try:
@@ -59,14 +57,8 @@ def test_server_restart(cfg_yml_params, fail_during_request):
 
     print("Opening nutcracker with config:\n%s" % yml_cfg);
 
-    nut_proc = subprocess.Popen([nutcracker_exe, "-c", ncfg.name,
-                                 "-a", "127.0.0.1", "-s", "%d" % stats_port])
-    time.sleep(0.1)
-    nut_proc.poll()
-    if nut_proc.returncode is not None:
-        print("Could not start the nutcracker process: %s\n" % nut_proc.returncode);
-        exit(1)
-
+    nut = NutcrackerProcess([nutcracker_exe, "-c", ncfg.name,
+                             "-a", "127.0.0.1", "-s", "%d" % stats_port])
 
     # Send the request to the proxy. It is supposed to be captured by our
     # server socket, so check it immediately afterwards.
@@ -98,12 +90,6 @@ def test_server_restart(cfg_yml_params, fail_during_request):
         client.send("get KEY-after-close\r\n")
         (server, _) = listen_socket.accept()
         should_receive(server, "get KEY-after-close \r\n")
-
-    nut_proc.kill()
-    nut_proc.wait()
-    if nut_proc.returncode is None:
-        print("Could not stop the nutcracker process\n");
-        exit(1)
 
     server.close()
     listen_socket.close()

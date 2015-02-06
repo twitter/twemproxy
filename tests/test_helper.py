@@ -52,11 +52,13 @@ def simple_nutcracker_config(proxy_port, server_port, dict):
 
 """
 Make a temporary file which will be used as a configuration for
-nutcracker.
+nutcracker. Fill it up with a specified configuration, if given.
 """
 
-def create_nutcracker_config_file():
+def create_nutcracker_config_file(config_yml = None):
     ncfg = tempfile.NamedTemporaryFile(prefix = "nutcracker-", suffix = ".yml")
+    if config_yml is not None:
+        enact_nutcracker_config(ncfg, config_yml)
     return ncfg
 
 def enact_nutcracker_config(ncfg, nutcracker_config_yml):

@@ -79,6 +79,23 @@ def should_receive(conn, value):
         print("Expectation failed: received data: %r" % data)
         raise
 
+
+# Open the servers on ports which we'll later assign to be a proxy port
+# and a stats port for nutcracker. This is a little bit dangerous due to
+# potential race conditions with the other servers on the local system,
+# but we can't do much better than that within the time and space constraints
+# provided for testing.
+# Just don't run high load servers or clients on this development machine
+# which does integration testing.
+def suggest_spare_ports(dict):
+    for key in dict:
+        (s, port) = open_server_socket()
+        s.close()
+        dict[key] = port
+    print("Prepared extra ports %r" % dict)
+    return dict
+
+
 # A resource wrapper for the nutcracker process.
 class NutcrackerProcess(object):
     def __init__(self, args):

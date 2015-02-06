@@ -27,28 +27,12 @@ def test_code_reload(cfg_yml_params):
 
     print("Opened two servers on ports %d and %d" % (srv_A_port, srv_B_port))
 
-    """
-    Open the third server on a port which we'll later assign to be a proxy port
-    for nutcracker. This is a little bit dangerous due to potential race
-    condition with other servers on the local system, but we can't do much
-    better than that within the time and space constraints provided for testing.
-    Just don't run high load servers or clients on this development machine
-    which does integration testing.
-    """
+    port = suggest_spare_ports({'proxy':None, 'stats':None})
 
-    (proxy, proxy_port) = open_server_socket()
-    proxy.close()
-    (stats, stats_port) = open_server_socket()
-    stats.close()
+    # Create the nutcracker configurations out of the proxy and server ports.
 
-    print("Prepared proxy port %d and stats port %d" % (proxy_port, stats_port))
-
-    """
-    Create the nutcracker configurations out of the proxy and server ports.
-    """
-
-    srv_A_cfg = simple_nutcracker_config(proxy_port, srv_A_port, cfg_yml_params)
-    srv_B_cfg = simple_nutcracker_config(proxy_port, srv_B_port, cfg_yml_params)
+    srv_A_cfg = simple_nutcracker_config(port['proxy'], srv_A_port, cfg_yml_params)
+    srv_B_cfg = simple_nutcracker_config(port['proxy'], srv_B_port, cfg_yml_params)
 
     ncfg = create_nutcracker_config_file()
 
@@ -59,12 +43,12 @@ def test_code_reload(cfg_yml_params):
     print("Opening nutcracker with config:\n%s" % srv_A_cfg);
 
     nut = NutcrackerProcess(["-c", ncfg.name,
-                             "--stats-port", "%d" % stats_port])
+                             "--stats-port", "%d" % port['stats']])
 
     # Send the request to the proxy. It is supposed to be captured by our
     # server socket, so check it immediately afterwards.
 
-    client = tcp_connect(proxy_port)
+    client = tcp_connect(port['proxy'])
     client.send("get KEY_FOR_A\r\n")
 
     print("Accepting connection from proxy...")

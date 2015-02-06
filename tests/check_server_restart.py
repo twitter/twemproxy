@@ -8,17 +8,10 @@ during the request or between the requests.
 import time
 from test_helper import *
 
-def should_receive(conn, value):
-    data = conn.recv(128);
-    if data == value:
-        print("Properly received %r" % data)
-    else:
-        print("Expectation failed: received data: %r" % data)
-        exit(1)
 
 def test_server_restart(cfg_yml_params, fail_during_request):
 
-    print "Testing server restart with parameters\n  %s" % cfg_yml_params
+    print("Testing server restart with parameters\n  %s" % cfg_yml_params)
 
     (listen_socket, server_port) = open_server_socket()
 
@@ -59,7 +52,7 @@ def test_server_restart(cfg_yml_params, fail_during_request):
     client = tcp_connect(proxy_port)
     client.send("get KEY\r\n")
 
-    print "Accepting connection from proxy..."
+    print("Accepting connection from proxy...")
 
     (server, _) = listen_socket.accept()
     should_receive(server, "get KEY \r\n")
@@ -68,7 +61,7 @@ def test_server_restart(cfg_yml_params, fail_during_request):
         server.close()
         should_receive(client, "SERVER_ERROR unknown\r\n")
 
-        print "Accepting a new connection from proxy..."
+        print("Accepting a new connection from proxy...")
         (server, _) = listen_socket.accept()
 
         # Do the request again. Should do just fine on a new connection.
@@ -87,7 +80,7 @@ def test_server_restart(cfg_yml_params, fail_during_request):
     server.close()
     listen_socket.close()
 
-    print "Finished testing %s" % cfg_yml_params
+    print("Finished testing %s" % cfg_yml_params)
 
 
 """

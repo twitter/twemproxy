@@ -14,7 +14,7 @@ from test_helper import *
 
 def test_code_reload(cfg_yml_params):
 
-    print "Testing code reload with parameters\n  %s" % cfg_yml_params
+    print("Testing code reload with parameters\n  %s" % cfg_yml_params)
 
     """
     Open two server side sockets.
@@ -67,16 +67,11 @@ def test_code_reload(cfg_yml_params):
     client = tcp_connect(proxy_port)
     client.send("get KEY_FOR_A\r\n")
 
-    print "Accepting connection from proxy..."
+    print("Accepting connection from proxy...")
 
     (srv_A, _) = listen_A.accept()
-    data = srv_A.recv(128);
-    if data == "get KEY_FOR_A \r\n":
-        print "Properly received get request by server A"
-        srv_A.send("END\r\n")
-    else:
-        print("Expectation failed: received data: \"%s\"" % data)
-        exit(1)
+    should_receive(srv_A, "get KEY_FOR_A \r\n")
+    srv_A.send("END\r\n")
 
     print("Now, reloading the nutcracker with config:\n%s" % srv_B_cfg);
 
@@ -86,13 +81,8 @@ def test_code_reload(cfg_yml_params):
     client.send("get KEY_FOR_B\r\n")
 
     (srv_B, _) = listen_B.accept()
-    data = srv_B.recv(128);
-    if data == "get KEY_FOR_B \r\n":
-        print "Properly received get request by server B"
-        srv_B.send("END\r\n")
-    else:
-        print("Expectation failed: received data: \"%s\"" % data)
-        exit(1)
+    should_receive(srv_B, "get KEY_FOR_B \r\n")
+    srv_B.send("END\r\n")
 
     srv_A.close()
     srv_B.close()
@@ -100,7 +90,7 @@ def test_code_reload(cfg_yml_params):
     listen_A.close()
     listen_B.close()
 
-    print "Finished testing %s" % cfg_yml_params
+    print("Finished testing %s" % cfg_yml_params)
 
 
 """

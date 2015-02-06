@@ -11,11 +11,11 @@ from test_helper import *
 
 def test_server_fail_between_requests(cfg_yml_params):
 
-    print("Testing server restart with parameters\n  %s" % cfg_yml_params)
+    log("Testing server restart with parameters\n  %s" % cfg_yml_params)
 
     (listen_socket, server_port) = open_server_socket()
 
-    print("Opened server on port %d" % server_port)
+    log("Opened server on port %d" % server_port)
 
     port = suggest_spare_ports({'proxy':None, 'stats':None})
 
@@ -23,7 +23,7 @@ def test_server_fail_between_requests(cfg_yml_params):
     yml_cfg = simple_nutcracker_config(port['proxy'], server_port, cfg_yml_params)
     ncfg = create_nutcracker_config_file(yml_cfg)
 
-    print("Opening nutcracker with config:\n%s" % yml_cfg);
+    log("Opening nutcracker with config:\n%s" % yml_cfg);
 
     nut = NutcrackerProcess(["-c", ncfg.name,
                              "--stats-port", "%d" % port['stats']])
@@ -34,7 +34,7 @@ def test_server_fail_between_requests(cfg_yml_params):
     client = tcp_connect(port['proxy'])
     client.send("get KEY\r\n")
 
-    print("Accepting connection from proxy...")
+    log("Accepting connection from proxy...")
 
     (server, _) = listen_socket.accept()
     should_receive(server, "get KEY \r\n")
@@ -47,7 +47,7 @@ def test_server_fail_between_requests(cfg_yml_params):
     # Do the request again. Should do just fine on a new connection.
     client.send("get KEY-after-close\r\n")
 
-    print("Accepting a new connection from proxy...")
+    log("Accepting a new connection from proxy...")
     (server, _) = listen_socket.accept()
     should_receive(server, "get KEY-after-close \r\n")
 
@@ -74,9 +74,9 @@ for pc in [False, True]:
   try:
       test_server_fail_between_requests(cfg_yml_params)
   except:
-      print("Error while testing configuration: %s" % cfg_yml_params)
+      log("Error while testing configuration: %s" % cfg_yml_params)
       raise
   variants_explored.append(cfg_yml_params)
 
-print("%d nutcracker configuration variants successfully explored:\n%s"
+log("%d nutcracker configuration variants successfully explored:\n%s"
         % (len(variants_explored), variants_explored))

@@ -14,7 +14,7 @@ from test_helper import *
 
 def test_code_reload(cfg_yml_params):
 
-    print("Testing code reload with parameters\n  %s" % cfg_yml_params)
+    log("Testing code reload with parameters\n  %s" % cfg_yml_params)
 
     """
     Open two server side sockets.
@@ -25,7 +25,7 @@ def test_code_reload(cfg_yml_params):
     (listen_A, srv_A_port) = open_server_socket()
     (listen_B, srv_B_port) = open_server_socket()
 
-    print("Opened two servers on ports %d and %d" % (srv_A_port, srv_B_port))
+    log("Opened two servers on ports %d and %d" % (srv_A_port, srv_B_port))
 
     port = suggest_spare_ports({'proxy':None, 'stats':None})
 
@@ -36,11 +36,11 @@ def test_code_reload(cfg_yml_params):
 
     ncfg = create_nutcracker_config_file()
 
-    print("Nutcracker config is in %s" % ncfg.name)
+    log("Nutcracker config is in %s" % ncfg.name)
 
     enact_nutcracker_config(ncfg, srv_A_cfg);
 
-    print("Opening nutcracker with config:\n%s" % srv_A_cfg);
+    log("Opening nutcracker with config:\n%s" % srv_A_cfg);
 
     nut = NutcrackerProcess(["-c", ncfg.name,
                              "--stats-port", "%d" % port['stats']])
@@ -51,13 +51,13 @@ def test_code_reload(cfg_yml_params):
     client = tcp_connect(port['proxy'])
     client.send("get KEY_FOR_A\r\n")
 
-    print("Accepting connection from proxy...")
+    log("Accepting connection from proxy...")
 
     (srv_A, _) = listen_A.accept()
     should_receive(srv_A, "get KEY_FOR_A \r\n")
     srv_A.send("END\r\n")
 
-    print("Now, reloading the nutcracker with config:\n%s" % srv_B_cfg);
+    log("Now, reloading the nutcracker with config:\n%s" % srv_B_cfg);
 
     enact_nutcracker_config(ncfg, srv_B_cfg)
     nut.config_reload()
@@ -94,5 +94,5 @@ for pc in [False, True]:
         test_code_reload(cfg_yml_params)
         variants_explored.append(cfg_yml_params)
 
-print("%d nutcracker configuration variants successfully explored:\n%s"
+log("%d nutcracker configuration variants successfully explored:\n%s"
         % (len(variants_explored), variants_explored))

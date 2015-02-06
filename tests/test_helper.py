@@ -1,10 +1,16 @@
+# -*- coding: utf-8 -*-
 
 import os
 import time
 import signal
 import socket
 import tempfile
+import datetime
 import subprocess
+
+def log(str):
+    ts = datetime.datetime.now()
+    print("[%s]: 💥  %s" % (ts, str))
 
 """
 Teach python to open a socket on some first available local port.
@@ -74,9 +80,9 @@ def enact_nutcracker_config(ncfg, nutcracker_config_yml):
 def should_receive(conn, value):
     data = conn.recv(128);
     if data == value:
-        print("Properly received %r" % data)
+        log("Properly received %r" % data)
     else:
-        print("Expectation failed: received data: %r" % data)
+        log("Expectation failed: received data: %r" % data)
         raise
 
 
@@ -92,7 +98,7 @@ def suggest_spare_ports(dict):
         (s, port) = open_server_socket()
         s.close()
         dict[key] = port
-    print("Prepared extra ports %r" % dict)
+    log("Prepared extra ports %r" % dict)
     return dict
 
 
@@ -108,15 +114,15 @@ class NutcrackerProcess(object):
             print("Set NUTCRACKER_PROGRAM environment variable and try again.")
             exit(1)
 
-        self.proc = subprocess.Popen([exe] + args
-                                     + ["--stats-addr", "127.0.0.1"])
+        self.proc = subprocess.Popen([exe, "--stats-addr", "127.0.0.1"]
+                                     + args)
         time.sleep(0.1)
         self.proc.poll()
         if self.proc.returncode is not None:
-            print("Could not start the nutcracker process: %r\n"
+            log("Could not start the nutcracker process: %r\n"
                     % nut_proc.returncode);
             raise
-        print("Started nutcracker pid %r" % self.proc.pid);
+        log("Started nutcracker pid %r" % self.proc.pid);
 
     def config_reload(self):
         self.proc.send_signal(signal.SIGUSR1)
@@ -127,7 +133,7 @@ class NutcrackerProcess(object):
             self.proc.kill()
             self.proc.wait()
             if self.proc.returncode is None:
-                print("Could not stop the nutcracker process\n");
+                log("Could not stop the nutcracker process\n");
                 raise
-            print("Stopped nutcracker pid %r" % self.proc.pid);
+            log("Stopped nutcracker pid %r" % self.proc.pid);
 

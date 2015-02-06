@@ -53,17 +53,16 @@ def simple_nutcracker_config(proxy_port, server_port, dict):
             + "   - 127.0.0.1:%s:1 my_test_server\n" % server_port)
 
 
-"""
-Make a temporary file which will be used as a configuration for
-nutcracker. Fill it up with a specified configuration, if given.
-"""
-
+# Make a temporary file which will be used as a configuration for
+# nutcracker. Fill it up with a specified configuration, if given.
 def create_nutcracker_config_file(config_yml = None):
     ncfg = tempfile.NamedTemporaryFile(prefix = "nutcracker-", suffix = ".yml")
     if config_yml is not None:
         enact_nutcracker_config(ncfg, config_yml)
     return ncfg
 
+
+# Save the new nutcracker configuration to the file system.
 def enact_nutcracker_config(ncfg, nutcracker_config_yml):
     ncfg.seek(0)
     ncfg.truncate(0)
@@ -71,6 +70,16 @@ def enact_nutcracker_config(ncfg, nutcracker_config_yml):
     ncfg.flush()
 
 
+# Try to receive data from the socket and match against the given value.
+def should_receive(conn, value):
+    data = conn.recv(128);
+    if data == value:
+        print("Properly received %r" % data)
+    else:
+        print("Expectation failed: received data: %r" % data)
+        raise
+
+# A resource wrapper for the nutcracker process.
 class NutcrackerProcess(object):
     def __init__(self, args):
         self.proc = None

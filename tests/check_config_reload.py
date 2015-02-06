@@ -1,5 +1,14 @@
 #!/usr/bin/env python
 
+"""
+This script tests that we continue to operate when the pool configuration
+changes and reload is requested. Two properties are checked:
+    1. That the reload effects the change indicated in the configuration,
+       and starts going to a different server.
+    2. That the client is not disconnected if the reload happens
+       between the client requests.
+"""
+
 import os
 import time
 import signal
@@ -41,14 +50,14 @@ def test_code_reload(cfg_yml_params):
     (stats, stats_port) = open_server_socket()
     stats.close()
 
+    print("Prepared proxy port %d and stats port %d" % (proxy_port, stats_port))
+
     """
     Create the nutcracker configurations out of the proxy and server ports.
     """
 
     srv_A_cfg = simple_nutcracker_config(proxy_port, srv_A_port, cfg_yml_params)
     srv_B_cfg = simple_nutcracker_config(proxy_port, srv_B_port, cfg_yml_params)
-
-    print("Prepared proxy port %d and stats port %d" % (proxy_port, stats_port))
 
     ncfg = create_nutcracker_config_file()
 

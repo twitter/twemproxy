@@ -73,7 +73,17 @@ def enact_nutcracker_config(ncfg, nutcracker_config_yml):
 
 class NutcrackerProcess(object):
     def __init__(self, args):
-        self.proc = subprocess.Popen(args)
+        self.proc = None
+
+        try:
+            exe = os.environ["NUTCRACKER_PROGRAM"]
+        except:
+            print("This program is designed to run under `make check`.")
+            print("Set NUTCRACKER_PROGRAM environment variable and try again.")
+            exit(1)
+
+        self.proc = subprocess.Popen([exe] + args
+                                     + ["--stats-addr", "127.0.0.1"])
         time.sleep(0.1)
         self.proc.poll()
         if self.proc.returncode is not None:
@@ -87,10 +97,11 @@ class NutcrackerProcess(object):
         time.sleep(0.1)
 
     def __del__(self):
-        self.proc.kill()
-        self.proc.wait()
-        if self.proc.returncode is None:
-            print("Could not stop the nutcracker process\n");
-            raise
-        print("Stopped nutcracker pid %r" % self.proc.pid);
+        if self.proc:
+            self.proc.kill()
+            self.proc.wait()
+            if self.proc.returncode is None:
+                print("Could not stop the nutcracker process\n");
+                raise
+            print("Stopped nutcracker pid %r" % self.proc.pid);
 

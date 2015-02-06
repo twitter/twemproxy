@@ -9,15 +9,8 @@ changes and reload is requested. Two properties are checked:
        between the client requests.
 """
 
-import os
 import time
 from test_helper import *
-
-try:
-    nutcracker_exe = os.environ["NUTCRACKER_PROGRAM"]
-except:
-    print("This program is designed to run `make check` to test.")
-    exit(1)
 
 def test_code_reload(cfg_yml_params):
 
@@ -65,8 +58,8 @@ def test_code_reload(cfg_yml_params):
 
     print("Opening nutcracker with config:\n%s" % srv_A_cfg);
 
-    nut = NutcrackerProcess([nutcracker_exe, "-c", ncfg.name,
-                             "-a", "127.0.0.1", "-s", "%d" % stats_port])
+    nut = NutcrackerProcess(["-c", ncfg.name,
+                             "--stats-port", "%d" % stats_port])
 
     # Send the request to the proxy. It is supposed to be captured by our
     # server socket, so check it immediately afterwards.

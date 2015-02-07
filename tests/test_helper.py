@@ -16,21 +16,40 @@ def log(str):
     print("[%s]: 💥  %s" % (ts, str))
 
 """
+Wrap the socket so it does not fail on BSD system because of EAGAIN
+"""
+class Sock(socket.socket):
+    def __init__(self, _sock = None):
+        socket.socket.__init__(self, socket.AF_INET, socket.SOCK_STREAM, _sock = _sock);
+
+        self.setblocking(True)
+        self.settimeout(3.0)
+
+        # Descriptor must not leak into nutcracker process.
+        flags = fcntl.fcntl(self.fileno(), fcntl.F_GETFD)
+        fcntl.fcntl(self.fileno(), fcntl.F_SETFD, flags | fcntl.FD_CLOEXEC)
+
+        self.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+
+        # All closes result in RST, not FIN. Simulate hard server failure.
+        l_onoff = 1
+        l_linger = 0
+        self.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER,
+                        struct.pack('ii', l_onoff, l_linger))
+
+    def accept(self):
+        (s, addr) = socket.socket.accept(self)
+        return (Sock(_sock = s), addr)
+
+
+"""
 Teach python to open a socket on some first available local port.
 Return the socket object and the local port obtained.
 """
-
 def open_server_socket(port = 0):
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
-    # Make sure the descriptor does not leak into nutcracker process.
-    flags = fcntl.fcntl(s.fileno(), fcntl.F_GETFD)
-    fcntl.fcntl(s.fileno(), fcntl.F_SETFD, flags | fcntl.FD_CLOEXEC)
-
-    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    s = Sock()
     s.bind(("127.0.0.1", port))
     s.listen(1)
-    s.settimeout(3.0)
     (_, port) = s.getsockname()
     return (s, port)
 
@@ -40,12 +59,7 @@ Open a client socket and connect to the given port on local machine.
 """
 
 def tcp_connect(port):
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    l_onoff = 1
-    l_linger = 0
-    s.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER,
-                 struct.pack('ii', l_onoff, l_linger))
+    s = Sock()
     s.connect(("127.0.0.1", port))
     return s
 

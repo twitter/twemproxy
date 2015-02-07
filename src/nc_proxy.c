@@ -216,8 +216,9 @@ proxy_each_init(struct server_pool *pool, void *data)
         return status;
     }
 
-    log_debug(LOG_NOTICE, "p %d listening on '%.*s' in %s pool %"PRIu32" '%.*s'"
-              " with %"PRIu32" servers", p->sd, pool->addrstr.len,
+    log_debug(LOG_NOTICE, "%s %d listening on '%.*s' in %s pool %"PRIu32" '%.*s'"
+              " with %"PRIu32" servers",
+              CONN_KIND_AS_STRING(p), p->sd, pool->addrstr.len,
               pool->addrstr.data, pool->redis ? "redis" : "memcache",
               pool->idx, pool->name.len, pool->name.data,
               array_n(&pool->server));
@@ -292,12 +293,14 @@ proxy_accept(struct context *ctx, struct conn *p)
         sd = accept(p->sd, NULL, NULL);
         if (sd < 0) {
             if (errno == EINTR) {
-                log_debug(LOG_VERB, "accept on p %d not ready - eintr", p->sd);
+                log_debug(LOG_VERB, "accept on %s %d not ready - eintr",
+                                    CONN_KIND_AS_STRING(p), p->sd);
                 continue;
             }
 
             if (errno == EAGAIN || errno == EWOULDBLOCK || errno == ECONNABORTED) {
-                log_debug(LOG_VERB, "accept on p %d not ready - eagain", p->sd);
+                log_debug(LOG_VERB, "accept on %s %d not ready - eagain",
+                                    CONN_KIND_AS_STRING(p), p->sd);
                 p->recv_ready = 0;
                 return NC_OK;
             }
@@ -315,10 +318,11 @@ proxy_accept(struct context *ctx, struct conn *p)
              * connections gets closed
              */
             if (errno == EMFILE || errno == ENFILE) {
-                log_debug(LOG_CRIT, "accept on p %d with max fds %"PRIu32" "
+                log_debug(LOG_CRIT, "accept on %s %d with max fds %"PRIu32" "
                           "used connections %"PRIu32" max client connections %"PRIu32" "
                           "curr client connections %"PRIu32" failed: %s",
-                          p->sd, ctx->max_nfd, conn_ncurr_conn(),
+                          CONN_KIND_AS_STRING(p), p->sd,
+                          ctx->max_nfd, conn_ncurr_conn(),
                           ctx->max_ncconn, conn_ncurr_cconn(), strerror(errno));
 
                 p->recv_ready = 0;
@@ -326,7 +330,8 @@ proxy_accept(struct context *ctx, struct conn *p)
                 return NC_OK;
             }
 
-            log_error("accept on p %d failed: %s", p->sd, strerror(errno));
+            log_error("accept on %s %d failed: %s",
+                      CONN_KIND_AS_STRING(p), p->sd, strerror(errno));
 
             return NC_ERROR;
         }

@@ -2,8 +2,11 @@
 
 import os
 import time
+import fcntl
 import signal
 import socket
+import struct
+import fnmatch
 import tempfile
 import datetime
 import subprocess
@@ -17,9 +20,15 @@ Teach python to open a socket on some first available local port.
 Return the socket object and the local port obtained.
 """
 
-def open_server_socket():
+def open_server_socket(port = 0):
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.bind(("127.0.0.1", 0))
+
+    # Make sure the descriptor does not leak into nutcracker process.
+    flags = fcntl.fcntl(s.fileno(), fcntl.F_GETFD)
+    fcntl.fcntl(s.fileno(), fcntl.F_SETFD, flags | fcntl.FD_CLOEXEC)
+
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    s.bind(("127.0.0.1", port))
     s.listen(1)
     s.settimeout(3.0)
     (_, port) = s.getsockname()
@@ -32,6 +41,11 @@ Open a client socket and connect to the given port on local machine.
 
 def tcp_connect(port):
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    l_onoff = 1
+    l_linger = 0
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER,
+                 struct.pack('ii', l_onoff, l_linger))
     s.connect(("127.0.0.1", port))
     return s
 
@@ -77,9 +91,9 @@ def enact_nutcracker_config(ncfg, nutcracker_config_yml):
 
 
 # Try to receive data from the socket and match against the given value.
-def should_receive(conn, value):
+def should_receive(conn, value_pattern):
     data = conn.recv(128);
-    if data == value:
+    if fnmatch.fnmatch(data, value_pattern):
         log("Properly received %r" % data)
     else:
         log("Expectation failed: received data: %r" % data)
@@ -114,7 +128,7 @@ class NutcrackerProcess(object):
             print("Set NUTCRACKER_PROGRAM environment variable and try again.")
             exit(1)
 
-        self.proc = subprocess.Popen([exe, "--stats-addr", "127.0.0.1"]
+        self.proc = subprocess.Popen([exe, "--stats-addr", "127.0.0.1", "-v8"]
                                      + args)
         time.sleep(0.1)
         self.proc.poll()

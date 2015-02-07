@@ -5,7 +5,6 @@ This script tests that the client is not disconnected when the server restarts
 during the request.
 """
 
-import time
 from test_helper import *
 
 
@@ -14,6 +13,7 @@ def test_server_fail_during_requests(cfg_yml_params):
     log("Testing server restart with parameters\n  %s" % cfg_yml_params)
 
     (listen_socket, server_port) = open_server_socket()
+    listen_socket.close();  # Not yet.
 
     log("Opened server on port %d" % server_port)
 
@@ -30,8 +30,15 @@ def test_server_fail_during_requests(cfg_yml_params):
 
     # Send the request to the proxy. It is supposed to be captured by our
     # server socket, so check it immediately afterwards.
-
+    log("Connect to the nutcracker")
     client = tcp_connect(port['proxy'])
+
+    # Open the server connection a little bit after we establish
+    # the socket to the nutcracker.
+    time.sleep(0.1)
+    log("Create the server")
+    (listen_socket, _) = open_server_socket(port = server_port)
+
     client.send("get KEY\r\n")
 
     log("Accepting connection from proxy...")
@@ -40,14 +47,32 @@ def test_server_fail_during_requests(cfg_yml_params):
     should_receive(server, "get KEY \r\n")
     # DO NOT SEND A REPLY
 
-    log("Closing server connection...")
+    log("Closing server sockets, simulate server restart...")
+    listen_socket.close()
     server.close()
 
-    log("Awaiting SERVER_ERROR...")
-    should_receive(client, "SERVER_ERROR unknown\r\n")
+    log("Awaiting SERVER_ERROR, followed by EOF...")
+    should_receive(client, "SERVER_ERROR *")
+    should_receive(client, "")  # Expect EOF.
 
     log("Sending the second GET request...")
     # Do the request again. Should do just fine on a new connection.
+    client = tcp_connect(port['proxy'])
+    client.send("get KEY-after-close\r\n")
+
+    # Simulate half a second server restart time
+    time.sleep(0.5)
+
+    should_receive(client, "SERVER_ERROR *")
+    should_receive(client, "")  # Expect EOF.
+    client.close()
+
+    client = tcp_connect(port['proxy'])
+
+    # Open a new listening socket on the same port.
+    log("Reopening listener on port %d..." % server_port)
+    (listen_socket, _) = open_server_socket(port = server_port)
+
     client.send("get KEY-after-close\r\n")
 
     log("Accepting a new connection from proxy...")

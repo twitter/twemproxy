@@ -110,7 +110,6 @@ for pc in [False, True]:
           except:
             log("Error while testing configuration: %s\n  while %s"
                 % (cfg_yml_params, test_settings))
-            raw_input("wait> ")
             raise
 
 log("%d nutcracker configuration variants successfully explored:\n%s"

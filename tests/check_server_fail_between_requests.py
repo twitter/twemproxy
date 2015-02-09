@@ -42,13 +42,15 @@ def test_server_fail_between_requests(test_settings, cfg_yml_params):
     should_receive(server, "get KEY \r\n", log_suffix = "by the server")
 
     log("Server got to reply and close %s"
-        % ["immediately", "after request is finished"][test_settings['die_right_after_END']])
-    if test_settings['die_right_after_END'] == True:
+        % ["after request is fully finished", "immediately"]
+            [test_settings['die_immediately_after_END']])
+    if test_settings['die_immediately_after_END']:
         server.send("END\r\n")
         server.close()
         log("Oops, brought the server down right after replying!")
         should_receive(client, "END\r\n", log_suffix = "by the client")
     else:
+        server.send("END\r\n")
         should_receive(client, "END\r\n", log_suffix = "by the client")
         log("Oops, time to bring the server down!")
         server.close()
@@ -88,7 +90,7 @@ for pc in [False, True]:
     for server_keep_down in [0, 0.5]:
       for client_req_delta in [0, 0.1]:
             test_settings = {
-                'die_right_after_END': close_after_END,
+                'die_immediately_after_END': close_after_END,
                 'time_to_keep_server_down': server_keep_down,
                 'server_start_and_client_request_delta': client_req_delta
                 }

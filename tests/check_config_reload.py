@@ -6,7 +6,7 @@ changes and reload is requested. Two properties are checked:
     1. That the reload effects the change indicated in the configuration,
        and starts going to a different server.
     2. That the client is not disconnected if the reload happens
-       between the client requests.
+       during or between the client requests.
 """
 
 import time

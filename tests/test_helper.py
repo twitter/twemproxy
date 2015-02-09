@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import os
+import sys
 import time
 import fcntl
 import signal
@@ -13,7 +14,8 @@ import subprocess
 
 def log(str):
     ts = datetime.datetime.now()
-    print("[%s]: 💥  %s" % (ts, str))
+    sys.stderr.write("[%s]: 💥  %s\n" % (ts, str))
+    sys.stderr.flush()
 
 """
 Wrap the socket so it does not fail on BSD system because of EAGAIN

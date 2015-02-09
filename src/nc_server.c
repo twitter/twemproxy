@@ -391,7 +391,7 @@ server_close(struct context *ctx, struct conn *conn)
             }
 
             log_debug(LOG_INFO, "close %s %d schedule error for req %"PRIu64" "
-                      "len %"PRIu32" type %d from %c %d%c %s",
+                      "len %"PRIu32" type %d from %s %d%c %s",
                       CONN_KIND_AS_STRING(conn), conn->sd, msg->id,
                       msg->mlen, msg->type,
                       CONN_KIND_AS_STRING(c_conn), c_conn->sd,

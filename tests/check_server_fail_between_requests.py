@@ -41,9 +41,9 @@ def test_server_fail_between_requests(test_settings, cfg_yml_params):
 
     should_receive(server, "get KEY \r\n", log_suffix = "by the server")
 
-    log("Server got to reply and close after %g"
-        % test_settings['die_right_after_END'])
-    if test_settings['die_right_after_END'] == 0:
+    log("Server got to reply and close %s"
+        % ["immediately", "after request is finished"][test_settings['die_right_after_END']])
+    if test_settings['die_right_after_END'] == True:
         server.send("END\r\n")
         server.close()
         log("Oops, brought the server down right after replying!")

@@ -34,6 +34,8 @@ sentinel_connect(struct context *ctx, struct server *sentinel)
     int cmd_num;
     int i;
 
+    ASSERT(sentinel->sentinel);
+
     /* get the only connect of sentinel */
     conn = sentinel_conn(sentinel);
     if (conn == NULL) {

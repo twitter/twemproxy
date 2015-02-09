@@ -76,7 +76,7 @@ def test_server_fail_between_requests(test_settings, cfg_yml_params):
 
     server.close()
 
-    print("Finished testing %s" % cfg_yml_params)
+    log("Finished testing %s" % cfg_yml_params)
 
 
 """

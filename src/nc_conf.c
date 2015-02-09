@@ -117,7 +117,7 @@ conf_server_init(struct conf_server *cs)
     cs->port = 0;
     cs->weight = 0;
 
-    memset(&cs->info, 0, sizeof(cs->info));
+    memset(&cs->saddr, 0, sizeof(cs->saddr));
 
     cs->valid = 0;
 
@@ -155,9 +155,7 @@ conf_server_each_transform(void *elem, void *data)
     s->port = (uint16_t)cs->port;
     s->weight = (uint32_t)cs->weight;
 
-    s->family = cs->info.family;
-    s->addrlen = cs->info.addrlen;
-    s->addr = (struct sockaddr *)&cs->info.addr;
+    s->saddr = cs->saddr;
 
     s->ns_conn_q = 0;
     TAILQ_INIT(&s->s_conn_q);
@@ -182,7 +180,7 @@ conf_pool_init(struct conf_pool *cp, struct string *name)
     string_init(&cp->listen.name);
     string_init(&cp->redis_auth);
     cp->listen.port = 0;
-    memset(&cp->listen.info, 0, sizeof(cp->listen.info));
+    memset(&cp->listen.saddr, 0, sizeof(cp->listen.saddr));
     cp->listen.valid = 0;
 
     cp->hash = CONF_UNSET_HASH;
@@ -264,9 +262,7 @@ conf_pool_each_create(void *elem, void *data)
     ASSERT(status == NC_OK);
     sp->port = (uint16_t)cp->listen.port;
 
-    sp->family = cp->listen.info.family;
-    sp->addrlen = cp->listen.info.addrlen;
-    sp->addr = (struct sockaddr *)&cp->listen.info.addr;
+    sp->saddr = cp->listen.saddr;
     sp->perm = cp->listen.perm;
 
     sp->key_hash_type = cp->hash;
@@ -1494,7 +1490,7 @@ conf_set_listen(struct conf *cf, struct command *cmd, void *conf)
         return CONF_ERROR;
     }
 
-    status = nc_resolve(&field->name, field->port, &field->info);
+    status = nc_resolve(&field->name, field->port, &field->saddr);
     if (status != NC_OK) {
         return CONF_ERROR;
     }
@@ -1620,12 +1616,12 @@ conf_add_server(struct conf *cf, struct command *cmd, void *conf)
     string_init(&address);
     status = string_copy(&address, (uint8_t *)addr_buf, strlen(addr_buf));
     if (status == NC_OK) {
-        status = nc_resolve(&address, field->port, &field->info);
+        status = nc_resolve(&address, field->port, &field->saddr);
         string_deinit(&address);
         if (status == NC_OK) {
             log_debug(LOG_INFO, "resolved %s (%s) into %s",
                 (char *)field->pname.data, name_buf,
-                nc_unresolve(&field->info));
+                nc_unresolve(&field->saddr));
         } else {
             return CONF_ERROR;
         }

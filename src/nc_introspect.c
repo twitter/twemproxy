@@ -144,14 +144,7 @@ static void format_connection(struct conn *conn, struct accumulator *acc) {
     } else if(CONN_KIND_IS_SERVER(conn)) {
         if(!(acc->detail & FRO_SERVERS))
                 return;
-        if(conn->family == AF_UNIX) {
-            buffer_sprintf(&acc->buf, "- %s\n",
-                ((struct sockaddr_un *)conn->addr)->sun_path);
-        } else {
-            buffer_sprintf(&acc->buf, "- %s\n",
-                nc_unresolve_addr((struct sockaddr *)&conn->addr,
-                                  conn->addrlen));
-        }
+        buffer_sprintf(&acc->buf, "- %s\n", nc_unresolve(&conn->saddr));
     } else if(CONN_KIND_IS_PROXY(conn)) {
         /* Do not print anything, printed separately. */
         return;

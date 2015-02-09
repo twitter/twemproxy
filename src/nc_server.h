@@ -74,9 +74,7 @@ struct server {
     struct string      name;          /* name (ref in conf_server) */
     uint16_t           port;          /* port */
     uint32_t           weight;        /* weight */
-    int                family;        /* socket family */
-    socklen_t          addrlen;       /* socket length */
-    struct sockaddr    *addr;         /* socket address (ref in conf_server) */
+    struct sockinfo    saddr;         /* Socket family/length/address */
 
     uint32_t           ns_conn_q;     /* # server connection */
     struct conn_tqh    s_conn_q;      /* server connection q */
@@ -105,9 +103,7 @@ struct server_pool {
     struct string      addrstr;              /* pool address (ref in conf_pool) */
     struct string      redis_auth;           /* redis_auth password */
     uint16_t           port;                 /* port */
-    int                family;               /* socket family */
-    socklen_t          addrlen;              /* socket length */
-    struct sockaddr    *addr;                /* socket address (ref in conf_pool) */
+    struct sockinfo    saddr;                /* socket address */
     mode_t             perm;                 /* socket permission */
     int                dist_type;            /* distribution type (dist_type_t) */
     int                key_hash_type;        /* key hash type (hash_type_t) */

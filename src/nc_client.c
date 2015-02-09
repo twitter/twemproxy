@@ -32,9 +32,7 @@ client_ref(struct conn *conn, void *owner)
      * we are not interested in the address of the peer for the accepted
      * connection
      */
-    conn->family = 0;
-    conn->addrlen = 0;
-    conn->addr = NULL;
+    memset(&conn->saddr, 0, sizeof(conn->saddr));
 
     pool->nc_conn_q++;
     TAILQ_INSERT_TAIL(&pool->c_conn_q, conn, conn_tqe);
@@ -142,9 +140,9 @@ client_close(struct context *ctx, struct conn *conn)
         ASSERT(msg->peer == NULL);
         ASSERT(msg->request && !msg->done);
 
-        log_debug(LOG_INFO, "close c %d discarding pending req %"PRIu64" len "
-                  "%"PRIu32" type %d", conn->sd, msg->id, msg->mlen,
-                  msg->type);
+        log_debug(LOG_INFO, "close %s %d discarding pending req %"PRIu64" len "
+                  "%"PRIu32" type %d", CONN_KIND_AS_STRING(conn), conn->sd,
+                  msg->id, msg->mlen, msg->type);
 
         req_put(msg);
     }
@@ -159,8 +157,8 @@ client_close(struct context *ctx, struct conn *conn)
         conn->dequeue_outq(ctx, conn, msg);
 
         if (msg->done) {
-            log_debug(LOG_INFO, "close c %d discarding %s req %"PRIu64" len "
-                      "%"PRIu32" type %d", conn->sd,
+            log_debug(LOG_INFO, "close %s %d discarding %s req %"PRIu64" len "
+                      "%"PRIu32" type %d", CONN_KIND_AS_STRING(conn), conn->sd,
                       msg->error ? "error": "completed", msg->id, msg->mlen,
                       msg->type);
             req_put(msg);
@@ -170,9 +168,10 @@ client_close(struct context *ctx, struct conn *conn)
             ASSERT(msg->request);
             ASSERT(msg->peer == NULL);
 
-            log_debug(LOG_INFO, "close c %d schedule swallow of req %"PRIu64" "
-                      "len %"PRIu32" type %d", conn->sd, msg->id, msg->mlen,
-                      msg->type);
+            log_debug(LOG_INFO, "close %s %d schedule swallow of req %"PRIu64" "
+                      "len %"PRIu32" type %d",
+                      CONN_KIND_AS_STRING(conn), conn->sd,
+                      msg->id, msg->mlen, msg->type);
         }
     }
     ASSERT(TAILQ_EMPTY(&conn->omsg_q));
@@ -181,7 +180,8 @@ client_close(struct context *ctx, struct conn *conn)
 
     status = close(conn->sd);
     if (status < 0) {
-        log_error("close c %d failed, ignored: %s", conn->sd, strerror(errno));
+        log_error("close %s %d failed, ignored: %s",
+                  CONN_KIND_AS_STRING(conn), conn->sd, strerror(errno));
     }
     conn->sd = -1;
 

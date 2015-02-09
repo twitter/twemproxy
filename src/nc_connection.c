@@ -485,12 +485,8 @@ char *
 conn_unresolve_descriptive(struct conn *conn)
 {
     if(CONN_KIND_IS_CLIENT(conn)) {
-            return nc_unresolve_peer_desc(conn->sd);
+        return nc_unresolve_peer_desc(conn->sd);
     } else {
-        if(conn->family == AF_UNIX) {
-            return ((struct sockaddr_un *)conn->addr)->sun_path;
-        } else {
-            return nc_unresolve_addr(conn->addr, conn->addrlen);
-        }
+        return nc_unresolve(&conn->saddr);
     }
 }

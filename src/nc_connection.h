@@ -75,9 +75,7 @@ struct conn {
     void                *owner;        /* connection owner - server_pool / server */
 
     int                 sd;            /* socket descriptor */
-    int                 family;        /* socket address family */
-    socklen_t           addrlen;       /* socket length */
-    struct sockaddr     *addr;         /* socket address (ref in server or server_pool) */
+    struct sockinfo     saddr;         /* socket address */
 
     struct msg_tqh      imsg_q;        /* incoming request Q */
     struct msg_tqh      omsg_q;        /* outstanding request Q */

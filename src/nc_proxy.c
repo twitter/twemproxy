@@ -30,9 +30,7 @@ proxy_ref(struct conn *conn, void *owner)
     ASSERT(CONN_KIND_IS_PROXY(conn));
     ASSERT(conn->owner == NULL);
 
-    conn->family = pool->family;
-    conn->addrlen = pool->addrlen;
-    conn->addr = pool->addr;
+    conn->saddr = pool->saddr;
 
     pool->p_conn = conn;
 
@@ -96,7 +94,7 @@ proxy_reuse(struct conn *p)
     rstatus_t status;
     struct sockaddr_un *un;
 
-    switch (p->family) {
+    switch (p->saddr.family) {
     case AF_INET:
     case AF_INET6:
         status = nc_set_reuseaddr(p->sd);
@@ -108,7 +106,7 @@ proxy_reuse(struct conn *p)
          * to delete the pathname, in case it already exists. If it does not
          * exist, unlink() returns error, which we ignore
          */
-        un = (struct sockaddr_un *) p->addr;
+        un = &p->saddr.addr.un;
         unlink(un->sun_path);
         status = NC_OK;
         break;
@@ -129,7 +127,7 @@ proxy_listen(struct context *ctx, struct conn *p)
 
     ASSERT(CONN_KIND_IS_PROXY(p));
 
-    p->sd = socket(p->family, SOCK_STREAM, 0);
+    p->sd = socket(p->saddr.family, SOCK_STREAM, 0);
     if (p->sd < 0) {
         log_error("socket failed: %s", strerror(errno));
         return NC_ERROR;
@@ -143,7 +141,7 @@ proxy_listen(struct context *ctx, struct conn *p)
         return NC_ERROR;
     }
 
-    status = bind(p->sd, p->addr, p->addrlen);
+    status = bind(p->sd, (struct sockaddr *)&p->saddr.addr, p->saddr.addrlen);
     if (status < 0) {
         log_error("bind on %s %d to addr '%.*s' failed: %s",
                   CONN_KIND_AS_STRING(p), p->sd,
@@ -151,11 +149,11 @@ proxy_listen(struct context *ctx, struct conn *p)
         return NC_ERROR;
     }
 
-    if (p->family == AF_UNIX && pool->perm) {
-        struct sockaddr_un *un = (struct sockaddr_un *)p->addr;
-        status = chmod(un->sun_path, pool->perm);
+    if (p->saddr.family == AF_UNIX && pool->perm) {
+        status = chmod(p->saddr.addr.un.sun_path, pool->perm);
         if (status < 0) {
-            log_error("chmod on p %d on addr '%.*s' failed: %s", p->sd,
+            log_error("chmod on %s %d on addr '%.*s' failed: %s",
+                      CONN_KIND_AS_STRING(p), p->sd,
                       pool->addrstr.len, pool->addrstr.data, strerror(errno));
             return NC_ERROR;
         }
@@ -379,7 +377,7 @@ proxy_accept(struct context *ctx, struct conn *p)
         return status;
     }
 
-    if (p->family == AF_INET || p->family == AF_INET6) {
+    if (p->saddr.family == AF_INET || p->saddr.family == AF_INET6) {
         status = nc_set_tcpnodelay(c->sd);
         if (status < 0) {
             log_warn("set tcpnodelay on %s %d from %s %d failed, ignored: %s",

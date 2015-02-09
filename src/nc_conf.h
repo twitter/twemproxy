@@ -60,7 +60,7 @@ struct conf_listen {
     struct string   name;    /* name */
     int             port;    /* port */
     mode_t          perm;    /* socket permissions */
-    struct sockinfo info;    /* listen socket info */
+    struct sockinfo saddr;   /* listen socket info */
     unsigned        valid:1; /* valid? */
 };
 
@@ -69,7 +69,7 @@ struct conf_server {
     struct string   name;       /* name */
     int             port;       /* port */
     int             weight;     /* weight */
-    struct sockinfo info;       /* connect socket info */
+    struct sockinfo saddr;      /* connect socket info */
     unsigned        valid:1;    /* valid? */
 };
 

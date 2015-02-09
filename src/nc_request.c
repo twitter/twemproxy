@@ -88,10 +88,11 @@ req_log(struct msg *req)
 
     req_type = msg_type_string(req->type);
 
-    log_debug(LOG_NOTICE, "req %"PRIu64" done on c %d req_time %"PRIi64".%03"PRIi64
+    log_debug(LOG_NOTICE, "req %"PRIu64" done on %s %d req_time %"PRIi64".%03"PRIi64
               " msec type %.*s narg %"PRIu32" req_len %"PRIu32" rsp_len %"PRIu32
               " key0 '%s' peer '%s' done %d error %d",
-              req->id, req->owner->sd, req_time / 1000, req_time % 1000,
+              req->id, CONN_KIND_AS_STRING(req->owner), req->owner->sd,
+              req_time / 1000, req_time % 1000,
               req_type->len, req_type->data, req->narg, req_len, rsp_len,
               kpos->start, peer_str, req->done, req->error);
 }
@@ -414,8 +415,9 @@ req_recv_next(struct context *ctx, struct conn *conn, bool alloc)
             ASSERT(msg->peer == NULL);
             ASSERT(msg->request && !msg->done);
 
-            log_error("eof c %d discarding incomplete req %"PRIu64" len "
-                      "%"PRIu32"", conn->sd, msg->id, msg->mlen);
+            log_error("eof %s %d discarding incomplete req %"PRIu64" len "
+                      "%"PRIu32"", CONN_KIND_AS_STRING(conn), conn->sd,
+                      msg->id, msg->mlen);
 
             req_put(msg);
         }
@@ -429,7 +431,7 @@ req_recv_next(struct context *ctx, struct conn *conn, bool alloc)
          */
         if (!conn->active(conn)) {
             conn->done = 1;
-            log_debug(LOG_INFO, "c %d is done", conn->sd);
+            log_debug(LOG_INFO, "%s %d is done", CONN_KIND_AS_STRING(conn), conn->sd);
         }
         return NULL;
     }

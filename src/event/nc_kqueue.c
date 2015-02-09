@@ -329,7 +329,18 @@ event_wait(struct event_base *evb, int timeout)
                 }
 
                 if (evb->cb != NULL && events != 0) {
+                    struct conn *c = ev->udata;
                     evb->cb(ev->udata, events);
+                    if((ev->flags & EV_EOF) && !c->done && !c->err) {
+                        /* Invoke the callback again, if the fd is closed
+                         * and we have not noticed it yet.
+                         * Could not do it earlier because there might
+                         * have been some data pending, so we had to
+                         * simulate a clean WRITE (or READ?) first.
+                         * Now we simulate READ again, it'll recv()=>0.
+                         */
+                        evb->cb(ev->udata, EVENT_READ);
+                    }
                 }
             }
             return evb->nreturned;

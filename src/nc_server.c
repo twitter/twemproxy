@@ -38,9 +38,7 @@ server_resolve(struct server *server, struct conn *conn)
         return;
     }
 
-    conn->family = server->info.family;
-    conn->addrlen = server->info.addrlen;
-    conn->addr = (struct sockaddr *)&server->info.addr;
+    conn->info = server->info;
 }
 
 void
@@ -489,7 +487,7 @@ server_connect(struct context *ctx, struct server *server, struct conn *conn)
     log_debug(LOG_VVERB, "connect to server '%.*s'", server->pname.len,
               server->pname.data);
 
-    conn->sd = socket(conn->family, SOCK_STREAM, 0);
+    conn->sd = socket(conn->info.family, SOCK_STREAM, 0);
     if (conn->sd < 0) {
         log_error("socket for server '%.*s' failed: %s", server->pname.len,
                   server->pname.data, strerror(errno));
@@ -526,7 +524,8 @@ server_connect(struct context *ctx, struct server *server, struct conn *conn)
 
     ASSERT(!conn->connecting && !conn->connected);
 
-    status = connect(conn->sd, conn->addr, conn->addrlen);
+    status = connect(conn->sd, (struct sockaddr *)&conn->info.addr,
+                               conn->info.addrlen);
     if (status != NC_OK) {
         if (errno == EINPROGRESS) {
             conn->connecting = 1;
@@ -536,9 +535,10 @@ server_connect(struct context *ctx, struct server *server, struct conn *conn)
             return NC_OK;
         }
 
-        log_error("connect on %s %d to server '%.*s' failed: %s",
+        log_error("connect on %s %d to server '%.*s' (%s) failed: %s",
                   CONN_KIND_AS_STRING(conn), conn->sd,
-                  server->pname.len, server->pname.data, strerror(errno));
+                  server->pname.len, server->pname.data,
+                  conn_unresolve_descriptive(conn), strerror(errno));
 
         goto error;
     }
@@ -1078,8 +1078,7 @@ static void
 server_pool_pause_incoming_client_traffic(struct server_pool *pool) {
     log_debug(LOG_DEBUG, "Pausing client connections for pool '%.*s' (%s)",
               pool->name.len, pool->name.data,
-              nc_unresolve_addr(pool->p_conn->addr,
-                                pool->p_conn->addrlen));
+              nc_unresolve(&pool->p_conn->info));
 
     /* Pause proxy connection (not accepting new clients) */
     event_del_in(pool->ctx->evb, pool->p_conn);
@@ -1096,8 +1095,7 @@ static void
 server_pool_resume_incoming_client_traffic(struct server_pool *pool) {
     log_debug(LOG_DEBUG, "Resume client connections for pool '%.*s' (%s)",
               pool->name.len, pool->name.data,
-              nc_unresolve_addr(pool->p_conn->addr,
-                                pool->p_conn->addrlen));
+              nc_unresolve(&pool->p_conn->info));
 
     /* Resume proxy connection (accepting new clients) */
     event_add_in(pool->ctx->evb, pool->p_conn);

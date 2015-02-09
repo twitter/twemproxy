@@ -163,7 +163,7 @@ conf_server_each_transform(void *elem, void *data)
     s->port = (uint16_t)cs->port;
     s->weight = (uint32_t)cs->weight;
 
-    nc_memcpy(&s->info, &cs->info, sizeof(cs->info));
+    s->info = cs->info;
 
     s->ns_conn_q = 0;
     TAILQ_INIT(&s->s_conn_q);
@@ -271,7 +271,7 @@ conf_pool_each_create(void *elem, void *data)
     ASSERT(status == NC_OK);
     sp->port = (uint16_t)cp->listen.port;
 
-    nc_memcpy(&sp->info, &cp->listen.info, sizeof(cp->listen.info));
+    sp->info = cp->listen.info;
     sp->perm = cp->listen.perm;
 
     sp->key_hash_type = cp->hash;

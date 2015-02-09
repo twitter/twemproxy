@@ -575,7 +575,7 @@ nc_resolve(struct string *name, int port, struct sockinfo *si)
  *
  * This routine is not reentrant
  */
-char *
+static char *
 nc_unresolve_addr(struct sockaddr *addr, socklen_t addrlen)
 {
     static char unresolve[NI_MAXHOST + NI_MAXSERV];
@@ -621,20 +621,19 @@ char *
 nc_unresolve_peer_desc(int sd)
 {
     static struct sockinfo si;
-    struct sockaddr *addr;
-    socklen_t addrlen;
     int status;
 
     memset(&si, 0, sizeof(si));
-    addr = (struct sockaddr *)&si.addr;
-    addrlen = sizeof(si.addr);
+    si.addrlen = sizeof(si.addr);
 
-    status = getpeername(sd, addr, &addrlen);
+    status = getpeername(sd, (struct sockaddr *)&si.addr, &si.addrlen);
     if (status < 0) {
         return "unknown";
+    } else {
+        si.family = si.addr.in.sin_family;
     }
 
-    return nc_unresolve_addr(addr, addrlen);
+    return nc_unresolve(&si);
 }
 
 /*

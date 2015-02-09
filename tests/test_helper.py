@@ -112,7 +112,7 @@ def should_receive(conn, value_pattern, log_suffix = ""):
     if fnmatch.fnmatch(data, value_pattern):
         log("Properly received %r %s" % (data, log_suffix))
     else:
-        log("Expectation failed: received data: %r" % (data, log_suffix))
+        log("Expectation failed: received data: %r %s" % (data, log_suffix))
         raise
 
 

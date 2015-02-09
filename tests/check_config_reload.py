@@ -12,7 +12,7 @@ changes and reload is requested. Two properties are checked:
 import time
 from test_helper import *
 
-def test_code_reload(cfg_yml_params):
+def test_code_reload(test_settings, cfg_yml_params):
 
     log("Testing code reload with parameters\n  %s" % cfg_yml_params)
 
@@ -55,17 +55,28 @@ def test_code_reload(cfg_yml_params):
 
     (srv_A, _) = listen_A.accept()
     should_receive(srv_A, "get KEY_FOR_A \r\n")
-    srv_A.send("END\r\n")
 
-    log("Now, reloading the nutcracker with config:\n%s" % srv_B_cfg);
+    if test_settings['reload_during_request']:
+      log("Now, reloading the nutcracker with config:\n%s" % srv_B_cfg);
+      enact_nutcracker_config(ncfg, srv_B_cfg)
+      nut.config_reload()
+      srv_A.send("END\r\n")
+      should_receive(client, "END\r\n")
+    else:
+      srv_A.send("END\r\n")
+      should_receive(client, "END\r\n")
+      log("Now, reloading the nutcracker with config:\n%s" % srv_B_cfg);
+      enact_nutcracker_config(ncfg, srv_B_cfg)
+      nut.config_reload()
 
-    enact_nutcracker_config(ncfg, srv_B_cfg)
-    nut.config_reload()
+    log("Wait until the proxy closes connection to the server A")
+    should_receive(srv_A, "", log_suffix = "by server A")
 
+    log("The subsequent request should go through the server B")
     client.send("get KEY_FOR_B\r\n")
-
+    log("Server B is now awaiting nutcracker on port %d" % srv_B_port)
     (srv_B, _) = listen_B.accept()
-    should_receive(srv_B, "get KEY_FOR_B \r\n")
+    should_receive(srv_B, "get KEY_FOR_B \r\n", log_suffix = "by server B")
     srv_B.send("END\r\n")
 
     srv_A.close()
@@ -74,7 +85,7 @@ def test_code_reload(cfg_yml_params):
     listen_A.close()
     listen_B.close()
 
-    print("Finished testing %s" % cfg_yml_params)
+    log("Finished testing %s" % cfg_yml_params)
 
 
 """
@@ -87,12 +98,20 @@ for pc in [False, True]:
   for aeh in [False, True]:
     for srt in [None, 2000]:
       for sfl in [1, 2]:
-        cfg_yml_params = {'preconnect': pc,
-                          'auto_eject_hosts': aeh,
-                          'server_retry_timeout': srt,
-                          'server_failure_limit': sfl}
-        test_code_reload(cfg_yml_params)
-        variants_explored.append(cfg_yml_params)
+        for during_req in [False, True]:
+          test_settings = {'reload_during_request': during_req }
+          cfg_yml_params = {'preconnect': pc,
+                            'auto_eject_hosts': aeh,
+                            'server_retry_timeout': srt,
+                            'server_failure_limit': sfl}
+          try:
+            test_code_reload(test_settings, cfg_yml_params)
+            variants_explored.append(cfg_yml_params)
+          except:
+            log("Error while testing configuration: %s\n  while %s"
+                % (cfg_yml_params, test_settings))
+            raw_input("wait> ")
+            raise
 
 log("%d nutcracker configuration variants successfully explored:\n%s"
         % (len(variants_explored), variants_explored))

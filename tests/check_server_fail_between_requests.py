@@ -80,7 +80,7 @@ def test_server_fail_between_requests(test_settings, cfg_yml_params):
 
 
 """
-Testing that server restart works across many parameters.
+Testing across many parameters.
 """
 
 variants_explored = []

@@ -105,12 +105,12 @@ def enact_nutcracker_config(ncfg, nutcracker_config_yml):
 
 
 # Try to receive data from the socket and match against the given value.
-def should_receive(conn, value_pattern):
+def should_receive(conn, value_pattern, log_suffix = ""):
     data = conn.recv(128);
     if fnmatch.fnmatch(data, value_pattern):
-        log("Properly received %r" % data)
+        log("Properly received %r %s" % (data, log_suffix))
     else:
-        log("Expectation failed: received data: %r" % data)
+        log("Expectation failed: received data: %r" % (data, log_suffix))
         raise
 
 

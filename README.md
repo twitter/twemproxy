@@ -251,6 +251,7 @@ https://launchpad.net/~twemproxy/+archive/ubuntu/daily
 + [redis-mgr](https://github.com/idning/redis-mgr)
 + [smitty for twemproxy failover](https://github.com/areina/smitty)
 + [chef cookbook](https://supermarket.getchef.com/cookbooks/twemproxy)
++ [twemsentinel](https://github.com/yak0/twemsentinel)
 
 ## Users
 + [Pinterest](http://pinterest.com/)

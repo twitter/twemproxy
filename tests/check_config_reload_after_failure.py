@@ -1,19 +1,15 @@
 #!/usr/bin/env python
 
 """
-This script tests that we continue to operate when the pool configuration
-changes and reload is requested. Two properties are checked:
-    1. That the reload effects the change indicated in the configuration,
-       and starts going to a different server.
-    2. That the client is not disconnected if the reload happens
-       during or between the client requests.
+Test that we can switch to a new configuration after the old configuration
+got totally hosed with all the servers deemed broken.
 """
 
 from test_helper import *
 
 def test_code_reload(test_settings, cfg_yml_params):
 
-    log("Testing code reload with parameters\n  %s" % cfg_yml_params)
+    log("Testing code reload with parameters\n  %s\n  while %s" % (cfg_yml_params, test_settings))
 
     """
     Open two server side sockets.
@@ -53,23 +49,39 @@ def test_code_reload(test_settings, cfg_yml_params):
     log("Accepting connection from proxy...")
 
     (srv_A, _) = listen_A.accept()
+    listen_A.close()    # Accept on A only once.
     should_receive(srv_A, "get KEY_FOR_A \r\n")
 
-    if test_settings['reload_during_request']:
-      log("Now, reloading the nutcracker with config:\n%s" % srv_B_cfg);
-      enact_nutcracker_config(ncfg, srv_B_cfg)
-      nut.config_reload()
-      srv_A.send("END\r\n")
-      should_receive(client, "END\r\n")
+    if test_settings['fail_during_request']:
+      srv_A.close();
+      should_receive(client, "SERVER_ERROR *", log_suffix = "by the client")
+      client.close();
     else:
       srv_A.send("END\r\n")
-      should_receive(client, "END\r\n")
-      log("Now, reloading the nutcracker with config:\n%s" % srv_B_cfg);
-      enact_nutcracker_config(ncfg, srv_B_cfg)
-      nut.config_reload()
+      srv_A.close()
+      should_receive(client, "END\r\n", log_suffix = "by the client")
+      client.close()
+      time.sleep(0.01)  # Let the logging flush in nutcracker, courtesy.
 
-    log("Wait until the proxy closes connection to the server A")
-    should_receive(srv_A, "", log_suffix = "by server A")
+    log("Current env is %s %s port %d" % (cfg_yml_params, test_settings, port['proxy']))
+    log("Connecting the second time and check that it does not work")
+
+    client = tcp_connect(port['proxy'])
+    client.settimeout(50)
+    client.send("get KEY_FOR_FAILED_A\r\n")
+    should_receive(client, "SERVER_ERROR *", log_suffix = "by client (2)")
+    should_receive(client, "", log_suffix = "by client (2)")
+    client.close()
+
+    time.sleep(0.1)
+
+    log("Connecting the third time, config switching to B, should work now")
+
+    client = tcp_connect(port['proxy'])
+
+    log("Switching nutcracker to server B")
+    enact_nutcracker_config(ncfg, srv_B_cfg)
+    nut.config_reload()
 
     log("The subsequent request should go through the server B")
     client.send("get KEY_FOR_B\r\n")
@@ -77,11 +89,11 @@ def test_code_reload(test_settings, cfg_yml_params):
     (srv_B, _) = listen_B.accept()
     should_receive(srv_B, "get KEY_FOR_B \r\n", log_suffix = "by server B")
     srv_B.send("END\r\n")
+    should_receive(client, "END\r\n", log_suffix = "by client (3)")
 
-    srv_A.close()
+    client.close()
     srv_B.close()
 
-    listen_A.close()
     listen_B.close()
 
     log("Finished testing %s" % cfg_yml_params)
@@ -95,10 +107,10 @@ variants_explored = []
 
 for pc in [False, True]:
   for aeh in [False, True]:
-    for srt in [None, 2000]:
-      for sfl in [1, 2]:
+    for srt in [200, 1000]:
+      for sfl in [1]:
         for during_req in [False, True]:
-          test_settings = {'reload_during_request': during_req }
+          test_settings = {'fail_during_request': during_req }
           cfg_yml_params = {'preconnect': pc,
                             'auto_eject_hosts': aeh,
                             'server_retry_timeout': srt,

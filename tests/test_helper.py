@@ -150,7 +150,7 @@ class NutcrackerProcess(object):
         self.proc.poll()
         if self.proc.returncode is not None:
             log("Could not start the nutcracker process: %r\n"
-                    % nut_proc.returncode);
+                    % self.proc.returncode);
             raise
         log("Started nutcracker pid %r" % self.proc.pid);
 

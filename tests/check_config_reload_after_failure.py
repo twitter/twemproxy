@@ -107,22 +107,24 @@ Testing that reload works across many parameters.
 variants_explored = []
 
 for pc in [False, True]:
-  for aeh in [False, True]:
-    for srt in [200, 1000]:
-      for sfl in [1]:
-        for during_req in [False, True]:
-          test_settings = {'fail_during_request': during_req }
-          cfg_yml_params = {'preconnect': pc,
-                            'auto_eject_hosts': aeh,
-                            'server_retry_timeout': srt,
-                            'server_failure_limit': sfl}
-          try:
-            test_code_reload(test_settings, cfg_yml_params)
-            variants_explored.append(cfg_yml_params)
-          except:
-            log("Error while testing configuration: %s\n  while %s"
-                % (cfg_yml_params, test_settings))
-            raise
+  for tmo in [None, 1000, 30000]:
+    for aeh in [False, True]:
+      for srt in [200, 1000]:
+        for sfl in [1]:
+          for during_req in [False, True]:
+            test_settings = {'fail_during_request': during_req }
+            cfg_yml_params = {'preconnect': pc,
+                              'timeout': tmo,
+                              'auto_eject_hosts': aeh,
+                              'server_retry_timeout': srt,
+                              'server_failure_limit': sfl}
+            try:
+              test_code_reload(test_settings, cfg_yml_params)
+              variants_explored.append(cfg_yml_params)
+            except:
+              log("Error while testing configuration: %s\n  while %s"
+                  % (cfg_yml_params, test_settings))
+              raise
 
 log("%d nutcracker configuration variants successfully explored:\n%s"
         % (len(variants_explored), variants_explored))

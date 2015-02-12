@@ -71,6 +71,7 @@ Create a simple yaml config with a given port as a server.
 """
 
 def simple_nutcracker_config(proxy_port, server_port, dict):
+    timeout = dict.get("timeout", None)
     auto_eject_hosts = dict.get("auto_eject_hosts", False)
     server_retry_timeout = dict.get("server_retry_timeout", 2000)
     server_failure_limit = dict.get("server_failure_limit", 1)
@@ -80,6 +81,8 @@ def simple_nutcracker_config(proxy_port, server_port, dict):
             + "  listen: 127.0.0.1:%s\n" % proxy_port
             + "  hash: fnv1a_64\n"
             + "  distribution: ketama\n"
+            + ("" if timeout is None else
+              "  timeout: %s\n" % timeout)
             + "  auto_eject_hosts: %s\n" % ("true" if auto_eject_hosts else "false")
             + ("" if server_retry_timeout is None else
               "  server_retry_timeout: %s\n" % server_retry_timeout)

@@ -531,6 +531,9 @@ req_forward_error(struct context *ctx, struct conn *conn, struct msg *msg)
     msg->done = 1;
     msg->error = 1;
     msg->err = errno;
+    if(msg->frag_owner) {
+        msg->frag_owner->nfrag_done++;
+    }
 
     /* noreply request don't expect any response */
     if (msg->noreply) {
@@ -538,7 +541,27 @@ req_forward_error(struct context *ctx, struct conn *conn, struct msg *msg)
         return;
     }
 
-    if (req_done(conn, TAILQ_FIRST(&conn->omsg_q))) {
+    err_t old_err = conn->err;
+
+    bool request_is_done = req_done(conn, TAILQ_FIRST(&conn->omsg_q));
+
+    if(!old_err && conn->err) {
+        /*
+         * req_done() is a weird function. It is allowed to modify the
+         * connection state if for some reason the structure of the message
+         * is not up to its liking. For example, the msg->post_coalesce()
+         * used in req_done() can mark the connection as erroneous if
+         * there is no msg->fraq_seq[i]->peer. This should be structured
+         * differently. Meanwhile, we don't allow sudden connection close
+         * to happen for erroneous requests, and just wait until the output
+         * queue is drained.
+         * See ../tests/check_config_reload_after_failure.py for test.
+         */
+        conn->err = old_err;
+        conn->eof = 1;
+    }
+
+    if(request_is_done) {
         status = event_add_out(ctx->evb, conn);
         if (status != NC_OK) {
             conn->err = errno;

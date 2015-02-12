@@ -67,7 +67,8 @@ def test_code_reload(test_settings, cfg_yml_params):
     log("Connecting the second time and check that it does not work")
 
     client = tcp_connect(port['proxy'])
-    client.settimeout(50)
+    time.sleep(0.1) # Allow logs to flush
+    log("Sending the key to fail")
     client.send("get KEY_FOR_FAILED_A\r\n")
     should_receive(client, "SERVER_ERROR *", log_suffix = "by client (2)")
     should_receive(client, "", log_suffix = "by client (2)")

@@ -525,8 +525,8 @@ req_forward_error(struct context *ctx, struct conn *conn, struct msg *msg)
     ASSERT(CONN_KIND_IS_CLIENT(conn));
 
     log_debug(LOG_INFO, "forward req %"PRIu64" len %"PRIu32" type %d from "
-              "c %d failed: %s", msg->id, msg->mlen, msg->type, conn->sd,
-              strerror(errno));
+              "%s %d failed: %s", msg->id, msg->mlen, msg->type,
+              CONN_KIND_AS_STRING(conn), conn->sd, strerror(errno));
 
     msg->done = 1;
     msg->error = 1;

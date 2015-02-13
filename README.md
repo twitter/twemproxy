@@ -274,6 +274,7 @@ https://launchpad.net/~twemproxy/+archive/ubuntu/daily
 + [Socrata](http://www.socrata.com/)
 + [Hootsuite](http://hootsuite.com/)
 + [Trivago](http://www.trivago.com/)
++ [Machinezone](http://www.machinezone.com)
 
 ## Issues and Support
 

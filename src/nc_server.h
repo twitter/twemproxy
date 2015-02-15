@@ -107,6 +107,8 @@ struct server_pool {
     struct continuum   *continuum;           /* continuum */
     uint32_t           nlive_server;         /* # live server */
     int64_t            next_rebuild;         /* next distribution rebuild time in usec */
+    int64_t            next_sentinel_reconn; /* next reconnect sentinel time in usec */
+    uint32_t           sentinel_idx;         /* the connected sentinel's idx */
 
     struct string      name;                 /* pool name (ref in conf_pool) */
     struct string      addrstr;              /* pool address (ref in conf_pool) */

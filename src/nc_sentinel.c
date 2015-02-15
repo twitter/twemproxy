@@ -39,6 +39,8 @@ sentinel_connect(struct context *ctx, struct server *sentinel)
     /* get the only connect of sentinel */
     conn = sentinel_conn(sentinel);
     if (conn == NULL) {
+        /* can't call sentinel_close, Just set reconnect immediately */
+        sentinel->owner->next_sentinel_reconn = 1LL;
         return NC_ENOMEM;
     }
 
@@ -76,14 +78,31 @@ sentinel_connect(struct context *ctx, struct server *sentinel)
 
     conn->status = CONN_SEND_REQ;
 
+    sentinel->owner->next_sentinel_reconn = 0LL;
+
     return NC_OK;
 }
 
 void
 sentinel_close(struct context *ctx, struct conn *conn)
 {
-    server_close(ctx, conn);
+    struct server_pool *pool;
+    int64_t now;
+
+    pool = ((struct server*)conn->owner)->owner;
+
+    now = nc_usec_now();
+    if (now < 0) {
+        /* get time failed, we reconnect immediately */
+        pool->next_sentinel_reconn = 1LL;
+        return;
+    }
+
+    pool->next_sentinel_reconn = now + pool->server_retry_timeout;
+
     conn->status = CONN_DISCONNECTED;
+
+    server_close(ctx, conn);
 }
 
 static rstatus_t

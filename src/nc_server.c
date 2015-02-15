@@ -278,8 +278,12 @@ server_failure(struct context *ctx, struct server *server)
     int64_t now, next;
     rstatus_t status;
 
+    if (!pool->auto_eject_hosts) {
+        return;
+    }
+
     /* sentinel do not need eject */
-    if (server->sentinel || !pool->auto_eject_hosts) {
+    if (server->sentinel) {
         return;
     }
 
@@ -585,51 +589,6 @@ server_ok(struct context *ctx, struct conn *conn)
     }
 }
 
-static rstatus_t
-server_pool_update(struct server_pool *pool)
-{
-    rstatus_t status;
-    int64_t now;
-    uint32_t pnlive_server; /* prev # live server */
-
-    if (!pool->auto_eject_hosts) {
-        return NC_OK;
-    }
-
-    if (pool->next_rebuild == 0LL) {
-        return NC_OK;
-    }
-
-    now = nc_usec_now();
-    if (now < 0) {
-        return NC_ERROR;
-    }
-
-    if (now <= pool->next_rebuild) {
-        if (pool->nlive_server == 0) {
-            errno = ECONNREFUSED;
-            return NC_ERROR;
-        }
-        return NC_OK;
-    }
-
-    pnlive_server = pool->nlive_server;
-
-    status = server_pool_run(pool);
-    if (status != NC_OK) {
-        log_error("updating pool %"PRIu32" with dist %d failed: %s", pool->idx,
-                  pool->dist_type, strerror(errno));
-        return status;
-    }
-
-    log_debug(LOG_INFO, "update pool %"PRIu32" '%.*s' to add %"PRIu32" servers",
-              pool->idx, pool->name.len, pool->name.data,
-              pool->nlive_server - pnlive_server);
-
-
-    return NC_OK;
-}
-
 struct server*
 server_find_by_name(struct context *ctx, struct server_pool *server_pool, struct string *server_name)
 {
@@ -693,6 +652,16 @@ server_set_address(struct server *server, struct string *server_ip, int server_p
     return NC_OK;
 }
 
+static void
+server_conn_done(struct server *server)
+{
+    struct conn *conn;
+
+    TAILQ_FOREACH(conn, &server->s_conn_q, conn_tqe) {
+        conn->done = 1;
+    }
+}
+
 rstatus_t
 server_switch(struct context *ctx, struct server *server,
         struct string *server_ip, int server_port)
@@ -725,16 +694,84 @@ server_switch(struct context *ctx, struct server *server,
         return status;
     }
 
-    /* disconnect all the connection include the slaves's.
-     * use the timer to disconnect after the file event loop.
+    /* Just set all conns done. If we close all connections in the
+     * sentinel event and there are events for the connections which are
+     * closed already, proxy will try to access the conns which are released.
      */
-    //event_add_timer(ctx, (long long)0, server_disconnect, server, NULL);
+    server_conn_done(server);
 
     server_pool = server->owner;
     log_warn("success switch %.*s-%.*s to %.*s",
             server_pool->name.len, server_pool->name.data,
             server->name.len, server->name.data,
             server->pname.len, server->pname.data);
+
+    return NC_OK;
+}
+
+static void
+server_pool_sentinel_check(struct context *ctx, struct server_pool *pool)
+{
+    int64_t now;
+
+    if (!array_n(&pool->sentinel)) {
+        return;
+    }
+
+    if (pool->next_sentinel_reconn == 0LL) {
+        return;
+    }
+
+    now = nc_usec_now();
+    if (now > 0 && now < pool->next_sentinel_reconn) {
+        return;
+    }
+
+    pool->sentinel_idx = (pool->sentinel_idx + 1) % array_n(&pool->sentinel);
+    sentinel_connect(ctx, array_get(&pool->sentinel, pool->sentinel_idx));
+}
+
+static rstatus_t
+server_pool_update(struct server_pool *pool)
+{
+    rstatus_t status;
+    int64_t now;
+    uint32_t pnlive_server; /* prev # live server */
+
+    if (!pool->auto_eject_hosts) {
+        return NC_OK;
+    }
+
+    if (pool->next_rebuild == 0LL) {
+        return NC_OK;
+    }
+
+    now = nc_usec_now();
+    if (now < 0) {
+        return NC_ERROR;
+    }
+
+    if (now <= pool->next_rebuild) {
+        if (pool->nlive_server == 0) {
+            errno = ECONNREFUSED;
+            return NC_ERROR;
+        }
+        return NC_OK;
+    }
+
+    pnlive_server = pool->nlive_server;
+
+    status = server_pool_run(pool);
+    if (status != NC_OK) {
+        log_error("updating pool %"PRIu32" with dist %d failed: %s", pool->idx,
+                  pool->dist_type, strerror(errno));
+        return status;
+    }
+
+    log_debug(LOG_INFO, "update pool %"PRIu32" '%.*s' to add %"PRIu32" servers",
+              pool->idx, pool->name.len, pool->name.data,
+              pool->nlive_server - pnlive_server);
+
 
     return NC_OK;
 }
@@ -828,6 +865,8 @@ server_pool_conn(struct context *ctx, struct server_pool *pool, uint8_t *key,
     rstatus_t status;
     struct server *server;
     struct conn *conn;
+
+    server_pool_sentinel_check(ctx, pool);
 
     status = server_pool_update(pool);
     if (status != NC_OK) {

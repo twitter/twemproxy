@@ -14,7 +14,7 @@ sentinel_conn(struct server *sentinel)
 
     /* sentinel has only one connection */
     if (sentinel->ns_conn_q == 0) {
-        return conn_get_sentinel(sentinel);
+        return conn_get(sentinel, false, true);
     }
     ASSERT(sentinel->ns_conn_q == 1);
 
@@ -23,6 +23,21 @@ sentinel_conn(struct server *sentinel)
     ASSERT(conn->status == CONN_DISCONNECTED);
 
     return conn;
+}
+
+static void
+sentinel_set_next_connect(struct server_pool *pool)
+{
+    int64_t now;
+
+    now = nc_usec_now();
+    if (now < 0) {
+        /* get time failed, we reconnect immediately */
+        pool->next_sentinel_connect = 1LL;
+        return;
+    }
+
+    pool->next_sentinel_connect = now + pool->server_retry_timeout;
 }
 
 rstatus_t
@@ -39,8 +54,8 @@ sentinel_connect(struct context *ctx, struct server *sentinel)
     /* get the only connect of sentinel */
     conn = sentinel_conn(sentinel);
     if (conn == NULL) {
-        /* can't call sentinel_close, Just set reconnect immediately */
-        sentinel->owner->next_sentinel_reconn = 1LL;
+        /* can't call sentinel_close, manual set next connect */
+        sentinel_set_next_connect(sentinel->owner);
         return NC_ENOMEM;
     }
 
@@ -52,7 +67,7 @@ sentinel_connect(struct context *ctx, struct server *sentinel)
 
     /* set keepalive opt on sentinel socket to detect socket dead */
     status = nc_set_keepalive(conn->sd, SENTINEL_KEEPALIVE);
-    if (status != NC_OK) {
+    if (status < 0) {
         log_error("set keepalive on s %d for sentienl server failed: %s",
                   conn->sd, strerror(errno));
         sentinel_close(ctx, conn);
@@ -78,7 +93,7 @@ sentinel_connect(struct context *ctx, struct server *sentinel)
 
     conn->status = CONN_SEND_REQ;
 
-    sentinel->owner->next_sentinel_reconn = 0LL;
+    sentinel->owner->next_sentinel_connect = 0LL;
 
     return NC_OK;
 }
@@ -87,18 +102,10 @@ void
 sentinel_close(struct context *ctx, struct conn *conn)
 {
     struct server_pool *pool;
-    int64_t now;
 
     pool = ((struct server*)conn->owner)->owner;
 
-    now = nc_usec_now();
-    if (now < 0) {
-        /* get time failed, we reconnect immediately */
-        pool->next_sentinel_reconn = 1LL;
-        return;
-    }
-
-    pool->next_sentinel_reconn = now + pool->server_retry_timeout;
+    sentinel_set_next_connect(pool);
 
     conn->status = CONN_DISCONNECTED;
 
@@ -402,7 +409,7 @@ sentinel_recv_done(struct context *ctx, struct conn *conn, struct msg *msg,
     rstatus_t status;
     struct string sub_channel;
 
-    ASSERT(!conn->client && !conn->proxy && conn->sentinel);
+    ASSERT(!conn->client && !conn->proxy);
     ASSERT(msg != NULL && conn->rmsg == msg);
     ASSERT(!msg->request);
     ASSERT(msg->owner == conn);

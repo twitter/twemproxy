@@ -718,12 +718,12 @@ server_pool_sentinel_check(struct context *ctx, struct server_pool *pool)
         return;
     }
 
-    if (pool->next_sentinel_reconn == 0LL) {
+    if (pool->next_sentinel_connect == 0LL) {
         return;
     }
 
     now = nc_usec_now();
-    if (now > 0 && now < pool->next_sentinel_reconn) {
+    if (now > 0 && now < pool->next_sentinel_connect) {
         return;
     }
 

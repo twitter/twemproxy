@@ -132,15 +132,16 @@ nc_set_rcvbuf(int sd, int size)
 int
 nc_set_keepalive(int sd, int interval)
 {
-    int keepalive, keepidle, keepintvl, keepcnt;
+    int keepalive, keepidle, keepintvl, keepcnt, status;
     socklen_t len;
 
 
     keepalive = 1;
     len = sizeof(keepalive);
-    if (setsockopt(sd, SOL_SOCKET, SO_KEEPALIVE, &keepalive, len) == -1)
+    status = setsockopt(sd, SOL_SOCKET, SO_KEEPALIVE, &keepalive, len);
+    if (status == -1)
     {
-        return NC_ERROR;
+        return status;
     }
 
 #ifdef __linux__
@@ -151,8 +152,9 @@ nc_set_keepalive(int sd, int interval)
     /* Send first probe after interval. */
     keepidle = interval;
     len = sizeof(keepidle);
-    if (setsockopt(sd, IPPROTO_TCP, TCP_KEEPIDLE, &keepidle, len) < 0) {
-        return NC_ERROR;
+    status = setsockopt(sd, IPPROTO_TCP, TCP_KEEPIDLE, &keepidle, len);
+    if (status < 0) {
+        return status;
     }
 
     /* Send next probes after the specified interval. Note that we set the
@@ -161,20 +163,22 @@ nc_set_keepalive(int sd, int interval)
     keepintvl = interval/3;
     len = sizeof(keepintvl);
     if (keepintvl == 0) keepintvl = 1;
-    if (setsockopt(sd, IPPROTO_TCP, TCP_KEEPINTVL, &keepintvl, len) < 0) {
-        return NC_ERROR;
+    status = setsockopt(sd, IPPROTO_TCP, TCP_KEEPINTVL, &keepintvl, len);
+    if (status < 0) {
+        return status;
     }
 
     /* Consider the socket in error state after three we send three ACK
      * probes without getting a reply. */
     keepcnt = 3;
     len = sizeof(keepcnt);
-    if (setsockopt(sd, IPPROTO_TCP, TCP_KEEPCNT, &keepcnt, len) < 0) {
-        return NC_ERROR;
+    status = setsockopt(sd, IPPROTO_TCP, TCP_KEEPCNT, &keepcnt, len);
+    if (status < 0) {
+        return status;
     }
 #endif
 
-    return NC_OK;
+    return 0;
 }
 
 int

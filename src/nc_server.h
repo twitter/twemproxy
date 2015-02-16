@@ -93,45 +93,45 @@ struct server {
 };
 
 struct server_pool {
-    uint32_t           idx;                  /* pool index */
-    struct context     *ctx;                 /* owner context */
+    uint32_t           idx;                   /* pool index */
+    struct context     *ctx;                  /* owner context */
 
-    struct conn        *p_conn;              /* proxy connection (listener) */
-    uint32_t           nc_conn_q;            /* # client connection */
-    struct conn_tqh    c_conn_q;             /* client connection q */
+    struct conn        *p_conn;               /* proxy connection (listener) */
+    uint32_t           nc_conn_q;             /* # client connection */
+    struct conn_tqh    c_conn_q;              /* client connection q */
 
-    struct array       server;               /* servers: server[] */
-    struct array       sentinel;             /* sentinels: server[] */
-    uint32_t           ncontinuum;           /* # continuum points */
-    uint32_t           nserver_continuum;    /* # servers - live and dead on continuum (const) */
-    struct continuum   *continuum;           /* continuum */
-    uint32_t           nlive_server;         /* # live server */
-    int64_t            next_rebuild;         /* next distribution rebuild time in usec */
-    int64_t            next_sentinel_reconn; /* next reconnect sentinel time in usec */
-    uint32_t           sentinel_idx;         /* the connected sentinel's idx */
+    struct array       server;                /* servers: server[] */
+    struct array       sentinel;              /* sentinels: server[] */
+    uint32_t           ncontinuum;            /* # continuum points */
+    uint32_t           nserver_continuum;     /* # servers - live and dead on continuum (const) */
+    struct continuum   *continuum;            /* continuum */
+    uint32_t           nlive_server;          /* # live server */
+    int64_t            next_rebuild;          /* next distribution rebuild time in usec */
+    int64_t            next_sentinel_connect; /* next reconnect sentinel time in usec */
+    uint32_t           sentinel_idx;          /* the connected sentinel's idx */
 
-    struct string      name;                 /* pool name (ref in conf_pool) */
-    struct string      addrstr;              /* pool address (ref in conf_pool) */
-    struct string      redis_auth;           /* redis_auth password */
-    uint16_t           port;                 /* port */
-    int                family;               /* socket family */
-    socklen_t          addrlen;              /* socket length */
-    struct sockaddr    *addr;                /* socket address (ref in conf_pool) */
-    mode_t             perm;                 /* socket permission */
-    int                dist_type;            /* distribution type (dist_type_t) */
-    int                key_hash_type;        /* key hash type (hash_type_t) */
-    hash_t             key_hash;             /* key hasher */
-    struct string      hash_tag;             /* key hash tag (ref in conf_pool) */
-    int                timeout;              /* timeout in msec */
-    int                backlog;              /* listen backlog */
-    int                redis_db;             /* redis database to connect to */
-    uint32_t           client_connections;   /* maximum # client connection */
-    uint32_t           server_connections;   /* maximum # server connection */
-    int64_t            server_retry_timeout; /* server retry timeout in usec */
-    uint32_t           server_failure_limit; /* server failure limit */
-    unsigned           auto_eject_hosts:1;   /* auto_eject_hosts? */
-    unsigned           preconnect:1;         /* preconnect? */
-    unsigned           redis:1;              /* redis? */
+    struct string      name;                  /* pool name (ref in conf_pool) */
+    struct string      addrstr;               /* pool address (ref in conf_pool) */
+    struct string      redis_auth;            /* redis_auth password */
+    uint16_t           port;                  /* port */
+    int                family;                /* socket family */
+    socklen_t          addrlen;               /* socket length */
+    struct sockaddr    *addr;                 /* socket address (ref in conf_pool) */
+    mode_t             perm;                  /* socket permission */
+    int                dist_type;             /* distribution type (dist_type_t) */
+    int                key_hash_type;         /* key hash type (hash_type_t) */
+    hash_t             key_hash;              /* key hasher */
+    struct string      hash_tag;              /* key hash tag (ref in conf_pool) */
+    int                timeout;               /* timeout in msec */
+    int                backlog;               /* listen backlog */
+    int                redis_db;              /* redis database to connect to */
+    uint32_t           client_connections;    /* maximum # client connection */
+    uint32_t           server_connections;    /* maximum # server connection */
+    int64_t            server_retry_timeout;  /* server retry timeout in usec */
+    uint32_t           server_failure_limit;  /* server failure limit */
+    unsigned           auto_eject_hosts:1;    /* auto_eject_hosts? */
+    unsigned           preconnect:1;          /* preconnect? */
+    unsigned           redis:1;               /* redis? */
 };
 
 void server_ref(struct conn *conn, void *owner);

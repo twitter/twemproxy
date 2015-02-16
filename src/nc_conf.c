@@ -284,7 +284,7 @@ conf_pool_each_transform(void *elem, void *data)
     sp->continuum = NULL;
     sp->nlive_server = 0;
     sp->next_rebuild = 0LL;
-    sp->next_sentinel_reconn = 0LL;
+    sp->next_sentinel_connect = 0LL;
     sp->sentinel_idx = 0;
 
     sp->name = cp->name;

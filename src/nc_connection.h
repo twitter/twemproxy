@@ -91,7 +91,6 @@ struct conn {
 
     unsigned            client:1;      /* client? or server? */
     unsigned            proxy:1;       /* proxy? */
-    unsigned            sentinel:1;    /* sentinel? */
     unsigned            connecting:1;  /* connecting? */
     unsigned            connected:1;   /* connected? */
     unsigned            eof:1;         /* eof? aka passive close? */

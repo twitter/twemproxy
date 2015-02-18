@@ -27,9 +27,10 @@ To build nutcracker from source with _debug logs enabled_ and _assertions enable
 
 Few checklists:
 
-+ use newer version of gcc (older version of gcc has problems)
-+ use CFLAGS="-O1" ./configure && make
-+ use CFLAGS="-O3 -fno-strict-aliasing" ./configure && make
++ Use newer version of gcc (older version of gcc has problems)
++ Use CFLAGS="-O1" ./configure && make
++ Use CFLAGS="-O3 -fno-strict-aliasing" ./configure && make
++ `autoreconf -fvi && ./configure` needs `automake` and `libtool` to be installed
 
 ## Features
 

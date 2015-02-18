@@ -616,3 +616,7 @@ printf '*4\r\n$4\r\neval\r\n$10\r\nreturn 123\r\n$1\r\n1\r\n$1\r\n1\r\n' | socat
 printf '*7\r\n$4\r\neval\r\n$40\r\nreturn {KEYS[1],KEYS[2],ARGV[1],ARGV[2]}\r\n$1\r\n2\r\n$9\r\nkey1{tag}\r\n$4\r\narg1\r\n$9\r\nkey2{tag}\r\n$4\r\narg2\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
 printf '*9\r\n$4\r\neval\r\n$56\r\nreturn {KEYS[1],KEYS[2],KEYS[3],ARGV[1],ARGV[2],ARGV[3]}\r\n$1\r\n3\r\n$9\r\nkey1{tag}\r\n$4\r\narg1\r\n$9\r\nkey2{tag}\r\n$4\r\narg2\r\n$9\r\nkey3{tag}\r\n$4\r\narg3\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
 printf '*4\r\n$4\r\neval\r\n$11\r\nreturn {10}\r\n$1\r\n1\r\n$4\r\nTEMP\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+
+# quit
+printf '\nquit\n'
+printf '*1\r\n$4\r\nquit\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close

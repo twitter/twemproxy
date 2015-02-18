@@ -484,13 +484,18 @@ req_filter(struct context *ctx, struct conn *conn, struct msg *msg)
     }
 
     /*
-     * Handle "quit\r\n", which is the protocol way of doing a
-     * passive close
+     * Handle "quit\r\n" (memcache) or "*1\r\n$4\r\nquit\r\n" (redis), which
+     * is the protocol way of doing a passive close. The connection is closed
+     * as soon as all pending replies have been written to the client.
      */
     if (msg->quit) {
-        ASSERT(conn->rmsg == NULL);
         log_debug(LOG_INFO, "filter quit req %"PRIu64" from c %d", msg->id,
                   conn->sd);
+        if (conn->rmsg != NULL) {
+            log_debug(LOG_INFO, "discard invalid req %"PRIu64" len %"PRIu32" "
+                      "from c %d sent after quit req", conn->rmsg->id,
+                      conn->rmsg->mlen, conn->sd);
+        }
         conn->eof = 1;
         conn->recv_ready = 0;
         req_put(msg);
@@ -498,9 +503,8 @@ req_filter(struct context *ctx, struct conn *conn, struct msg *msg)
     }
 
     /*
-     * if this conn is not authenticated, we will mark it as noforward,
+     * If this conn is not authenticated, we will mark it as noforward,
      * and handle it in the redis_reply handler.
-     *
      */
     if (conn->need_auth) {
         msg->noforward = 1;

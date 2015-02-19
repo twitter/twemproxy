@@ -80,7 +80,7 @@ Furthermore, memory for mbufs is managed using a reuse pool. This means that onc
 
 nutcracker can be configured through a YAML file specified by the -c or --conf-file command-line argument on process start. The configuration file is used to specify the server pools and the servers within each pool that nutcracker manages. The configuration files parses and understands the following keys:
 
-+ **listen**: The listening address and port (name:port or ip:port) for this server pool.
++ **listen**: The listening address and port (name:port or ip:port) or an absolute path to sock file (e.g. /var/run/nutcracker.sock) for this server pool.
 + **hash**: The name of the hash function. Possible values are:
  + one_at_a_time
  + md5

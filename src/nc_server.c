@@ -1308,8 +1308,17 @@ server_pools_kick_replacement(struct server_pools *old_pools, struct server_pool
 
     /*
      * Move new pools into the new ones.
+     * NOTE: since we're are going to be able to undo
+     * the changes, the pools are organized so the new pools
+     * are placed at the beginning of the TAILQ. This way,
+     * all errors to initialize the new pools can materialize
+     * before we get to the old pools and start deiniting them.
+     * NOTE: however, the index (pool->idx) of the new pools
+     * should correspond to their natural order in the list.
+     * So we move the items one by one from the tail of the new pool
+     * into the beginning of the target pool.
      */
-    TAILQ_FOREACH_SAFE(npool, new_pools, pool_tqe, tmp_npool) {
+    TAILQ_FOREACH_REVERSE_SAFE(npool, new_pools, server_pools, pool_tqe, tmp_npool) {
         TAILQ_REMOVE(new_pools, npool, pool_tqe);
         TAILQ_INSERT_HEAD(old_pools, npool, pool_tqe);
     }

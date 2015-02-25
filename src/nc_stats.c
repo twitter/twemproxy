@@ -260,7 +260,7 @@ stats_pool_init(struct stats_pool *stp, struct server_pool *sp)
 
     log_debug(LOG_VVVERB, "init stats pool '%.*s' with %"PRIu32" metric and "
               "%"PRIu32" server", stp->name.len, stp->name.data,
-              array_n(&stp->metric), array_n(&stp->metric));
+              array_n(&stp->metric), array_n(&stp->server));
 
     return NC_OK;
 }

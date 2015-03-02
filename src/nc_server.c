@@ -138,6 +138,7 @@ server_init(struct array *server, struct array *conf_server,
     nserver = array_n(conf_server);
     if (nserver == 0) {
         /* no sentinels is configured */
+        ASSERT(sentinel);
         return NC_OK;
     }
 

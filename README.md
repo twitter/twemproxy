@@ -94,7 +94,7 @@ nutcracker can be configured through a YAML file specified by the -c or --conf-f
  + hsieh
  + murmur
  + jenkins
-+ **hash_tag**: A two character string that specifies the part of the key used for hashing. Eg "{}" or "$$". [Hash tag](notes/recommendation.md#hash-tags)  enable mapping different keys to the same server as long as the part of the key within the tag is the same.
++ **hash_tag**: A two character string that specifies the part of the key used for hashing. Eg "{}" or "$$". [Hash tag](notes/recommendation.md#hash-tags) enable mapping different keys to the same server as long as the part of the key within the tag is the same.
 + **distribution**: The key distribution mode. Possible values are:
  + ketama
  + modula
@@ -216,7 +216,6 @@ Nutcracker exposes stats at the granularity of server pool and servers per pool 
 Logging in nutcracker is only available when nutcracker is built with logging enabled. By default logs are written to stderr. Nutcracker can also be configured to write logs to a specific file through the -o or --output command-line argument. On a running nutcracker, we can turn log levels up and down by sending it SIGTTIN and SIGTTOU signals respectively and reopen log files by sending it SIGHUP signal.
 
 ## Pipelining
-
 
 Nutcracker enables proxying multiple client connections onto one or few server connections. This architectural setup makes it ideal for pipelining requests and responses and hence saving on the round trip time.
 

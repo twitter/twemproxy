@@ -27,7 +27,7 @@
 
 #define AUTH_INVALID_PASSWORD "-ERR invalid password\r\n"
 #define AUTH_REQUIRE_PASSWORD "-NOAUTH Authentication required\r\n"
-#define AUTH_NO_PASSWORD "-ERR Client sent AUTH, but no password is set\r\n"
+#define AUTH_NO_PASSWORD      "-ERR Client sent AUTH, but no password is set\r\n"
 
 static rstatus_t redis_handle_auth_req(struct msg *request, struct msg *response);
 

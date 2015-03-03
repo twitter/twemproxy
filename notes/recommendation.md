@@ -50,7 +50,7 @@ It is always a good idea to configure nutcracker `timeout:` for every server poo
 
 Relying only on client-side timeouts has the adverse effect of the original request having timedout on the client to proxy connection, but still pending and outstanding on the proxy to server connection. This further gets exacerbated when client retries the original request.
 
-By default, nutcracker waits indefinitely for any request sent to the server. However, when `timeout:` key is configured, a requests for which no response is received from the server in `timeout:` msec is timedout and an error response `SERVER_ERROR Connection timed out\r\n` is sent back to the client.
+By default, nutcracker waits indefinitely for any request sent to the server. However, when `timeout:` key is configured, a requests for which no response is received from the server in `timeout:` msec is timedout and an error response `SERVER_ERROR Connection timed out\r\n` (memcached) or `-ERR Connection timed out\r\n` (redis) is sent back to the client.
 
 ## Error Response
 

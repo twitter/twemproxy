@@ -61,7 +61,6 @@ redis_arg0(struct msg *r)
     case MSG_REQ_REDIS_EXISTS:
     case MSG_REQ_REDIS_PERSIST:
     case MSG_REQ_REDIS_PTTL:
-    case MSG_REQ_REDIS_SORT:
     case MSG_REQ_REDIS_TTL:
     case MSG_REQ_REDIS_TYPE:
     case MSG_REQ_REDIS_DUMP:
@@ -208,6 +207,8 @@ static bool
 redis_argn(struct msg *r)
 {
     switch (r->type) {
+    case MSG_REQ_REDIS_SORT:
+
     case MSG_REQ_REDIS_BITCOUNT:
 
     case MSG_REQ_REDIS_SET:

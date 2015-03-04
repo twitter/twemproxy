@@ -1687,6 +1687,7 @@ redis_parse_rsp(struct msg *r)
         SW_ERROR,
         SW_INTEGER,
         SW_INTEGER_START,
+        SW_SIMPLE,
         SW_BULK,
         SW_BULK_LF,
         SW_BULK_ARG,
@@ -1771,6 +1772,13 @@ redis_parse_rsp(struct msg *r)
             /* rsp_start <- p */
             state = SW_INTEGER_START;
             r->integer = 0;
+            break;
+
+        case SW_SIMPLE:
+            if (ch == CR) {
+              state = SW_MULTIBULK_ARGN_LF;
+              r->rnarg--;
+            }
             break;
 
         case SW_INTEGER_START:
@@ -1912,6 +1920,7 @@ redis_parse_rsp(struct msg *r)
                     /* response is '*0\r\n' */
                     goto done;
                 }
+
                 state = SW_MULTIBULK_ARGN_LEN;
                 break;
 
@@ -1953,9 +1962,17 @@ redis_parse_rsp(struct msg *r)
                     break;
                 }
 
-                if (ch != '$' && ch != ':') {
+                if (ch == ':' || ch == '+' || ch == '-') {
+                    /* handles not-found reply = '$-1' or integer reply = ':<num>' */
+                    /* and *2\r\n$2\r\nr0\r\n+OK\r\n or *1\r\n+OK\r\n */
+                    state = SW_SIMPLE;
+                    break;
+                }
+
+                if (ch != '$') {
                     goto error;
                 }
+
                 r->token = p;
                 r->rlen = 0;
             } else if (isdigit(ch)) {
@@ -1967,8 +1984,7 @@ redis_parse_rsp(struct msg *r)
                     goto error;
                 }
 
-                if ((r->rlen == 1 && (p - r->token) == 3) || *r->token == ':') {
-                    /* handles not-found reply = '$-1' or integer reply = ':<num>' */
+                if ((r->rlen == 1 && (p - r->token) == 3)) {
                     r->rlen = 0;
                     state = SW_MULTIBULK_ARGN_LF;
                 } else {

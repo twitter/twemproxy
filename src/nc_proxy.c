@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+#include <sys/stat.h>
 #include <sys/un.h>
 
 #include <nc_core.h>
@@ -146,6 +147,16 @@ proxy_listen(struct context *ctx, struct conn *p)
         log_error("bind on p %d to addr '%.*s' failed: %s", p->sd,
                   pool->addrstr.len, pool->addrstr.data, strerror(errno));
         return NC_ERROR;
+    }
+
+    if (p->family == AF_UNIX && pool->perm) {
+        struct sockaddr_un *un = (struct sockaddr_un *)p->addr;
+        status = chmod(un->sun_path, pool->perm);
+        if (status < 0) {
+            log_error("chmod on p %d on addr '%.*s' failed: %s", p->sd,
+                      pool->addrstr.len, pool->addrstr.data, strerror(errno));
+            return NC_ERROR;
+        }
     }
 
     status = listen(p->sd, pool->backlog);
@@ -283,16 +294,46 @@ proxy_accept(struct context *ctx, struct conn *p)
                 return NC_OK;
             }
 
-            /*
-             * FIXME: On EMFILE or ENFILE mask out IN event on the proxy; mask
-             * it back in when some existing connection gets closed
+            /* 
+             * Workaround of https://github.com/twitter/twemproxy/issues/97
+             *
+             * We should never reach here because the check for conn_ncurr_cconn()
+             * against ctx->max_ncconn should catch this earlier in the cycle.
+             * If we reach here ignore EMFILE/ENFILE, return NC_OK will enable
+             * the server continue to run instead of close the server socket
+             *
+             * The right solution however, is on EMFILE/ENFILE to mask out IN
+             * event on the proxy and mask it back in when some existing
+             * connections gets closed
              */
+            if (errno == EMFILE || errno == ENFILE) {
+                log_debug(LOG_CRIT, "accept on p %d with max fds %"PRIu32" "
+                          "used connections %"PRIu32" max client connections %"PRIu32" "
+                          "curr client connections %"PRIu32" failed: %s",
+                          p->sd, ctx->max_nfd, conn_ncurr_conn(),
+                          ctx->max_ncconn, conn_ncurr_cconn(), strerror(errno));
+
+                p->recv_ready = 0;
+
+                return NC_OK;
+            }
 
             log_error("accept on p %d failed: %s", p->sd, strerror(errno));
+
             return NC_ERROR;
         }
 
         break;
+    }
+
+    if (conn_ncurr_cconn() >= ctx->max_ncconn) {
+        log_debug(LOG_CRIT, "client connections %"PRIu32" exceed limit %"PRIu32,
+                  conn_ncurr_cconn(), ctx->max_ncconn);
+        status = close(sd);
+        if (status < 0) {
+            log_error("close c %d failed, ignored: %s", sd, strerror(errno));
+        }
+        return NC_OK;
     }
 
     c = conn_get(p->owner, true, p->redis);

@@ -300,6 +300,18 @@ nc_stacktrace(int skip_count)
 }
 
 void
+nc_stacktrace_fd(int fd)
+{
+#ifdef NC_HAVE_BACKTRACE
+    void *stack[64];
+    int size;
+
+    size = backtrace(stack, 64);
+    backtrace_symbols_fd(stack, size, fd);
+#endif
+}
+
+void
 nc_assert(const char *cond, const char *file, int line, int panic)
 {
     log_error("assert '%s' failed @ (%s, %d)", cond, file, line);

@@ -214,7 +214,7 @@ nc_show_usage(void)
         "  -d, --daemonize        : run as a daemon" CRLF
         "  -D, --describe-stats   : print stats description and exit");
     log_stderr(
-        "  -v, --verbosity=N      : set logging level (default: %d, min: %d, max: %d)" CRLF
+        "  -v, --verbose=N        : set logging level (default: %d, min: %d, max: %d)" CRLF
         "  -o, --output=S         : set logging file (default: %s)" CRLF
         "  -c, --conf-file=S      : set configuration file (default: %s)" CRLF
         "  -s, --stats-port=N     : set stats monitoring port (default: %d)" CRLF

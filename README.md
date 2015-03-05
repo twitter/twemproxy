@@ -4,26 +4,33 @@
 
 ## Build
 
-To build nutcracker from [distribution tarball](http://code.google.com/p/twemproxy/downloads/list):
+To build nutcracker from [distribution tarball](https://drive.google.com/open?id=0B6pVMMV5F5dfMUdJV25abllhUWM&authuser=0):
 
     $ ./configure
     $ make
     $ sudo make install
 
-To build nutcracker from [distribution tarball](http://code.google.com/p/twemproxy/downloads/list) in _debug mode_:
+To build nutcracker from [distribution tarball](https://drive.google.com/open?id=0B6pVMMV5F5dfMUdJV25abllhUWM&authuser=0) in _debug mode_:
 
     $ CFLAGS="-ggdb3 -O0" ./configure --enable-debug=full
     $ make
     $ sudo make install
 
-To build nutcracker from source with _debug logs enabled_ and _assertions disabled_:
+To build nutcracker from source with _debug logs enabled_ and _assertions enabled_:
 
     $ git clone git@github.com:twitter/twemproxy.git
     $ cd twemproxy
     $ autoreconf -fvi
-    $ ./configure --enable-debug=log
+    $ ./configure --enable-debug=full
     $ make
     $ src/nutcracker -h
+
+Few checklists:
+
++ Use newer version of gcc (older version of gcc has problems)
++ Use CFLAGS="-O1" ./configure && make
++ Use CFLAGS="-O3 -fno-strict-aliasing" ./configure && make
++ `autoreconf -fvi && ./configure` needs `automake` and `libtool` to be installed
 
 ## Features
 
@@ -54,7 +61,7 @@ To build nutcracker from source with _debug logs enabled_ and _assertions disabl
       -t, --test-conf        : test configuration for syntax errors and exit
       -d, --daemonize        : run as a daemon
       -D, --describe-stats   : print stats description and exit
-      -v, --verbosity=N      : set logging level (default: 5, min: 0, max: 11)
+      -v, --verbose=N        : set logging level (default: 5, min: 0, max: 11)
       -o, --output=S         : set logging file (default: stderr)
       -c, --conf-file=S      : set configuration file (default: conf/nutcracker.yml)
       -s, --stats-port=N     : set stats monitoring port (default: 22222)
@@ -73,7 +80,7 @@ Furthermore, memory for mbufs is managed using a reuse pool. This means that onc
 
 nutcracker can be configured through a YAML file specified by the -c or --conf-file command-line argument on process start. The configuration file is used to specify the server pools and the servers within each pool that nutcracker manages. The configuration files parses and understands the following keys:
 
-+ **listen**: The listening address and port (name:port or ip:port) for this server pool.
++ **listen**: The listening address and port (name:port or ip:port) or an absolute path to sock file (e.g. /var/run/nutcracker.sock) for this server pool.
 + **hash**: The name of the hash function. Possible values are:
  + one_at_a_time
  + md5
@@ -87,7 +94,7 @@ nutcracker can be configured through a YAML file specified by the -c or --conf-f
  + hsieh
  + murmur
  + jenkins
-+ **hash_tag**: A two character string that specifies the part of the key used for hashing. Eg "{}" or "$$". [Hash tag](notes/recommendation.md#hash-tags)  enable mapping different keys to the same server as long as the part of the key within the tag is the same.
++ **hash_tag**: A two character string that specifies the part of the key used for hashing. Eg "{}" or "$$". [Hash tag](notes/recommendation.md#hash-tags) enable mapping different keys to the same server as long as the part of the key within the tag is the same.
 + **distribution**: The key distribution mode. Possible values are:
  + ketama
  + modula
@@ -96,6 +103,7 @@ nutcracker can be configured through a YAML file specified by the -c or --conf-f
 + **backlog**: The TCP backlog argument. Defaults to 512.
 + **preconnect**: A boolean value that controls if nutcracker should preconnect to all the servers in this pool on process start. Defaults to false.
 + **redis**: A boolean value that controls if a server pool speaks redis or memcached protocol. Defaults to false.
++ **redis_auth**: Authenticate to the Redis server on connect.
 + **server_connections**: The maximum number of connections that can be opened to each server. By default, we open at most 1 server connection.
 + **auto_eject_hosts**: A boolean value that controls if server should be ejected temporarily when it fails consecutively server_failure_limit times. See [liveness recommendations](notes/recommendation.md#liveness) for information. Defaults to false.
 + **server_retry_timeout**: The timeout value in msec to wait for before retrying on a temporarily ejected server, when auto_eject_host is set to true. Defaults to 30000 msec.
@@ -209,7 +217,6 @@ Logging in nutcracker is only available when nutcracker is built with logging en
 
 ## Pipelining
 
-
 Nutcracker enables proxying multiple client connections onto one or few server connections. This architectural setup makes it ideal for pipelining requests and responses and hence saving on the round trip time.
 
 For example, if nutcracker is proxying three client connections onto a single server and we get requests - 'get key\r\n', 'set key 0 0 3\r\nval\r\n' and 'delete key\r\n' on these three connections respectively, nutcracker would try to batch these requests and send them as a single message onto the server connection as 'get key\r\nset key 0 0 3\r\nval\r\ndelete key\r\n'.
@@ -220,16 +227,31 @@ Pipelining is the reason why nutcracker ends up doing better in terms of through
 
 If you are deploying nutcracker in production, you might consider reading through the [recommendation document](notes/recommendation.md) to understand the parameters you could tune in nutcracker to run it efficiently in the production environment.
 
+## Packages
+
+### Ubuntu
+
+#### PPA Stable
+
+https://launchpad.net/~twemproxy/+archive/ubuntu/stable
+
+#### PPA Daily
+
+https://launchpad.net/~twemproxy/+archive/ubuntu/daily
+
 ## Utils
 + [nagios checks](https://github.com/wanelo/nagios-checks/blob/master/check_twemproxy)
 + [circunous](https://github.com/wanelo-chef/nad-checks/blob/master/recipes/twemproxy.rb)
 + [puppet module](https://github.com/wuakitv/puppet-twemproxy)
 + [nutcracker-web](https://github.com/kontera-technologies/nutcracker-web)
 + [munin-plugin](https://github.com/eveiga/contrib/tree/nutcracker/plugins/nutcracker)
++ [collectd-plugin](https://github.com/bewie/collectd-twemproxy)
 + [redis-twemproxy agent](https://github.com/Stono/redis-twemproxy-agent)
 + [sensu-metrics](https://github.com/sensu/sensu-community-plugins/blob/master/plugins/twemproxy/twemproxy-metrics.rb)
 + [redis-mgr](https://github.com/idning/redis-mgr)
 + [smitty for twemproxy failover](https://github.com/areina/smitty)
++ [chef cookbook](https://supermarket.getchef.com/cookbooks/twemproxy)
++ [twemsentinel] (https://github.com/yak0/twemsentinel)
 
 ## Users
 + [Pinterest](http://pinterest.com/)
@@ -247,6 +269,12 @@ If you are deploying nutcracker in production, you might consider reading throug
 + [Digg](http://digg.com/)
 + [Gawkermedia](http://advertising.gawker.com/)
 + [3scale.net](http://3scale.net)
++ [Ooyala](http://www.ooyala.com)
++ [Twitch](http://twitch.tv)
++ [Socrata](http://www.socrata.com/)
++ [Hootsuite](http://hootsuite.com/)
++ [Trivago](http://www.trivago.com/)
++ [Machinezone](http://www.machinezone.com)
 
 ## Issues and Support
 
@@ -254,9 +282,12 @@ Have a bug or a question? Please create an issue here on GitHub!
 
 https://github.com/twitter/twemproxy/issues
 
-## Contributors
+## Committers
 
 * Manju Rajashekhar ([@manju](https://twitter.com/manju))
+* Lin Yang ([@idning](https://github.com/idning))
+
+Thank you to all of our [contributors](https://github.com/twitter/twemproxy/graphs/contributors)!
 
 ## License
 

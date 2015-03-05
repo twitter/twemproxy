@@ -17,9 +17,38 @@
 
 #include <stdio.h>
 #include <ctype.h>
+#include <math.h>
 
 #include <nc_core.h>
 #include <nc_proto.h>
+
+#define REPL_OK     "+OK\r\n"
+#define REPL_PONG   "+PONG\r\n"
+
+#define AUTH_INVALID_PASSWORD "-ERR invalid password\r\n"
+#define AUTH_REQUIRE_PASSWORD "-NOAUTH Authentication required\r\n"
+#define AUTH_NO_PASSWORD      "-ERR Client sent AUTH, but no password is set\r\n"
+
+static rstatus_t redis_handle_auth_req(struct msg *request, struct msg *response);
+
+/*
+ * Return true, if the redis command take no key, otherwise
+ * return false
+ */
+static bool
+redis_argz(struct msg *r)
+{
+    switch (r->type) {
+    case MSG_REQ_REDIS_PING:
+    case MSG_REQ_REDIS_QUIT:
+        return true;
+
+    default:
+        break;
+    }
+
+    return false;
+}
 
 /*
  * Return true, if the redis command accepts no arguments, otherwise
@@ -55,6 +84,7 @@ redis_arg0(struct msg *r)
     case MSG_REQ_REDIS_SPOP:
 
     case MSG_REQ_REDIS_ZCARD:
+    case MSG_REQ_REDIS_PFCOUNT:
     case MSG_REQ_REDIS_AUTH:
         return true;
 
@@ -135,7 +165,9 @@ redis_arg2(struct msg *r)
     case MSG_REQ_REDIS_SMOVE:
 
     case MSG_REQ_REDIS_ZCOUNT:
+    case MSG_REQ_REDIS_ZLEXCOUNT:
     case MSG_REQ_REDIS_ZINCRBY:
+    case MSG_REQ_REDIS_ZREMRANGEBYLEX:
     case MSG_REQ_REDIS_ZREMRANGEBYRANK:
     case MSG_REQ_REDIS_ZREMRANGEBYSCORE:
 
@@ -175,12 +207,15 @@ static bool
 redis_argn(struct msg *r)
 {
     switch (r->type) {
+    case MSG_REQ_REDIS_SORT:
+
     case MSG_REQ_REDIS_BITCOUNT:
 
     case MSG_REQ_REDIS_SET:
     case MSG_REQ_REDIS_HDEL:
     case MSG_REQ_REDIS_HMGET:
     case MSG_REQ_REDIS_HMSET:
+    case MSG_REQ_REDIS_HSCAN:
 
     case MSG_REQ_REDIS_LPUSH:
     case MSG_REQ_REDIS_RPUSH:
@@ -194,6 +229,10 @@ redis_argn(struct msg *r)
     case MSG_REQ_REDIS_SUNION:
     case MSG_REQ_REDIS_SUNIONSTORE:
     case MSG_REQ_REDIS_SRANDMEMBER:
+    case MSG_REQ_REDIS_SSCAN:
+
+    case MSG_REQ_REDIS_PFADD:
+    case MSG_REQ_REDIS_PFMERGE:
 
     case MSG_REQ_REDIS_ZADD:
     case MSG_REQ_REDIS_ZINTERSTORE:
@@ -201,8 +240,10 @@ redis_argn(struct msg *r)
     case MSG_REQ_REDIS_ZRANGEBYSCORE:
     case MSG_REQ_REDIS_ZREM:
     case MSG_REQ_REDIS_ZREVRANGE:
+    case MSG_REQ_REDIS_ZRANGEBYLEX:
     case MSG_REQ_REDIS_ZREVRANGEBYSCORE:
     case MSG_REQ_REDIS_ZUNIONSTORE:
+    case MSG_REQ_REDIS_ZSCAN:
         return true;
 
     default:
@@ -222,6 +263,24 @@ redis_argx(struct msg *r)
     switch (r->type) {
     case MSG_REQ_REDIS_MGET:
     case MSG_REQ_REDIS_DEL:
+        return true;
+
+    default:
+        break;
+    }
+
+    return false;
+}
+
+/*
+ * Return true, if the redis command is a vector command accepting one or
+ * more key-value pairs, otherwise return false
+ */
+static bool
+redis_argkvx(struct msg *r)
+{
+    switch (r->type) {
+    case MSG_REQ_REDIS_MSET:
         return true;
 
     default:
@@ -310,7 +369,6 @@ redis_parse_req(struct msg *r)
         SW_ARGN_LEN_LF,
         SW_ARGN,
         SW_ARGN_LF,
-        SW_FRAGMENT,
         SW_SENTINEL
     } state;
 
@@ -541,6 +599,10 @@ redis_parse_req(struct msg *r)
                     r->type = MSG_REQ_REDIS_MGET;
                     break;
                 }
+                if (str4icmp(m, 'm', 's', 'e', 't')) {
+                    r->type = MSG_REQ_REDIS_MSET;
+                    break;
+                }
 
                 if (str4icmp(m, 'z', 'a', 'd', 'd')) {
                     r->type = MSG_REQ_REDIS_ZADD;
@@ -557,8 +619,26 @@ redis_parse_req(struct msg *r)
                     break;
                 }
 
+                if (str4icmp(m, 's', 'o', 'r', 't')) {
+                    r->type = MSG_REQ_REDIS_SORT;
+                    break;
+                }
+
+                if (str4icmp(m, 'p', 'i', 'n', 'g')) {
+                    r->type = MSG_REQ_REDIS_PING;
+                    r->noforward = 1;
+                    break;
+                }
+
+                if (str4icmp(m, 'q', 'u', 'i', 't')) {
+                    r->type = MSG_REQ_REDIS_QUIT;
+                    r->quit = 1;
+                    break;
+                }
+
                 if (str4icmp(m, 'a', 'u', 't', 'h')) {
                     r->type = MSG_REQ_REDIS_AUTH;
+                    r->noforward = 1;
                     break;
                 }
 
@@ -582,6 +662,11 @@ redis_parse_req(struct msg *r)
 
                 if (str5icmp(m, 'h', 'v', 'a', 'l', 's')) {
                     r->type = MSG_REQ_REDIS_HVALS;
+                    break;
+                }
+
+                if (str5icmp(m, 'h', 's', 'c', 'a', 'n')) {
+                    r->type = MSG_REQ_REDIS_HSCAN;
                     break;
                 }
 
@@ -625,6 +710,11 @@ redis_parse_req(struct msg *r)
                     break;
                 }
 
+                if (str5icmp(m, 's', 's', 'c', 'a', 'n')) {
+                    r->type = MSG_REQ_REDIS_SSCAN;
+                    break;
+                }
+
                 if (str5icmp(m, 'z', 'c', 'a', 'r', 'd')) {
                     r->type = MSG_REQ_REDIS_ZCARD;
                     break;
@@ -632,6 +722,16 @@ redis_parse_req(struct msg *r)
 
                 if (str5icmp(m, 'z', 'r', 'a', 'n', 'k')) {
                     r->type = MSG_REQ_REDIS_ZRANK;
+                    break;
+                }
+
+                if (str5icmp(m, 'z', 's', 'c', 'a', 'n')) {
+                    r->type = MSG_REQ_REDIS_ZSCAN;
+                    break;
+                }
+
+                if (str5icmp(m, 'p', 'f', 'a', 'd', 'd')) {
+                    r->type = MSG_REQ_REDIS_PFADD;
                     break;
                 }
 
@@ -786,6 +886,16 @@ redis_parse_req(struct msg *r)
                     break;
                 }
 
+                if (str7icmp(m, 'p', 'f', 'c', 'o', 'u', 'n', 't')) {
+                    r->type = MSG_REQ_REDIS_PFCOUNT;
+                    break;
+                }
+
+                if (str7icmp(m, 'p', 'f', 'm', 'e', 'r', 'g', 'e')) {
+                    r->type = MSG_REQ_REDIS_PFMERGE;
+                    break;
+                }
+
                 break;
 
             case 8:
@@ -842,6 +952,11 @@ redis_parse_req(struct msg *r)
                     break;
                 }
 
+                if (str9icmp(m, 'z', 'l', 'e', 'x', 'c', 'o', 'u', 'n', 't')) {
+                    r->type = MSG_REQ_REDIS_ZLEXCOUNT;
+                    break;
+                }
+
                 break;
 
             case 10:
@@ -881,6 +996,11 @@ redis_parse_req(struct msg *r)
                     break;
                 }
 
+                if (str11icmp(m, 'z', 'r', 'a', 'n', 'g', 'e', 'b', 'y', 'l', 'e', 'x')) {
+                    r->type = MSG_REQ_REDIS_ZRANGEBYLEX;
+                    break;
+                }
+
                 break;
 
             case 12:
@@ -895,6 +1015,14 @@ redis_parse_req(struct msg *r)
             case 13:
                 if (str13icmp(m, 'z', 'r', 'a', 'n', 'g', 'e', 'b', 'y', 's', 'c', 'o', 'r', 'e')) {
                     r->type = MSG_REQ_REDIS_ZRANGEBYSCORE;
+                    break;
+                }
+
+                break;
+
+            case 14:
+                if (str14icmp(m, 'z', 'r', 'e', 'm', 'r', 'a', 'n', 'g', 'e', 'b', 'y', 'l', 'e', 'x')) {
+                    r->type = MSG_REQ_REDIS_ZREMRANGEBYLEX;
                     break;
                 }
 
@@ -938,7 +1066,9 @@ redis_parse_req(struct msg *r)
         case SW_REQ_TYPE_LF:
             switch (ch) {
             case LF:
-                if (redis_argeval(r)) {
+                if (redis_argz(r)) {
+                    goto done;
+                } else if (redis_argeval(r)) {
                     state = SW_ARG1_LEN;
                 } else {
                     state = SW_KEY_LEN;
@@ -961,11 +1091,6 @@ redis_parse_req(struct msg *r)
             } else if (isdigit(ch)) {
                 r->rlen = r->rlen * 10 + (uint32_t)(ch - '0');
             } else if (ch == CR) {
-                if (r->rlen == 0) {
-                    log_error("parsed bad req %"PRIu64" of type %d with empty "
-                              "key", r->id, r->type);
-                    goto error;
-                }
                 if (r->rlen >= mbuf_data_size()) {
                     log_error("parsed bad req %"PRIu64" of type %d with key "
                               "length %d that greater than or equal to maximum"
@@ -1011,17 +1136,23 @@ redis_parse_req(struct msg *r)
 
             if (*m != CR) {
                 goto error;
+            } else {        /* got a key */
+                struct keypos *kpos;
+
+                p = m;      /* move forward by rlen bytes */
+                r->rlen = 0;
+                m = r->token;
+                r->token = NULL;
+
+                kpos = array_push(r->keys);
+                if (kpos == NULL) {
+                    goto enomem;
+                }
+                kpos->start = m;
+                kpos->end = p;
+
+                state = SW_KEY_LF;
             }
-
-            p = m; /* move forward by rlen bytes */
-            r->rlen = 0;
-            m = r->token;
-            r->token = NULL;
-
-            r->key_start = m;
-            r->key_end = p;
-
-            state = SW_KEY_LF;
 
             break;
 
@@ -1057,7 +1188,15 @@ redis_parse_req(struct msg *r)
                     if (r->rnarg == 0) {
                         goto done;
                     }
-                    state = SW_FRAGMENT;
+                    state = SW_KEY_LEN;
+                } else if (redis_argkvx(r)) {
+                    if (r->rnarg == 0) {
+                        goto done;
+                    }
+                    if (r->narg % 2 == 0) {
+                        goto error;
+                    }
+                    state = SW_ARG1_LEN;
                 } else if (redis_argeval(r)) {
                     if (r->rnarg == 0) {
                         goto done;
@@ -1074,10 +1213,6 @@ redis_parse_req(struct msg *r)
             }
 
             break;
-
-        case SW_FRAGMENT:
-            r->token = p;
-            goto fragment;
 
         case SW_ARG1_LEN:
             if (r->token == NULL) {
@@ -1161,6 +1296,11 @@ redis_parse_req(struct msg *r)
                         goto error;
                     }
                     state = SW_ARG2_LEN;
+                } else if (redis_argkvx(r)) {
+                    if (r->rnarg == 0) {
+                        goto done;
+                    }
+                    state = SW_KEY_LEN;
                 } else {
                     goto error;
                 }
@@ -1393,7 +1533,7 @@ redis_parse_req(struct msg *r)
                 r->rnarg--;
                 r->token = NULL;
                 state = SW_ARGN_LEN_LF;
-            }  else {
+            } else {
                 goto error;
             }
 
@@ -1474,19 +1614,6 @@ redis_parse_req(struct msg *r)
                 r->state, r->pos - b->pos, b->last - b->pos);
     return;
 
-fragment:
-    ASSERT(p != b->last);
-    ASSERT(r->token != NULL);
-    r->pos = r->token;
-    r->token = NULL;
-    r->state = state;
-    r->result = MSG_PARSE_FRAGMENT;
-
-    log_hexdump(LOG_VERB, b->pos, mbuf_length(b), "parsed req %"PRIu64" res %d "
-               "type %d state %d rpos %d of %d", r->id, r->result, r->type,
-               r->state, r->pos - b->pos, b->last - b->pos);
-    return;
-
 done:
     ASSERT(r->type > MSG_UNKNOWN && r->type < MSG_SENTINEL);
     r->pos = p + 1;
@@ -1498,6 +1625,15 @@ done:
     log_hexdump(LOG_VERB, b->pos, mbuf_length(b), "parsed req %"PRIu64" res %d "
                 "type %d state %d rpos %d of %d", r->id, r->result, r->type,
                 r->state, r->pos - b->pos, b->last - b->pos);
+    return;
+
+enomem:
+    r->result = MSG_PARSE_ERROR;
+    r->state = state;
+
+    log_hexdump(LOG_INFO, b->pos, mbuf_length(b), "out of memory on parse req %"PRIu64" "
+                "res %d type %d state %d", r->id, r->result, r->type, r->state);
+
     return;
 
 error:
@@ -1795,7 +1931,28 @@ redis_parse_rsp(struct msg *r)
                  *
                  * Here, we only handle a multi bulk reply element that
                  * are either integer reply or bulk reply.
+                 *
+                 * there is a special case for sscan/hscan/zscan, these command
+                 * replay a nested multi-bulk with a number and a multi bulk like this:
+                 *
+                 * - mulit-bulk
+                 *    - cursor
+                 *    - mulit-bulk
+                 *       - val1
+                 *       - val2
+                 *       - val3
+                 *
+                 * in this case, there is only one sub-multi-bulk,
+                 * and it's the last element of parent,
+                 * we can handle it like tail-recursive.
+                 *
                  */
+                if (ch == '*') {    /* for sscan/hscan/zscan only */
+                    p = p - 1;      /* go back by 1 byte */
+                    state = SW_MULTIBULK;
+                    break;
+                }
+
                 if (ch != '$' && ch != ':') {
                     goto error;
                 }
@@ -1819,7 +1976,6 @@ redis_parse_rsp(struct msg *r)
                 }
                 r->rnarg--;
                 r->token = NULL;
-
             } else {
                 goto error;
             }
@@ -1922,77 +2078,77 @@ error:
 }
 
 /*
- * Pre-split copy handler invoked when the request is a multi vector -
- * 'mget' or 'del' request and is about to be split into two requests
- */
-void
-redis_pre_splitcopy(struct mbuf *mbuf, void *arg)
+ * copy one bulk from src to dst
+ *
+ * if dst == NULL, we just eat the bulk
+ *
+ * */
+static rstatus_t
+redis_copy_bulk(struct msg *dst, struct msg *src)
 {
-    struct msg *r = arg;
-    int n;
+    struct mbuf *mbuf, *nbuf;
+    uint8_t *p;
+    uint32_t len = 0;
+    uint32_t bytes = 0;
+    rstatus_t status;
 
-    ASSERT(r->request);
-    ASSERT(r->narg > 1);
-    ASSERT(mbuf_empty(mbuf));
+    for (mbuf = STAILQ_FIRST(&src->mhdr);
+         mbuf && mbuf_empty(mbuf);
+         mbuf = STAILQ_FIRST(&src->mhdr)) {
 
-    switch (r->type) {
-    case MSG_REQ_REDIS_MGET:
-        n = nc_snprintf(mbuf->last, mbuf_size(mbuf), "*%d\r\n$4\r\nmget\r\n",
-                        r->narg - 1);
-        break;
-
-    case MSG_REQ_REDIS_DEL:
-        n = nc_snprintf(mbuf->last, mbuf_size(mbuf), "*%d\r\n$3\r\ndel\r\n",
-                        r->narg - 1);
-        break;
-
-    default:
-        n = 0;
-        NOT_REACHED();
+        mbuf_remove(&src->mhdr, mbuf);
+        mbuf_put(mbuf);
     }
 
-    mbuf->last += n;
-}
-
-/*
- * Post-split copy handler invoked when the request is a multi vector -
- * 'mget' or 'del' request and has already been split into two requests
- */
-rstatus_t
-redis_post_splitcopy(struct msg *r)
-{
-    struct mbuf *hbuf, *nhbuf;         /* head mbuf and new head mbuf */
-    struct string hstr = string("*2"); /* header string */
-
-    ASSERT(r->request);
-    ASSERT(r->type == MSG_REQ_REDIS_MGET || r->type == MSG_REQ_REDIS_DEL);
-    ASSERT(!STAILQ_EMPTY(&r->mhdr));
-
-    nhbuf = mbuf_get();
-    if (nhbuf == NULL) {
-        return NC_ENOMEM;
+    mbuf = STAILQ_FIRST(&src->mhdr);
+    if (mbuf == NULL) {
+        return NC_ERROR;
     }
 
-    /*
-     * Fix the head mbuf in the head (A) msg. The fix is straightforward
-     * as we just need to skip over the narg token
-     */
-    hbuf = STAILQ_FIRST(&r->mhdr);
-    ASSERT(hbuf->pos == r->narg_start);
-    ASSERT(hbuf->pos < r->narg_end && r->narg_end <= hbuf->last);
-    hbuf->pos = r->narg_end;
+    p = mbuf->pos;
+    ASSERT(*p == '$');
+    p++;
 
-    /*
-     * Add a new head mbuf in the head (A) msg that just contains '*2'
-     * token
-     */
-    STAILQ_INSERT_HEAD(&r->mhdr, nhbuf, next);
-    mbuf_copy(nhbuf, hstr.data, hstr.len);
+    if (p[0] == '-' && p[1] == '1') {
+        len = 1 + 2 + CRLF_LEN;             /* $-1\r\n */
+        p = mbuf->pos + len;
+    } else {
+        len = 0;
+        for (; p < mbuf->last && isdigit(*p); p++) {
+            len = len * 10 + (uint32_t)(*p - '0');
+        }
+        len += CRLF_LEN * 2;
+        len += (p - mbuf->pos);
+    }
+    bytes = len;
 
-    /* fix up the narg_start and narg_end */
-    r->narg_start = nhbuf->pos;
-    r->narg_end = nhbuf->last;
+    /* copy len bytes to dst */
+    for (; mbuf;) {
+        if (mbuf_length(mbuf) <= len) {     /* steal this buf from src to dst */
+            nbuf = STAILQ_NEXT(mbuf, next);
+            mbuf_remove(&src->mhdr, mbuf);
+            if (dst != NULL) {
+                mbuf_insert(&dst->mhdr, mbuf);
+            }
+            len -= mbuf_length(mbuf);
+            mbuf = nbuf;
+        } else {                             /* split it */
+            if (dst != NULL) {
+                status = msg_append(dst, mbuf->pos, len);
+                if (status != NC_OK) {
+                    return status;
+                }
+            }
+            mbuf->pos += len;
+            break;
+        }
+    }
 
+    if (dst != NULL) {
+        dst->mlen += bytes;
+    }
+    src->mlen -= bytes;
+    log_debug(LOG_VVERB, "redis_copy_bulk copy bytes: %d", bytes);
     return NC_OK;
 }
 
@@ -2014,6 +2170,7 @@ redis_pre_coalesce(struct msg *r)
         /* do nothing, if not a response to a fragmented request */
         return;
     }
+    pr->frag_owner->nfrag_done++;
 
     switch (r->type) {
     case MSG_RSP_REDIS_INTEGER:
@@ -2055,14 +2212,13 @@ redis_pre_coalesce(struct msg *r)
         r->mlen -= (uint32_t)(r->narg_end - r->narg_start);
         mbuf->pos = r->narg_end;
 
-        if (pr->first_fragment) {
-            mbuf = mbuf_get();
-            if (mbuf == NULL) {
-                pr->error = 1;
-                pr->err = EINVAL;
-                return;
-            }
-            STAILQ_INSERT_HEAD(&r->mhdr, mbuf, next);
+        break;
+
+    case MSG_RSP_REDIS_STATUS:
+        if (pr->type == MSG_REQ_REDIS_MSET) {       /* MSET segments */
+            mbuf = STAILQ_FIRST(&r->mhdr);
+            r->mlen -= mbuf_length(mbuf);
+            mbuf_rewind(mbuf);
         }
         break;
 
@@ -2081,6 +2237,319 @@ redis_pre_coalesce(struct msg *r)
     }
 }
 
+static rstatus_t
+redis_append_key(struct msg *r, uint8_t *key, uint32_t keylen)
+{
+    uint32_t len;
+    struct mbuf *mbuf;
+    uint8_t printbuf[32];
+    struct keypos *kpos;
+
+    /* 1. keylen */
+    len = (uint32_t)nc_snprintf(printbuf, sizeof(printbuf), "$%d\r\n", keylen);
+    mbuf = msg_ensure_mbuf(r, len);
+    if (mbuf == NULL) {
+        return NC_ENOMEM;
+    }
+    mbuf_copy(mbuf, printbuf, len);
+    r->mlen += len;
+
+    /* 2. key */
+    mbuf = msg_ensure_mbuf(r, keylen);
+    if (mbuf == NULL) {
+        return NC_ENOMEM;
+    }
+
+    kpos = array_push(r->keys);
+    if (kpos == NULL) {
+        return NC_ENOMEM;
+    }
+
+    kpos->start = mbuf->last;
+    kpos->end = mbuf->last + keylen;
+    mbuf_copy(mbuf, key, keylen);
+    r->mlen += keylen;
+
+    /* 3. CRLF */
+    mbuf = msg_ensure_mbuf(r, CRLF_LEN);
+    if (mbuf == NULL) {
+        return NC_ENOMEM;
+    }
+    mbuf_copy(mbuf, (uint8_t *)CRLF, CRLF_LEN);
+    r->mlen += (uint32_t)CRLF_LEN;
+
+    return NC_OK;
+}
+
+/*
+ * input a msg, return a msg chain.
+ * ncontinuum is the number of backend redis/memcache server
+ *
+ * the original msg will be fragment into at most ncontinuum fragments.
+ * all the keys map to the same backend will group into one fragment.
+ *
+ * frag_id:
+ * a unique fragment id for all fragments of the message vector. including the orig msg.
+ *
+ * frag_owner:
+ * All fragments of the message use frag_owner point to the orig msg
+ *
+ * frag_seq:
+ * the map from each key to it's fragment, (only in the orig msg)
+ *
+ * For example, a message vector with 3 keys:
+ *
+ *     get key1 key2 key3
+ *
+ * suppose we have 2 backend server, and the map is:
+ *
+ *     key1  => backend 0
+ *     key2  => backend 1
+ *     key3  => backend 0
+ *
+ * it will fragment like this:
+ *
+ *   +-----------------+
+ *   |  msg vector     |
+ *   |(original msg)   |
+ *   |key1, key2, key3 |
+ *   +-----------------+
+ *
+ *                                             frag_owner
+ *                        /--------------------------------------+
+ *       frag_owner      /                                       |
+ *     /-----------+    | /------------+ frag_owner              |
+ *     |           |    | |            |                         |
+ *     |           v    v v            |                         |
+ *   +--------------------+     +---------------------+     +----+----------------+
+ *   |   frag_id = 10     |     |   frag_id = 10      |     |   frag_id = 10      |
+ *   |     nfrag = 3      |     |      nfrag = 0      |     |      nfrag = 0      |
+ *   | frag_seq = x x x   |     |     key1, key3      |     |         key2        |
+ *   +------------|-|-|---+     +---------------------+     +---------------------+
+ *                | | |          ^    ^                          ^
+ *                | \ \          |    |                          |
+ *                |  \ ----------+    |                          |
+ *                +---\---------------+                          |
+ *                     ------------------------------------------+
+ *
+ */
+static rstatus_t
+redis_fragment_argx(struct msg *r, uint32_t ncontinuum, struct msg_tqh *frag_msgq,
+                    uint32_t key_step)
+{
+    struct mbuf *mbuf;
+    struct msg **sub_msgs;
+    uint32_t i;
+    rstatus_t status;
+
+    ASSERT(array_n(r->keys) == (r->narg - 1) / key_step);
+
+    sub_msgs = nc_zalloc(ncontinuum * sizeof(*sub_msgs));
+    if (sub_msgs == NULL) {
+        return NC_ENOMEM;
+    }
+
+    ASSERT(r->frag_seq == NULL);
+    r->frag_seq = nc_alloc(array_n(r->keys) * sizeof(*r->frag_seq));
+    if (r->frag_seq == NULL) {
+        nc_free(sub_msgs);
+        return NC_ENOMEM;
+    }
+
+    mbuf = STAILQ_FIRST(&r->mhdr);
+    mbuf->pos = mbuf->start;
+
+    /*
+     * This code is based on the assumption that '*narg\r\n$4\r\nMGET\r\n' is located
+     * in a contiguous location.
+     * This is always true because we have capped our MBUF_MIN_SIZE at 512 and
+     * whenever we have multiple messages, we copy the tail message into a new mbuf
+     */
+    for (i = 0; i < 3; i++) {                 /* eat *narg\r\n$4\r\nMGET\r\n */
+        for (; *(mbuf->pos) != '\n';) {
+            mbuf->pos++;
+        }
+        mbuf->pos++;
+    }
+
+    r->frag_id = msg_gen_frag_id();
+    r->nfrag = 0;
+    r->frag_owner = r;
+
+    for (i = 0; i < array_n(r->keys); i++) {        /* for each key */
+        struct msg *sub_msg;
+        struct keypos *kpos = array_get(r->keys, i);
+        uint32_t idx = msg_backend_idx(r, kpos->start, kpos->end - kpos->start);
+
+        if (sub_msgs[idx] == NULL) {
+            sub_msgs[idx] = msg_get(r->owner, r->request, r->redis);
+            if (sub_msgs[idx] == NULL) {
+                nc_free(sub_msgs);
+                return NC_ENOMEM;
+            }
+        }
+        r->frag_seq[i] = sub_msg = sub_msgs[idx];
+
+        sub_msg->narg++;
+        status = redis_append_key(sub_msg, kpos->start, kpos->end - kpos->start);
+        if (status != NC_OK) {
+            nc_free(sub_msgs);
+            return status;
+        }
+
+        if (key_step == 1) {                            /* mget,del */
+            continue;
+        } else {                                        /* mset */
+            status = redis_copy_bulk(NULL, r);          /* eat key */
+            if (status != NC_OK) {
+                nc_free(sub_msgs);
+                return status;
+            }
+
+            status = redis_copy_bulk(sub_msg, r);
+            if (status != NC_OK) {
+                nc_free(sub_msgs);
+                return status;
+            }
+
+            sub_msg->narg++;
+        }
+    }
+
+    for (i = 0; i < ncontinuum; i++) {     /* prepend mget header, and forward it */
+        struct msg *sub_msg = sub_msgs[i];
+        if (sub_msg == NULL) {
+            continue;
+        }
+
+        if (r->type == MSG_REQ_REDIS_MGET) {
+            status = msg_prepend_format(sub_msg, "*%d\r\n$4\r\nmget\r\n",
+                                        sub_msg->narg + 1);
+        } else if (r->type == MSG_REQ_REDIS_DEL) {
+            status = msg_prepend_format(sub_msg, "*%d\r\n$3\r\ndel\r\n",
+                                        sub_msg->narg + 1);
+        } else if (r->type == MSG_REQ_REDIS_MSET) {
+            status = msg_prepend_format(sub_msg, "*%d\r\n$4\r\nmset\r\n",
+                                        sub_msg->narg + 1);
+        } else {
+            NOT_REACHED();
+        }
+        if (status != NC_OK) {
+            nc_free(sub_msgs);
+            return status;
+        }
+
+        sub_msg->type = r->type;
+        sub_msg->frag_id = r->frag_id;
+        sub_msg->frag_owner = r->frag_owner;
+
+        TAILQ_INSERT_TAIL(frag_msgq, sub_msg, m_tqe);
+        r->nfrag++;
+    }
+
+    nc_free(sub_msgs);
+    return NC_OK;
+}
+
+rstatus_t
+redis_fragment(struct msg *r, uint32_t ncontinuum, struct msg_tqh *frag_msgq)
+{
+    switch (r->type) {
+    case MSG_REQ_REDIS_MGET:
+    case MSG_REQ_REDIS_DEL:
+        return redis_fragment_argx(r, ncontinuum, frag_msgq, 1);
+    case MSG_REQ_REDIS_MSET:
+        return redis_fragment_argx(r, ncontinuum, frag_msgq, 2);
+    default:
+        return NC_OK;
+    }
+}
+
+rstatus_t
+redis_reply(struct msg *r)
+{
+    struct conn *c_conn;
+    struct msg *response = r->peer;
+
+    ASSERT(response != NULL && response->owner != NULL);
+
+    c_conn = response->owner;
+    if (r->type == MSG_REQ_REDIS_AUTH) {
+        return redis_handle_auth_req(r, response);
+    }
+
+    if (c_conn->need_auth == 1) {
+        return msg_append(response, (uint8_t *)AUTH_REQUIRE_PASSWORD, strlen(AUTH_REQUIRE_PASSWORD));
+    }
+
+    switch (r->type) {
+    case MSG_REQ_REDIS_PING:
+        return msg_append(response, (uint8_t *)REPL_PONG, nc_strlen(REPL_PONG));
+
+    default:
+        NOT_REACHED();
+        return NC_ERROR;
+    }
+}
+
+void
+redis_post_coalesce_mset(struct msg *request)
+{
+    struct msg *response = request->peer;
+    rstatus_t status;
+
+    status = msg_append(response, (uint8_t *)REPL_OK, nc_strlen(REPL_OK));
+    if (status != NC_OK) {
+        response->error = 1;        /* mark this msg as err */
+        response->err = errno;
+    }
+}
+
+void
+redis_post_coalesce_del(struct msg *request)
+{
+    struct msg *response = request->peer;
+    rstatus_t status;
+
+    status = msg_prepend_format(response, ":%d\r\n", request->integer);
+    if (status != NC_OK) {
+        response->error = 1;
+        response->err = errno;
+    }
+}
+
+static void
+redis_post_coalesce_mget(struct msg *request)
+{
+    struct msg *response = request->peer;
+    struct msg *sub_msg;
+    rstatus_t status;
+    uint32_t i;
+
+    status = msg_prepend_format(response, "*%d\r\n", request->narg - 1);
+    if (status != NC_OK) {
+        /*
+         * the fragments is still in c_conn->omsg_q, we have to discard all of them,
+         * we just close the conn here
+         */
+        response->owner->err = 1;
+        return;
+    }
+
+    for (i = 0; i < array_n(request->keys); i++) {      /* for each key */
+        sub_msg = request->frag_seq[i]->peer;           /* get it's peer response */
+        if (sub_msg == NULL) {
+            response->owner->err = 1;
+            return;
+        }
+        status = redis_copy_bulk(response, sub_msg);
+        if (status != NC_OK) {
+            response->owner->err = 1;
+            return;
+        }
+    }
+}
+
 /*
  * Post-coalesce handler is invoked when the message is a response to
  * the fragmented multi vector request - 'mget' or 'del' and all the
@@ -2091,45 +2560,183 @@ void
 redis_post_coalesce(struct msg *r)
 {
     struct msg *pr = r->peer; /* peer response */
-    struct mbuf *mbuf;
-    int n;
 
-    ASSERT(r->request && r->first_fragment);
+    ASSERT(!pr->request);
+    ASSERT(r->request && (r->frag_owner == r));
     if (r->error || r->ferror) {
         /* do nothing, if msg is in error */
         return;
     }
 
-    ASSERT(!pr->request);
-
-    switch (pr->type) {
-    case MSG_RSP_REDIS_INTEGER:
-        /* only redis 'del' fragmented request sends back integer reply */
-        ASSERT(r->type == MSG_REQ_REDIS_DEL);
-
-        mbuf = STAILQ_FIRST(&pr->mhdr);
-
-        ASSERT(pr->mlen == 0);
-        ASSERT(mbuf_empty(mbuf));
-
-        n = nc_scnprintf(mbuf->last, mbuf_size(mbuf), ":%d\r\n", r->integer);
-        mbuf->last += n;
-        pr->mlen += (uint32_t)n;
-        break;
-
-    case MSG_RSP_REDIS_MULTIBULK:
-        /* only redis 'mget' fragmented request sends back multi-bulk reply */
-        ASSERT(r->type == MSG_REQ_REDIS_MGET);
-
-        mbuf = STAILQ_FIRST(&pr->mhdr);
-        ASSERT(mbuf_empty(mbuf));
-
-        n = nc_scnprintf(mbuf->last, mbuf_size(mbuf), "*%d\r\n", r->nfrag);
-        mbuf->last += n;
-        pr->mlen += (uint32_t)n;
-        break;
-
+    switch (r->type) {
+    case MSG_REQ_REDIS_MGET:
+        return redis_post_coalesce_mget(r);
+    case MSG_REQ_REDIS_DEL:
+        return redis_post_coalesce_del(r);
+    case MSG_REQ_REDIS_MSET:
+        return redis_post_coalesce_mset(r);
     default:
         NOT_REACHED();
+    }
+}
+
+static bool
+redis_valid_auth(struct conn *conn, struct msg *msg)
+{
+    struct server_pool *pool = (struct server_pool *)conn->owner;
+
+    if (pool->redis_auth.len > 0) {
+        struct keypos *kpos;
+        uint8_t *key;
+        uint32_t keylen;
+
+        kpos = array_get(msg->keys, 0);
+        key = kpos->start;
+        keylen = (uint32_t)(kpos->end - kpos->start);
+        if (keylen != pool->redis_auth.len) {
+            return false;
+        }
+
+        if (memcmp(pool->redis_auth.data, key, keylen) != 0) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+static rstatus_t
+redis_handle_auth_req(struct msg *request, struct msg *response)
+{
+    struct server_pool *pool;
+    struct conn *conn = (struct conn *)response->owner;
+
+    ASSERT(conn->client && !conn->proxy && conn->redis);
+
+    pool = (struct server_pool *)conn->owner;
+
+    if (pool->redis_auth.len == 0) {
+        return msg_append(response, (uint8_t *)AUTH_NO_PASSWORD, nc_strlen(AUTH_NO_PASSWORD));
+    }
+
+    if (redis_valid_auth(conn, request)) {
+        conn->need_auth = 0;
+        return msg_append(response, (uint8_t *)REPL_OK, nc_strlen(REPL_OK));
+    } else {
+        conn->need_auth = 1;
+        return msg_append(response, (uint8_t *)AUTH_INVALID_PASSWORD, nc_strlen(AUTH_INVALID_PASSWORD));
+    }
+
+    NOT_REACHED();
+}
+
+rstatus_t
+redis_add_auth_packet(struct context *ctx, struct conn *c_conn, struct conn *s_conn)
+{
+    rstatus_t status;
+    struct msg *msg;
+    struct server_pool *pool;
+
+    ASSERT(s_conn->need_auth);
+    ASSERT(!s_conn->client && !s_conn->proxy);
+
+    pool = c_conn->owner;
+
+    msg = msg_get(c_conn, true, c_conn->redis);
+    if (msg == NULL) {
+        c_conn->err = errno;
+        return NC_ENOMEM;
+    }
+
+    status = msg_prepend_format(msg, "*2\r\n$4\r\nAUTH\r\n$%d\r\n%s\r\n",
+                                pool->redis_auth.len, pool->redis_auth.data);
+    if (status != NC_OK) {
+        msg_put(msg);
+        return status;
+    }
+
+    msg->swallow = 1;
+    s_conn->enqueue_inq(ctx, s_conn, msg);
+    s_conn->need_auth = 0;
+
+    return NC_OK;
+}
+
+void
+redis_post_connect(struct context *ctx, struct conn *conn, struct server *server)
+{
+    rstatus_t status;
+    struct server_pool *pool = server->owner;
+    struct msg *msg;
+    int digits;
+
+    ASSERT(!conn->client && conn->connected);
+    ASSERT(conn->redis);
+
+    /*
+     * By default, every connection to redis uses the database DB 0. You
+     * can select a different one on a per-connection basis by sending
+     * a request 'SELECT <redis_db>', where <redis_db> is the configured
+     * on a per pool basis in the configuration
+     */
+    if (pool->redis_db <= 0) {
+        return;
+    }
+
+    /*
+     * Create a fake client message and add it to the pipeline. We force this
+     * message to be head of queue as it might already contain a command
+     * that triggered the connect.
+     */
+    msg = msg_get(conn, true, conn->redis);
+    if (msg == NULL) {
+        return;
+    }
+
+    digits = (pool->redis_db >= 10) ? (int)log10(pool->redis_db) + 1 : 1;
+    status = msg_prepend_format(msg, "*2\r\n$6\r\nSELECT\r\n$%d\r\n%d\r\n", digits, pool->redis_db);
+    if (status != NC_OK) {
+        msg_put(msg);
+        return;
+    }
+    msg->type = MSG_REQ_REDIS_SELECT;
+    msg->result = MSG_PARSE_OK;
+    msg->swallow = 1;
+    msg->owner = NULL;
+
+    /* enqueue as head and send */
+    req_server_enqueue_imsgq_head(ctx, conn, msg);
+    msg_send(ctx, conn);
+
+    log_debug(LOG_NOTICE, "sent 'SELECT %d' to %s | %s", pool->redis_db,
+              pool->name.data, server->name.data);
+}
+
+void
+redis_swallow_msg(struct conn *conn, struct msg *pmsg, struct msg *msg)
+{
+    if (pmsg != NULL && pmsg->type == MSG_REQ_REDIS_SELECT &&
+        msg != NULL && msg->type == MSG_RSP_REDIS_ERROR) {
+        struct server* conn_server;
+        struct server_pool* conn_pool;
+        struct mbuf* rsp_buffer;
+        uint8_t message[128];
+        size_t copy_len;
+
+        /*
+         * Get a substring from the message so that the inital - and the trailing
+         * \r\n is removed.
+         */
+        conn_server = (struct server*)conn->owner;
+        conn_pool = conn_server->owner;
+        rsp_buffer = STAILQ_LAST(&msg->mhdr, mbuf, next);
+        copy_len = MIN(mbuf_length(rsp_buffer) - 3, sizeof(message) - 1);
+
+        nc_memcpy(message, &rsp_buffer->start[1], copy_len);
+        message[copy_len] = 0;
+
+        log_warn("SELECT %d failed on %s | %s: %s",
+                 conn_pool->redis_db, conn_pool->name.data,
+                 conn_server->name.data, message);
     }
 }

@@ -47,6 +47,7 @@
 #define CONF_DEFAULT_LISTEN_BACKLOG          512
 #define CONF_DEFAULT_CLIENT_CONNECTIONS      0
 #define CONF_DEFAULT_REDIS                   false
+#define CONF_DEFAULT_REDIS_DB                0
 #define CONF_DEFAULT_PRECONNECT              false
 #define CONF_DEFAULT_AUTO_EJECT_HOSTS        false
 #define CONF_DEFAULT_SERVER_RETRY_TIMEOUT    30 * 1000      /* in msec */
@@ -58,6 +59,7 @@ struct conf_listen {
     struct string   pname;   /* listen: as "name:port" */
     struct string   name;    /* name */
     int             port;    /* port */
+    mode_t          perm;    /* socket permissions */
     struct sockinfo info;    /* listen socket info */
     unsigned        valid:1; /* valid? */
 };
@@ -82,9 +84,9 @@ struct conf_pool {
     int                backlog;               /* backlog: */
     int                client_connections;    /* client_connections: */
     int                redis;                 /* redis: */
-    int                always_host_resolve;   /* always_host_resolve: */
     struct string      redis_auth;            /* redis auth password */
     struct string      mode;                  /* socket file permissions */
+    int                redis_db;              /* redis_db: */
     int                preconnect;            /* preconnect: */
     int                auto_eject_hosts;      /* auto_eject_hosts: */
     int                server_connections;    /* server_connections: */

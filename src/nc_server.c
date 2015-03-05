@@ -35,21 +35,6 @@ server_ref(struct conn *conn, void *owner)
     conn->family = server->family;
     conn->addrlen = server->addrlen;
 
-
-    if (pool->always_host_resolve) {
-        log_debug(LOG_NOTICE, "resolve %.*s", server->address);
-        rstatus_t status;
-        status = nc_resolve(&(server->address), server->port, &server->info);
-        /**
-         * Masking logs to reduce splunk usage
-         log_debug(LOG_NOTICE, "nc resolve %.*s with status code %d\n", server->address, (int)status);
-         */
-        if (status == 0) {
-          server->addr = (struct sockaddr *)&server->info.addr;
-          log_debug(LOG_NOTICE, "server address updated to %.*s", server->address);
-        }
-    }
-
     conn->addr = server->addr;
 
     server->ns_conn_q++;
@@ -356,6 +341,8 @@ server_close(struct context *ctx, struct conn *conn)
     server_close_stats(ctx, conn->owner, conn->err, conn->eof,
                        conn->connected);
 
+    conn->connected = false;
+
     if (conn->sd < 0) {
         server_failure(ctx, conn->owner);
         conn->unref(conn);
@@ -386,6 +373,10 @@ server_close(struct context *ctx, struct conn *conn)
             msg->error = 1;
             msg->err = conn->err;
 
+            if (msg->frag_owner != NULL) {
+                msg->frag_owner->nfrag_done++;
+            }
+
             if (req_done(c_conn, TAILQ_FIRST(&c_conn->omsg_q))) {
                 event_add_out(ctx->evb, msg->owner);
             }
@@ -415,6 +406,9 @@ server_close(struct context *ctx, struct conn *conn)
             msg->done = 1;
             msg->error = 1;
             msg->err = conn->err;
+            if (msg->frag_owner != NULL) {
+                msg->frag_owner->nfrag_done++;
+            }
 
             if (req_done(c_conn, TAILQ_FIRST(&c_conn->omsg_q))) {
                 event_add_out(ctx->evb, msg->owner);
@@ -482,7 +476,7 @@ server_connect(struct context *ctx, struct server *server, struct conn *conn)
     status = nc_set_nonblocking(conn->sd);
     if (status != NC_OK) {
         log_error("set nonblock on s %d for server '%.*s' failed: %s",
-                  conn->sd,  server->pname.len, server->pname.data,
+                  conn->sd, server->pname.len, server->pname.data,
                   strerror(errno));
         goto error;
     }
@@ -545,6 +539,8 @@ server_connected(struct context *ctx, struct conn *conn)
 
     conn->connecting = 0;
     conn->connected = 1;
+
+    conn->post_connect(ctx, conn, server);
 
     log_debug(LOG_INFO, "connected on s %d to server '%.*s'", conn->sd,
               server->pname.len, server->pname.data);
@@ -616,24 +612,45 @@ static uint32_t
 server_pool_hash(struct server_pool *pool, uint8_t *key, uint32_t keylen)
 {
     ASSERT(array_n(&pool->server) != 0);
+    ASSERT(key != NULL);
 
     if (array_n(&pool->server) == 1) {
         return 0;
     }
 
-    ASSERT(key != NULL && keylen != 0);
+    if (keylen == 0) {
+        return 0;
+    }
 
     return pool->key_hash((char *)key, keylen);
 }
 
-static struct server *
-server_pool_server(struct server_pool *pool, uint8_t *key, uint32_t keylen)
+uint32_t
+server_pool_idx(struct server_pool *pool, uint8_t *key, uint32_t keylen)
 {
-    struct server *server;
     uint32_t hash, idx;
 
     ASSERT(array_n(&pool->server) != 0);
-    ASSERT(key != NULL && keylen != 0);
+    ASSERT(key != NULL);
+
+    /*
+     * If hash_tag: is configured for this server pool, we use the part of
+     * the key within the hash tag as an input to the distributor. Otherwise
+     * we use the full key
+     */
+    if (!string_empty(&pool->hash_tag)) {
+        struct string *tag = &pool->hash_tag;
+        uint8_t *tag_start, *tag_end;
+
+        tag_start = nc_strchr(key, key + keylen, tag->data[0]);
+        if (tag_start != NULL) {
+            tag_end = nc_strchr(tag_start + 1, key + keylen, tag->data[1]);
+            if ((tag_end != NULL) && (tag_end - tag_start > 1)) {
+                key = tag_start + 1;
+                keylen = (uint32_t)(tag_end - key);
+            }
+        }
+    }
 
     switch (pool->dist_type) {
     case DIST_KETAMA:
@@ -652,10 +669,19 @@ server_pool_server(struct server_pool *pool, uint8_t *key, uint32_t keylen)
 
     default:
         NOT_REACHED();
-        return NULL;
+        return 0;
     }
     ASSERT(idx < array_n(&pool->server));
+    return idx;
+}
 
+static struct server *
+server_pool_server(struct server_pool *pool, uint8_t *key, uint32_t keylen)
+{
+    struct server *server;
+    uint32_t idx;
+
+    idx = server_pool_idx(pool, key, keylen);
     server = array_get(&pool->server, idx);
 
     log_debug(LOG_VERB, "key '%.*s' on dist %d maps to server '%.*s'", keylen,
@@ -760,6 +786,18 @@ server_pool_each_set_owner(void *elem, void *data)
     return NC_OK;
 }
 
+static rstatus_t
+server_pool_each_calc_connections(void *elem, void *data)
+{
+    struct server_pool *sp = elem;
+    struct context *ctx = data;
+
+    ctx->max_nsconn += sp->server_connections * array_n(&sp->server);
+    ctx->max_nsconn += 1; /* pool listening socket */
+
+    return NC_OK;
+}
+
 rstatus_t
 server_pool_run(struct server_pool *pool)
 {
@@ -840,6 +878,14 @@ server_pool_init(struct array *server_pool, struct array *conf_pool,
 
     /* set ctx as the server pool owner */
     status = array_each(server_pool, server_pool_each_set_owner, ctx);
+    if (status != NC_OK) {
+        server_pool_deinit(server_pool);
+        return status;
+    }
+
+    /* compute max server connections */
+    ctx->max_nsconn = 0;
+    status = array_each(server_pool, server_pool_each_calc_connections, ctx);
     if (status != NC_OK) {
         server_pool_deinit(server_pool);
         return status;

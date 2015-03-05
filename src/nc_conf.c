@@ -78,9 +78,9 @@ static struct command conf_commands[] = {
       conf_set_string,
       offsetof(struct conf_pool, redis_auth) },
 
-    { string("always_host_resolve"),
-      conf_set_bool,
-      offsetof(struct conf_pool, preconnect) },
+    { string("redis_db"),
+      conf_set_num,
+      offsetof(struct conf_pool, redis_db) },
 
     { string("mode"),
       conf_set_string,
@@ -88,7 +88,11 @@ static struct command conf_commands[] = {
 
     { string("preconnect"),
       conf_set_bool,
-      offsetof(struct conf_pool, always_host_resolve) },
+      offsetof(struct conf_pool, preconnect) },
+
+    { string("mode"),
+      conf_set_string,
+      offsetof(struct conf_pool, mode) },
 
     { string("auto_eject_hosts"),
       conf_set_bool,
@@ -202,7 +206,7 @@ conf_pool_init(struct conf_pool *cp, struct string *name)
     cp->client_connections = CONF_UNSET_NUM;
 
     cp->redis = CONF_UNSET_NUM;
-    cp->always_host_resolve = CONF_UNSET_NUM;
+    cp->redis_db = CONF_UNSET_NUM;
     cp->preconnect = CONF_UNSET_NUM;
     cp->auto_eject_hosts = CONF_UNSET_NUM;
     cp->server_connections = CONF_UNSET_NUM;
@@ -288,6 +292,7 @@ conf_pool_each_transform(void *elem, void *data)
     sp->family = cp->listen.info.family;
     sp->addrlen = cp->listen.info.addrlen;
     sp->addr = (struct sockaddr *)&cp->listen.info.addr;
+    sp->perm = cp->listen.perm;
 
     sp->key_hash_type = cp->hash;
     sp->key_hash = hash_algos[cp->hash];
@@ -295,9 +300,9 @@ conf_pool_each_transform(void *elem, void *data)
     sp->hash_tag = cp->hash_tag;
 
     sp->redis = cp->redis ? 1 : 0;
-    sp->always_host_resolve = cp->always_host_resolve ? 1 : 0;
-    sp->redis_auth = cp->redis_auth;
     sp->mode = cp->mode;
+    sp->redis_auth = cp->redis_auth;
+    sp->redis_db = cp->redis_db;
     sp->timeout = cp->timeout;
     sp->backlog = cp->backlog;
 
@@ -1241,6 +1246,10 @@ conf_validate_pool(struct conf *cf, struct conf_pool *cp)
         cp->redis = CONF_DEFAULT_REDIS;
     }
 
+    if (cp->redis_db == CONF_UNSET_NUM) {
+        cp->redis_db = CONF_DEFAULT_REDIS_DB;
+    }
+
     if (cp->preconnect == CONF_UNSET_NUM) {
         cp->preconnect = CONF_DEFAULT_PRECONNECT;
     }
@@ -1450,8 +1459,32 @@ conf_set_listen(struct conf *cf, struct command *cmd, void *conf)
     }
 
     if (value->data[0] == '/') {
-        name = value->data;
-        namelen = value->len;
+        uint8_t *q, *start, *perm;
+        uint32_t permlen;
+
+
+        /* parse "socket_path permissions" from the end */
+        p = value->data + value->len -1;
+        start = value->data;
+        q = nc_strrchr(p, start, ' ');
+        if (q == NULL) {
+            /* no permissions field, so use defaults */
+            name = value->data;
+            namelen = value->len;
+        } else {
+            perm = q + 1;
+            permlen = (uint32_t)(p - perm + 1);
+
+            p = q - 1;
+            name = start;
+            namelen = (uint32_t)(p - start + 1);
+
+            errno = 0;
+            field->perm = (mode_t)strtol((char *)perm, NULL, 8);
+            if (errno || field->perm > 0777) {
+                return "has an invalid file permission in \"socket_path permission\" format string";
+            }
+        }
     } else {
         uint8_t *q, *start, *port;
         uint32_t portlen;
@@ -1585,6 +1618,8 @@ conf_add_server(struct conf *cf, struct command *cmd, void *conf)
     field->weight = nc_atoi(weight, weightlen);
     if (field->weight < 0) {
         return "has an invalid weight in \"hostname:port:weight [name]\" format string";
+    } else if (field->weight == 0) {
+        return "has a zero weight in \"hostname:port:weight [name]\" format string";
     }
 
     if (value->data[0] != '/') {

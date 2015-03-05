@@ -1,4 +1,4 @@
-## Redis Commands Supported
+## Redis Command Support
 
 ### Keys Command
 
@@ -39,7 +39,7 @@
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
     |      RESTORE      |    Yes     | RESTORE key ttl serialized-value                                                                                    |
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
-    |      SORT         |    No      | SORT key [BY pattern] [LIMIT offset count] [GET pattern [GET pattern ...]] [ASC|DESC] [ALPHA] [STORE destination]   |
+    |      SORT         |    Yes     | SORT key [BY pattern] [LIMIT offset count] [GET pattern [GET pattern ...]] [ASC|DESC] [ALPHA] [STORE destination]   |
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
     |       TTL         |    Yes     | TTL key                                                                                                             |
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
@@ -79,7 +79,7 @@
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
     |      MGET         |    Yes     | MGET key [key ...]                                                                                                  |
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
-    |      MSET         |    No      | MSET key value [key value ...]                                                                                      |
+    |      MSET         |    Yes*    | MSET key value [key value ...]                                                                                      | 
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
     |      MSETNX       |    No      | MSETNX key value [key value ...]                                                                                    |
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
@@ -97,6 +97,8 @@
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
     |      STRLEN       |    Yes     | STRLEN key                                                                                                          |
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
+
+* MSET support is not Atomic 
 
 ### Hashes
 
@@ -129,7 +131,7 @@
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
     |      HVALS        |    Yes     | HVALS key                                                                                                           |
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
-    |      HSCAN        |    No      | HSCAN key cursor [MATCH pattern] [COUNT count]                                                                      |
+    |      HSCAN        |    Yes     | HSCAN key cursor [MATCH pattern] [COUNT count]                                                                      |
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
 
 ### Lists
@@ -172,7 +174,7 @@
     |      RPUSHX       |    Yes     | RPUSHX key value                                                                                                    |
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
 
-* RPOPLPUSH support requires that source and destination keys hash to the same server. You can ensure this by using the same [hashtag](notes/recommendation.md#hash-tags) for source and destination key. Twemproxy does no checking on its end to verify that source and destination key hash to the same server, and the RPOPLPUSH command is forwarded to the server that the source key hashes to
+* RPOPLPUSH support requires that source and destination keys hash to the same server. You can ensure this by using the same [hashtag](recommendation.md#hash-tags) for source and destination key. Twemproxy does no checking on its end to verify that source and destination key hash to the same server, and the RPOPLPUSH command is forwarded to the server that the source key hashes to
 
 ### Sets
 
@@ -207,10 +209,10 @@
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
     |   SUNIONSTORE     |    Yes*    | SUNIONSTORE destination key [key ...]                                                                               |
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
-    |      SSCAN        |    No      | SSCAN key cursor [MATCH pattern] [COUNT count]                                                                      |
+    |      SSCAN        |    Yes     | SSCAN key cursor [MATCH pattern] [COUNT count]                                                                      |
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
 
-* SIDFF, SDIFFSTORE, SINTER, SINTERSTORE, SMOVE, SUNION and SUNIONSTORE support requires that the supplied keys hash to the same server. You can ensure this by using the same [hashtag](notes/recommendation.md#hash-tags) for all keys in the command. Twemproxy does no checking on its end to verify that all the keys hash to the same server, and the given command is forwarded to the server that the first key hashes to.
+* SIDFF, SDIFFSTORE, SINTER, SINTERSTORE, SMOVE, SUNION and SUNIONSTORE support requires that the supplied keys hash to the same server. You can ensure this by using the same [hashtag](recommendation.md#hash-tags) for all keys in the command. Twemproxy does no checking on its end to verify that all the keys hash to the same server, and the given command is forwarded to the server that the first key hashes to.
 
 
 ### Sorted Sets
@@ -227,14 +229,20 @@
     |      ZINCRBY      |    Yes     | ZINCRBY key increment member                                                                                        |
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
     |     ZINTERSTORE   |    Yes*    | ZINTERSTORE destination numkeys key [key ...] [WEIGHTS weight [weight ...]] [AGGREGATE SUM|MIN|MAX]                 |
+    +------------------------------------------------------------------------------------------------------------------------------------------------------+
+    |      ZLEXCOUNT    |    Yes     | ZLEXCOUNT key min max                                                                                               |
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
     |      ZRANGE       |    Yes     | ZRANGE key start stop [WITHSCORES]                                                                                  |
+    +------------------------------------------------------------------------------------------------------------------------------------------------------+
+    |    ZRANGEBYLEX    |    Yes     | ZRANGEBYLEX key min max [LIMIT offset count]                                                                        |
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
     |    ZRANGEBYSCORE  |    Yes     | ZRANGEBYSCORE key min max [WITHSCORES] [LIMIT offset count]                                                         |
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
     |      ZRANK        |    Yes     | ZRANK key member                                                                                                    |
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
     |       ZREM        |    Yes     | ZREM key member [member ...]                                                                                        |
+    +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
+    |   ZREMRANGEBYLEX  |    Yes     | ZREMRANGEBYLEX key min max                                                                                          |
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
     |   ZREMRANGEBYRANK |    Yes     | ZREMRANGEBYRANK key start stop                                                                                      |
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
@@ -250,10 +258,24 @@
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
     |    ZUNIONSTORE    |    Yes*    | ZUNIONSTORE destination numkeys key [key ...] [WEIGHTS weight [weight ...]] [AGGREGATE SUM|MIN|MAX]                 |
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
-    |      ZSCAN        |    No      | ZSCAN key cursor [MATCH pattern] [COUNT count]                                                                      |
+    |      ZSCAN        |    Yes     | ZSCAN key cursor [MATCH pattern] [COUNT count]                                                                      |
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
 
-* ZINTERSTORE and ZUNIONSTORE support requires that the supplied keys hash to the same server. You can ensure this by using the same [hashtag](notes/recommendation.md#hash-tags) for all keys in the command. Twemproxy does no checking on its end to verify that all the keys hash to the same server, and the given command is forwarded to the server that the first key hashes to.
+* ZINTERSTORE and ZUNIONSTORE support requires that the supplied keys hash to the same server. You can ensure this by using the same [hashtag](recommendation.md#hash-tags) for all keys in the command. Twemproxy does no checking on its end to verify that all the keys hash to the same server, and the given command is forwarded to the server that the first key hashes to.
+
+### HyperLogLog
+
+    +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
+    |      Command      | Supported? | Format                                                                                                              |
+    +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
+    |       PFADD       |    Yes     | PFADD key element [element ...]                                                                                     |
+    +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
+    |      PFCOUNT      |    Yes     | PFCOUNT key [key ...]                                                                                               |
+    +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
+    |      PFMERGE      |    Yes*    | PFMERGE destkey sourcekey [sourcekey ...]                                                                           |
+    +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
+
+* PFMERGE support requires that the supplied keys hash to the same server. You can ensure this by using the same [hashtag](recommendation.md#hash-tags) for all keys in the command. Twemproxy does no checking on its end to verify that all the keys hash to the same server, and the given command is forwarded to the server that the first key hashes to.
 
 
 ### Pub/Sub
@@ -306,7 +328,7 @@
     |    SCRIPT LOAD    |    No      | SCRIPT LOAD script                                                                                                  |
     +-------------------+------------+---------------------------------------------------------------------------------------------------------------------+
 
- * EVAL and EVALSHA support is limited to scripts that take at least 1 key. If multiple keys are used, all keys must hash to the same server. You can ensure this by using the same [hashtag](notes/recommendation.md#hash-tags) for all keys. If you use more than 1 key, the proxy does no checking to verify that all keys hash to the same server, and the entire command is forwarded to the server that the first key hashes to
+ * EVAL and EVALSHA support is limited to scripts that take at least 1 key. If multiple keys are used, all keys must hash to the same server. You can ensure this by using the same [hashtag](recommendation.md#hash-tags) for all keys. If you use more than 1 key, the proxy does no checking to verify that all keys hash to the same server, and the entire command is forwarded to the server that the first key hashes to
 
 ### Connection
 
@@ -375,7 +397,7 @@
 ## Note
 
 - redis commands are not case sensitive
-- only vectored commands 'MGET key [key ...]' and 'DEL key [key ...]' needs to be fragmented
+- only vectored commands 'MGET key [key ...]', 'MSET key value [key value ...]', 'DEL key [key ...]' needs to be fragmented
 
 ## Performance
 
@@ -420,4 +442,20 @@
     LRANGE_300 (first 300 elements): 12376.24 requests per second
     LRANGE_500 (first 450 elements): 8605.85 requests per second
     LRANGE_600 (first 600 elements): 6587.62 requests per second
+
+## redis-auth feature
+
++ you can enable redis-auth for a pool with 'redis_auth':
+
+        alpha:
+          listen: 127.0.0.1:22121
+          hash: fnv1a_64
+          distribution: ketama
+          redis: true
+          redis_auth: testpass
+
++ notice:
+    + *MUST* set all redis with a same passwd, and all twemproxy with the same passwd
+    + Length of password should less than 256 
+
 

@@ -1,28 +1,63 @@
 #! /bin/sh
-### BEGIN INIT INFO
-# Provides:		    nutcracker
-# Required-Start:	$syslog
-# Required-Stop:	$syslog
-# Should-Start:		$local_fs
-# Should-Stop:		$local_fs
-# Default-Start:	2 3 4 5
-# Default-Stop:		0 1 6
-# Short-Description:	nutcracker - Twitter redis proxy
-# Description:		    nutcracker - Twitter redis proxy
-### END INIT INFO
- 
- 
-PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
-DAEMON=/usr/local/sbin/nutcracker
-DAEMON_ARGS="-d -c /etc/nutcracker.yaml -o /var/log/nutcracker/nutcracker.log -p /var/run/nutcracker.pid"
-NAME=nutcracker
-DESC=nutcracker
-PIDFILE=/var/run/nutcracker.pid
- 
-test -x $DAEMON || exit 0
- 
-set -e
- 
+#
+# chkconfig: - 55 45
+# description:  Twitter's twemproxy nutcracker
+# processname: nutcracker
+# config: /etc/sysconfig/nutcracker
+
+# Source function library.
+. /etc/rc.d/init.d/functions
+
+USER="nobody"
+OPTIONS="-d -c /etc/nutcracker/nutcracker.yml"
+
+if [ -f /etc/sysconfig/nutcracker ];then
+    . /etc/sysconfig/nutcracker
+fi
+
+# Check that networking is up.
+if [ "$NETWORKING" = "no" ]
+then
+    exit 0
+fi
+
+RETVAL=0
+prog="nutcracker"
+
+start () {
+    echo -n $"Starting $prog: "
+    #Test the config before start.
+    daemon --user ${USER} ${prog} $OPTIONS -t >/dev/null  2>&1
+    RETVAL=$?
+    if [ $RETVAL -ne 0 ] ; then
+        echo  "Config check fail! Please  use 'nutcracker -c /etc/nutcracker/nutcracker.yml' for detail."
+        echo_failure;
+        echo; 
+        exit 1 
+    fi
+
+    daemon --user ${USER} ${prog} $OPTIONS
+    RETVAL=$?
+    echo
+    [ $RETVAL -eq 0 ] && touch /var/lock/subsys/${prog}
+}
+stop () {
+    echo -n $"Stopping $prog: "
+    killproc ${prog}
+    RETVAL=$?
+    echo
+    if [ $RETVAL -eq 0 ] ; then
+        rm -f /var/lock/subsys/${prog}
+    fi
+}
+
+restart () {
+    stop
+    start
+}
+
+
+# See how we were called.
 case "$1" in
   start)
 	echo -n "Starting $DESC: "

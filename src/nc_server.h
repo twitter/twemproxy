@@ -110,12 +110,14 @@ struct server_pool {
     int                family;               /* socket family */
     socklen_t          addrlen;              /* socket length */
     struct sockaddr    *addr;                /* socket address (ref in conf_pool) */
+    mode_t             perm;                 /* socket permission */
     int                dist_type;            /* distribution type (dist_type_t) */
     int                key_hash_type;        /* key hash type (hash_type_t) */
     hash_t             key_hash;             /* key hasher */
     struct string      hash_tag;             /* key hash tag (ref in conf_pool) */
     int                timeout;              /* timeout in msec */
     int                backlog;              /* listen backlog */
+    int                redis_db;             /* redis database to connect to */
     uint32_t           client_connections;   /* maximum # client connection */
     uint32_t           server_connections;   /* maximum # server connection */
     int64_t            server_retry_timeout; /* server retry timeout in usec */
@@ -123,7 +125,6 @@ struct server_pool {
     unsigned           auto_eject_hosts:1;   /* auto_eject_hosts? */
     unsigned           preconnect:1;         /* preconnect? */
     unsigned           redis:1;              /* redis? */
-    unsigned           always_host_resolve:1;/* always host resolve? */
 };
 
 void server_ref(struct conn *conn, void *owner);
@@ -138,6 +139,7 @@ void server_close(struct context *ctx, struct conn *conn);
 void server_connected(struct context *ctx, struct conn *conn);
 void server_ok(struct context *ctx, struct conn *conn);
 
+uint32_t server_pool_idx(struct server_pool *pool, uint8_t *key, uint32_t keylen);
 struct conn *server_pool_conn(struct context *ctx, struct server_pool *pool, uint8_t *key, uint32_t keylen);
 rstatus_t server_pool_run(struct server_pool *pool);
 rstatus_t server_update_perm(struct server_pool *pool);

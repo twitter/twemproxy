@@ -563,6 +563,49 @@ printf '*6\r\n$4\r\nzadd\r\n$7\r\n{zfoo}2\r\n$3\r\n100\r\n$3\r\nbar\r\n$3\r\n101
 printf '*5\r\n$11\r\nzunionstore\r\n$7\r\n{zfoo}3\r\n$1\r\n2\r\n$6\r\n{zfoo}\r\n$7\r\n{zfoo}2\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
 printf '*5\r\n$6\r\nzrange\r\n$7\r\n{zfoo}3\r\n$1\r\n0\r\n$1\r\n3\r\n$10\r\nWITHSCORES\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
 
+printf '\nzlexcount\n'
+printf '*2\r\n$3\r\ndel\r\n$4\r\nzfoo\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*4\r\n$9\r\nzlexcount\r\n$4\r\nzfoo\r\n$2\r\n(a\r\n$2\r\n(z\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*8\r\n$4\r\nzadd\r\n$4\r\nzfoo\r\n$3\r\n100\r\n$3\r\nbar\r\n$3\r\n101\r\n$3\r\nbat\r\n$3\r\n102\r\n$3\r\nbau\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*4\r\n$9\r\nzlexcount\r\n$4\r\nzfoo\r\n$2\r\n(a\r\n$4\r\n[bat\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*4\r\n$9\r\nzlexcount\r\n$4\r\nzfoo\r\n$1\r\n-\r\n$1\r\n+\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+
+printf '\nzrangebylex\n'
+printf '*2\r\n$3\r\ndel\r\n$4\r\nzfoo\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*4\r\n$11\r\nzrangebylex\r\n$4\r\nzfoo\r\n$2\r\n(a\r\n$2\r\n(z\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*8\r\n$4\r\nzadd\r\n$4\r\nzfoo\r\n$3\r\n100\r\n$3\r\nbar\r\n$3\r\n101\r\n$3\r\nbat\r\n$3\r\n102\r\n$3\r\nbau\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*4\r\n$11\r\nzrangebylex\r\n$4\r\nzfoo\r\n$2\r\n(a\r\n$4\r\n[bat\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*4\r\n$11\r\nzrangebylex\r\n$4\r\nzfoo\r\n$1\r\n-\r\n$1\r\n+\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+
+printf '\nzremrangebylex\n'
+printf '*2\r\n$3\r\ndel\r\n$4\r\nzfoo\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*4\r\n$14\r\nzremrangebylex\r\n$4\r\nzfoo\r\n$2\r\n(a\r\n$2\r\n(z\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*8\r\n$4\r\nzadd\r\n$4\r\nzfoo\r\n$3\r\n100\r\n$3\r\nbar\r\n$3\r\n101\r\n$3\r\nbat\r\n$3\r\n102\r\n$3\r\nbau\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*4\r\n$14\r\nzremrangebylex\r\n$4\r\nzfoo\r\n$2\r\n(a\r\n$2\r\n(z\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*4\r\n$14\r\nzremrangebylex\r\n$4\r\nzfoo\r\n$1\r\n-\r\n$1\r\n+\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+
+# hyperloglog
+
+printf '\npfadd\n'
+printf '*2\r\n$3\r\ndel\r\n$4\r\npfoo\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*4\r\n$5\r\npfadd\r\n$4\r\npfoo\r\n$3\r\nbar\r\n$3\r\nbas\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*2\r\n$7\r\npfcount\r\n$4\r\npfoo\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+
+printf '\npfcount\n'
+printf '*2\r\n$3\r\ndel\r\n$4\r\npfoo\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*2\r\n$7\r\npfcount\r\n$4\r\npfoo\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*4\r\n$5\r\npfadd\r\n$4\r\npfoo\r\n$3\r\nbar\r\n$3\r\nbas\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*2\r\n$7\r\npfcount\r\n$4\r\npfoo\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+
+printf '\npfmerge\n'
+printf '*2\r\n$3\r\ndel\r\n$6\r\n{pfoo}\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*2\r\n$3\r\ndel\r\n$7\r\n{pfoo}2\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*2\r\n$3\r\ndel\r\n$7\r\n{pfoo}3\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*4\r\n$5\r\npfadd\r\n$6\r\n{pfoo}\r\n$4\r\nsfoo\r\n$3\r\nbar\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*3\r\n$5\r\npfadd\r\n$7\r\n{pfoo}2\r\n$3\r\nbas\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*5\r\n$7\r\npfmerge\r\n$7\r\n{pfoo}3\r\n$1\r\n2\r\n$6\r\n{pfoo}\r\n$7\r\n{pfoo}2\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*2\r\n$7\r\npfcount\r\n$7\r\n{pfoo}3\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+
 # scripting
 
 printf '\neval\n'
@@ -573,3 +616,7 @@ printf '*4\r\n$4\r\neval\r\n$10\r\nreturn 123\r\n$1\r\n1\r\n$1\r\n1\r\n' | socat
 printf '*7\r\n$4\r\neval\r\n$40\r\nreturn {KEYS[1],KEYS[2],ARGV[1],ARGV[2]}\r\n$1\r\n2\r\n$9\r\nkey1{tag}\r\n$4\r\narg1\r\n$9\r\nkey2{tag}\r\n$4\r\narg2\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
 printf '*9\r\n$4\r\neval\r\n$56\r\nreturn {KEYS[1],KEYS[2],KEYS[3],ARGV[1],ARGV[2],ARGV[3]}\r\n$1\r\n3\r\n$9\r\nkey1{tag}\r\n$4\r\narg1\r\n$9\r\nkey2{tag}\r\n$4\r\narg2\r\n$9\r\nkey3{tag}\r\n$4\r\narg3\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
 printf '*4\r\n$4\r\neval\r\n$11\r\nreturn {10}\r\n$1\r\n1\r\n$4\r\nTEMP\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+
+# quit
+printf '\nquit\n'
+printf '*1\r\n$4\r\nquit\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close

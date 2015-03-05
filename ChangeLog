@@ -1,3 +1,13 @@
+2014-18-10  idning <idning@gmail.com>
+
+    * twemproxy: version 0.4.0 release
+      mget improve (idning)
+      many new commands supported: LEX, PFADD, PFMERGE, SORT, PING, QUIT, SCAN... (mattrobenolt, areina, idning)
+      handle max open file limit(allenlz)
+      add notice-log and use ms time in log(idning)
+      fix bug in string_compare (andyqzb)
+      fix deadlock in sighandler (idning)
+
 2013-20-12  Manju Rajashekhar  <manj@cs.stanford.edu>
     * twemproxy: version 0.3.0 release
       SRANDMEMBER support for the optional count argument (mkhq)

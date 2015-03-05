@@ -24,6 +24,27 @@
 
 static uint32_t ctx_id; /* context generation */
 
+static rstatus_t
+core_calc_connections(struct context *ctx)
+{
+    int status;
+    struct rlimit limit;
+
+    status = getrlimit(RLIMIT_NOFILE, &limit);
+    if (status < 0) {
+        log_error("getrlimit failed: %s", strerror(errno));
+        return NC_ERROR;
+    }
+
+    ctx->max_nfd = (uint32_t)limit.rlim_cur;
+    ctx->max_ncconn = ctx->max_nfd - ctx->max_nsconn - RESERVED_FDS;
+    log_debug(LOG_NOTICE, "max fds %"PRIu32" max client conns %"PRIu32" "
+              "max server conns %"PRIu32"", ctx->max_nfd, ctx->max_ncconn,
+              ctx->max_nsconn);
+
+    return NC_OK;
+}
+
 static struct context *
 core_ctx_create(struct instance *nci)
 {
@@ -41,6 +62,9 @@ core_ctx_create(struct instance *nci)
     array_null(&ctx->pool);
     ctx->max_timeout = nci->stats_interval;
     ctx->timeout = ctx->max_timeout;
+    ctx->max_nfd = 0;
+    ctx->max_ncconn = 0;
+    ctx->max_nsconn = 0;
 
     /* parse and create configuration */
     ctx->cf = conf_create(nci->conf_filename);
@@ -52,6 +76,18 @@ core_ctx_create(struct instance *nci)
     /* initialize server pool from configuration */
     status = server_pool_init(&ctx->pool, &ctx->cf->pool, ctx);
     if (status != NC_OK) {
+        conf_destroy(ctx->cf);
+        nc_free(ctx);
+        return NULL;
+    }
+
+    /*
+     * Get rlimit and calculate max client connections after we have
+     * calculated max server connections
+     */
+    status = core_calc_connections(ctx);
+    if (status != NC_OK) {
+        server_pool_deinit(&ctx->pool);
         conf_destroy(ctx->cf);
         nc_free(ctx);
         return NULL;
@@ -179,9 +215,9 @@ core_send(struct context *ctx, struct conn *conn)
 
     status = conn->send(ctx, conn);
     if (status != NC_OK) {
-        log_debug(LOG_INFO, "send on %c %d failed: %s",
+        log_debug(LOG_INFO, "send on %c %d failed: status: %d errno: %d %s",
                   conn->client ? 'c' : (conn->proxy ? 'p' : 's'), conn->sd,
-                  strerror(errno));
+                  status, errno, strerror(errno));
     }
 
     return status;

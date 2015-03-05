@@ -1,6 +1,6 @@
 # Define the package version numbers and the bug reporting address
 m4_define([NC_MAJOR], 0)
-m4_define([NC_MINOR], 3)
+m4_define([NC_MINOR], 4)
 m4_define([NC_PATCH], 0)
 m4_define([NC_BUGS], [manj@cs.stanford.edu])
 
@@ -158,6 +158,7 @@ AS_IF([test "x$ac_cv_epoll_works" = "xno" &&
 AM_CONDITIONAL([OS_LINUX], [test "x$ac_cv_epoll_works" = "xyes"])
 AM_CONDITIONAL([OS_BSD], [test "x$ac_cv_kqueue_works" = "xyes"])
 AM_CONDITIONAL([OS_SOLARIS], [test "x$ac_cv_evports_works" = "xyes"])
+AM_CONDITIONAL([OS_FREEBSD], [test "$(uname -v | cut -c 1-10)" == "FreeBSD 10"])
 
 # Package options
 AC_MSG_CHECKING([whether to enable debug logs and asserts])

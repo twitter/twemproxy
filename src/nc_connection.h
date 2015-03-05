@@ -35,56 +35,60 @@ typedef void (*conn_ref_t)(struct conn *, void *);
 typedef void (*conn_unref_t)(struct conn *);
 
 typedef void (*conn_msgq_t)(struct context *, struct conn *, struct msg *);
+typedef void (*conn_post_connect_t)(struct context *ctx, struct conn *, struct server *server);
+typedef void (*conn_swallow_msg_t)(struct conn *, struct msg *, struct msg *);
 
 struct conn {
-    TAILQ_ENTRY(conn)  conn_tqe;      /* link in server_pool / server / free q */
-    void               *owner;        /* connection owner - server_pool / server */
+    TAILQ_ENTRY(conn)   conn_tqe;      /* link in server_pool / server / free q */
+    void                *owner;        /* connection owner - server_pool / server */
 
-    int                sd;            /* socket descriptor */
-    int                family;        /* socket address family */
-    socklen_t          addrlen;       /* socket length */
-    struct sockaddr    *addr;         /* socket address (ref in server or server_pool) */
+    int                 sd;            /* socket descriptor */
+    int                 family;        /* socket address family */
+    socklen_t           addrlen;       /* socket length */
+    struct sockaddr     *addr;         /* socket address (ref in server or server_pool) */
 
-    struct msg_tqh     imsg_q;        /* incoming request Q */
-    struct msg_tqh     omsg_q;        /* outstanding request Q */
-    struct msg         *rmsg;         /* current message being rcvd */
-    struct msg         *smsg;         /* current message being sent */
+    struct msg_tqh      imsg_q;        /* incoming request Q */
+    struct msg_tqh      omsg_q;        /* outstanding request Q */
+    struct msg          *rmsg;         /* current message being rcvd */
+    struct msg          *smsg;         /* current message being sent */
 
-    conn_recv_t        recv;          /* recv (read) handler */
-    conn_recv_next_t   recv_next;     /* recv next message handler */
-    conn_recv_done_t   recv_done;     /* read done handler */
-    conn_send_t        send;          /* send (write) handler */
-    conn_send_next_t   send_next;     /* write next message handler */
-    conn_send_done_t   send_done;     /* write done handler */
-    conn_close_t       close;         /* close handler */
-    conn_active_t      active;        /* active? handler */
+    conn_recv_t         recv;          /* recv (read) handler */
+    conn_recv_next_t    recv_next;     /* recv next message handler */
+    conn_recv_done_t    recv_done;     /* read done handler */
+    conn_send_t         send;          /* send (write) handler */
+    conn_send_next_t    send_next;     /* write next message handler */
+    conn_send_done_t    send_done;     /* write done handler */
+    conn_close_t        close;         /* close handler */
+    conn_active_t       active;        /* active? handler */
+    conn_post_connect_t post_connect;  /* post connect handler */
+    conn_swallow_msg_t  swallow_msg;   /* react on messages to be swallowed */
 
-    conn_ref_t         ref;           /* connection reference handler */
-    conn_unref_t       unref;         /* connection unreference handler */
+    conn_ref_t          ref;           /* connection reference handler */
+    conn_unref_t        unref;         /* connection unreference handler */
 
-    conn_msgq_t        enqueue_inq;   /* connection inq msg enqueue handler */
-    conn_msgq_t        dequeue_inq;   /* connection inq msg dequeue handler */
-    conn_msgq_t        enqueue_outq;  /* connection outq msg enqueue handler */
-    conn_msgq_t        dequeue_outq;  /* connection outq msg dequeue handler */
+    conn_msgq_t         enqueue_inq;   /* connection inq msg enqueue handler */
+    conn_msgq_t         dequeue_inq;   /* connection inq msg dequeue handler */
+    conn_msgq_t         enqueue_outq;  /* connection outq msg enqueue handler */
+    conn_msgq_t         dequeue_outq;  /* connection outq msg dequeue handler */
 
-    size_t             recv_bytes;    /* received (read) bytes */
-    size_t             send_bytes;    /* sent (written) bytes */
+    size_t              recv_bytes;    /* received (read) bytes */
+    size_t              send_bytes;    /* sent (written) bytes */
 
-    uint32_t           events;        /* connection io events */
-    err_t              err;           /* connection errno */
-    unsigned           recv_active:1; /* recv active? */
-    unsigned           recv_ready:1;  /* recv ready? */
-    unsigned           send_active:1; /* send active? */
-    unsigned           send_ready:1;  /* send ready? */
+    uint32_t            events;        /* connection io events */
+    err_t               err;           /* connection errno */
+    unsigned            recv_active:1; /* recv active? */
+    unsigned            recv_ready:1;  /* recv ready? */
+    unsigned            send_active:1; /* send active? */
+    unsigned            send_ready:1;  /* send ready? */
 
-    unsigned           client:1;      /* client? or server? */
-    unsigned           proxy:1;       /* proxy? */
-    unsigned           connecting:1;  /* connecting? */
-    unsigned           connected:1;   /* connected? */
-    unsigned           eof:1;         /* eof? aka passive close? */
-    unsigned           done:1;        /* done? aka close? */
-    unsigned           redis:1;       /* redis? */
-    unsigned           auth:1;       /* auth flag */
+    unsigned            client:1;      /* client? or server? */
+    unsigned            proxy:1;       /* proxy? */
+    unsigned            connecting:1;  /* connecting? */
+    unsigned            connected:1;   /* connected? */
+    unsigned            eof:1;         /* eof? aka passive close? */
+    unsigned            done:1;        /* done? aka close? */
+    unsigned            redis:1;       /* redis? */
+    unsigned            need_auth:1;   /* need_auth? */
 };
 
 TAILQ_HEAD(conn_tqh, conn);
@@ -97,5 +101,8 @@ ssize_t conn_recv(struct conn *conn, void *buf, size_t size);
 ssize_t conn_sendv(struct conn *conn, struct array *sendv, size_t nsend);
 void conn_init(void);
 void conn_deinit(void);
+uint32_t conn_ncurr_conn(void);
+uint64_t conn_ntotal_conn(void);
+uint32_t conn_ncurr_cconn(void);
 
 #endif

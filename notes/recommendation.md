@@ -130,8 +130,7 @@ For example, the configuration of server pool _beta_, also shown below, specifie
        - 127.0.0.1:6381:1 server2
        - 127.0.0.1:6382:1 server3
        - 127.0.0.1:6383:1 server4
-       
-       
+
 ## Graphing Cache-pool State
 
 When running nutcracker in production, you often would like to know the list of live and ejected servers at any given time. You can easily answer this question, by generating a time series graph of live and/or dead servers that are part of any cache pool. To do this your graphing client must collect the following stats exposed by nutcracker:

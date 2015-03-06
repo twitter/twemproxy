@@ -275,6 +275,9 @@ https://launchpad.net/~twemproxy/+archive/ubuntu/daily
 + [Hootsuite](http://hootsuite.com/)
 + [Trivago](http://www.trivago.com/)
 + [Machinezone](http://www.machinezone.com)
++ [Flicker](https://www.flickr.com)
++ [Yahoo!](https://www.yahoo.com)
++ [Path](https://path.com)
 
 ## Issues and Support
 

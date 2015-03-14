@@ -74,7 +74,7 @@ struct server {
     struct string      name;          /* name (ref in conf_server) */
     uint16_t           port;          /* port */
     uint32_t           weight;        /* weight */
-    struct sockinfo    saddr;         /* Socket family/length/address */
+    struct sockinfo    info;          /* socket info */
 
     uint32_t           ns_conn_q;     /* # server connection */
     struct conn_tqh    s_conn_q;      /* server connection q */
@@ -103,7 +103,7 @@ struct server_pool {
     struct string      addrstr;              /* pool address (ref in conf_pool) */
     struct string      redis_auth;           /* redis_auth password */
     uint16_t           port;                 /* port */
-    struct sockinfo    saddr;                /* socket address */
+    struct sockinfo    info;                 /* socket info */
     mode_t             perm;                 /* socket permission */
     int                dist_type;            /* distribution type (dist_type_t) */
     int                key_hash_type;        /* key hash type (hash_type_t) */
@@ -135,8 +135,8 @@ void server_ref(struct conn *conn, void *owner);
 void server_unref(struct conn *conn);
 int server_timeout(struct conn *conn);
 bool server_active(struct conn *conn);
-rstatus_t servers_init(struct array *server, struct array *conf_server, struct server_pool *sp);
-void servers_deinit(struct array *server);
+rstatus_t server_init(struct array *server, struct array *conf_server, struct server_pool *sp);
+void server_deinit(struct array *server);
 struct conn *server_conn(struct server *server);
 rstatus_t server_connect(struct context *ctx, struct server *server, struct conn *conn);
 void server_close(struct context *ctx, struct conn *conn);

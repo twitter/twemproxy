@@ -34,7 +34,7 @@ server_ref(struct conn *conn, void *owner)
     ASSERT(CONN_KIND_IS_SERVER(conn));
     ASSERT(conn->owner == NULL);
 
-    conn->saddr = server->saddr;
+    conn->info = server->info;
 
     server->ns_conn_q++;
     TAILQ_INSERT_TAIL(&server->s_conn_q, conn, conn_tqe);
@@ -108,7 +108,7 @@ server_each_set_owner(void *elem, void *data)
 }
 
 rstatus_t
-servers_init(struct array *server, struct array *conf_server,
+server_init(struct array *server, struct array *conf_server,
             struct server_pool *sp)
 {
     rstatus_t status;
@@ -126,7 +126,7 @@ servers_init(struct array *server, struct array *conf_server,
     /* transform conf server to server */
     status = array_each(conf_server, conf_server_each_transform, server);
     if (status != NC_OK) {
-        servers_deinit(server);
+        server_deinit(server);
         return status;
     }
     ASSERT(array_n(server) == nserver);
@@ -134,7 +134,7 @@ servers_init(struct array *server, struct array *conf_server,
     /* set server owner */
     status = array_each(server, server_each_set_owner, sp);
     if (status != NC_OK) {
-        servers_deinit(server);
+        server_deinit(server);
         return status;
     }
 
@@ -145,7 +145,7 @@ servers_init(struct array *server, struct array *conf_server,
 }
 
 void
-servers_deinit(struct array *server)
+server_deinit(struct array *server)
 {
     uint32_t i, nserver;
 
@@ -466,7 +466,7 @@ server_connect(struct context *ctx, struct server *server, struct conn *conn)
     log_debug(LOG_VVERB, "connect to server '%.*s'", server->pname.len,
               server->pname.data);
 
-    conn->sd = socket(conn->saddr.family, SOCK_STREAM, 0);
+    conn->sd = socket(conn->info.family, SOCK_STREAM, 0);
     if (conn->sd < 0) {
         log_error("socket for server '%.*s' failed: %s", server->pname.len,
                   server->pname.data, strerror(errno));
@@ -503,8 +503,8 @@ server_connect(struct context *ctx, struct server *server, struct conn *conn)
 
     ASSERT(!conn->connecting && !conn->connected);
 
-    status = connect(conn->sd, (struct sockaddr *)&conn->saddr.addr,
-                               conn->saddr.addrlen);
+    status = connect(conn->sd, (struct sockaddr *)&conn->info.addr,
+                               conn->info.addrlen);
     if (status != NC_OK) {
         if (errno == EINPROGRESS) {
             conn->connecting = 1;
@@ -842,7 +842,7 @@ server_pools_init(struct server_pools *server_pools, struct array *conf_pool,
     ASSERT(npool != 0);
 
     /* transform conf pool to server pool */
-    status = array_each(conf_pool, conf_pool_each_create, server_pools);
+    status = array_each(conf_pool, conf_pool_each_transform, server_pools);
     if (status != NC_OK) {
         server_pools_deinit(server_pools);
         return status;
@@ -925,7 +925,7 @@ server_pool_deinit(struct server_pool *pool, void *data) {
     }
 
     server_pool_disconnect(pool, NULL);
-    servers_deinit(&pool->server);
+    server_deinit(&pool->server);
 
     log_debug(LOG_DEBUG, "deinit pool %"PRIu32" '%.*s'", pool->idx,
               pool->name.len, pool->name.data);
@@ -1057,7 +1057,7 @@ static void
 server_pool_pause_incoming_client_traffic(struct server_pool *pool) {
     log_debug(LOG_DEBUG, "Pausing client connections for pool '%.*s' (%s)",
               pool->name.len, pool->name.data,
-              nc_unresolve(&pool->p_conn->saddr));
+              nc_unresolve(&pool->p_conn->info));
 
     /* Pause proxy connection (not accepting new clients) */
     event_del_in(pool->ctx->evb, pool->p_conn);
@@ -1074,7 +1074,7 @@ static void
 server_pool_resume_incoming_client_traffic(struct server_pool *pool) {
     log_debug(LOG_DEBUG, "Resume client connections for pool '%.*s' (%s)",
               pool->name.len, pool->name.data,
-              nc_unresolve(&pool->p_conn->saddr));
+              nc_unresolve(&pool->p_conn->info));
 
     /* Resume proxy connection (accepting new clients) */
     event_add_in(pool->ctx->evb, pool->p_conn);

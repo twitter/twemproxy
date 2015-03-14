@@ -82,18 +82,30 @@ bool
 server_active(struct conn *conn)
 {
     ASSERT(CONN_KIND_IS_SERVER(conn));
-    int active;
 
-    active = !TAILQ_EMPTY(&conn->imsg_q)
-           || !TAILQ_EMPTY(&conn->omsg_q)
-           || (conn->rmsg != NULL)
-           || (conn->smsg != NULL);
+    if (!TAILQ_EMPTY(&conn->imsg_q)) {
+        log_debug(LOG_VVERB, "s %d is active", conn->sd);
+        return true;
+    }
 
-    log_debug(LOG_VVERB, "%s %d is %s",
-              CONN_KIND_AS_STRING(conn), conn->sd,
-              active ? "active" : "inactive");
+    if (!TAILQ_EMPTY(&conn->omsg_q)) {
+        log_debug(LOG_VVERB, "s %d is active", conn->sd);
+        return true;
+    }
 
-    return active;
+    if (conn->rmsg != NULL) {
+        log_debug(LOG_VVERB, "s %d is active", conn->sd);
+        return true;
+    }
+
+    if (conn->smsg != NULL) {
+        log_debug(LOG_VVERB, "s %d is active", conn->sd);
+        return true;
+    }
+
+    log_debug(LOG_VVERB, "s %d is inactive", conn->sd);
+
+    return false;
 }
 
 static rstatus_t

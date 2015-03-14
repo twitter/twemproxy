@@ -795,32 +795,9 @@ server_pools_disconnect(struct server_pools *server_pools)
     server_pools_each(server_pools, server_pool_disconnect, NULL);
 }
 
-/*
- * When the pool is coming down it does not make sense to rebuild the ring.
- */
-static bool
-server_pool_ring_update_allowed(struct server_pool *pool) {
-
-    switch(pool->reload_state) {
-    case RSTATE_NEW_WAIT_FOR_OLD:
-    case RSTATE_NEW:
-    case RSTATE_OLD_AND_ACTIVE:
-        return true;
-    case RSTATE_OLD_TO_SHUTDOWN:
-    case RSTATE_OLD_DRAINING:
-        return false;
-    }
-
-    return false;
-}
-
 rstatus_t
 server_pool_run(struct server_pool *pool)
 {
-
-    if(!server_pool_ring_update_allowed(pool))
-        return NC_OK;
-
     ASSERT(array_n(&pool->server) != 0);
 
     switch (pool->dist_type) {

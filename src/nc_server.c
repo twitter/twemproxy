@@ -123,7 +123,7 @@ server_each_set_owner(void *elem, void *data)
 }
 
 rstatus_t
-servers_init(struct array *server, struct array *conf_server,
+server_init(struct array *server, struct array *conf_server,
             struct server_pool *sp)
 {
     rstatus_t status;
@@ -141,7 +141,7 @@ servers_init(struct array *server, struct array *conf_server,
     /* transform conf server to server */
     status = array_each(conf_server, conf_server_each_transform, server);
     if (status != NC_OK) {
-        servers_deinit(server);
+        server_deinit(server);
         return status;
     }
     ASSERT(array_n(server) == nserver);
@@ -149,7 +149,7 @@ servers_init(struct array *server, struct array *conf_server,
     /* set server owner */
     status = array_each(server, server_each_set_owner, sp);
     if (status != NC_OK) {
-        servers_deinit(server);
+        server_deinit(server);
         return status;
     }
 
@@ -160,7 +160,7 @@ servers_init(struct array *server, struct array *conf_server,
 }
 
 void
-servers_deinit(struct array *server)
+server_deinit(struct array *server)
 {
     uint32_t i, nserver;
 
@@ -863,7 +863,7 @@ server_pools_init(struct server_pools *server_pools, struct array *conf_pool,
     ASSERT(npool != 0);
 
     /* transform conf pool to server pool */
-    status = array_each(conf_pool, conf_pool_each_create, server_pools);
+    status = array_each(conf_pool, conf_pool_each_transform, server_pools);
     if (status != NC_OK) {
         server_pools_deinit(server_pools);
         return status;
@@ -946,7 +946,7 @@ server_pool_deinit(struct server_pool *pool, void *data) {
     }
 
     server_pool_disconnect(pool, NULL);
-    servers_deinit(&pool->server);
+    server_deinit(&pool->server);
 
     log_debug(LOG_DEBUG, "deinit pool %"PRIu32" '%.*s'", pool->idx,
               pool->name.len, pool->name.data);

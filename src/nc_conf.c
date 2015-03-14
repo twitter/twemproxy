@@ -251,7 +251,7 @@ conf_pool_deinit(struct conf_pool *cp)
 }
 
 rstatus_t
-conf_pool_each_create(void *elem, void *data)
+conf_pool_each_transform(void *elem, void *data)
 {
     rstatus_t status;
     struct conf_pool *cp = elem;
@@ -298,7 +298,7 @@ conf_pool_each_create(void *elem, void *data)
     sp->auto_eject_hosts = cp->auto_eject_hosts ? 1 : 0;
     sp->preconnect = cp->preconnect ? 1 : 0;
 
-    status = servers_init(&sp->server, &cp->server, sp);
+    status = server_init(&sp->server, &cp->server, sp);
     if (status != NC_OK) {
         return status;
     }
@@ -1533,112 +1533,123 @@ conf_add_server(struct conf *cf, struct command *cmd, void *conf)
     struct array *a;
     struct string *value;
     struct conf_server *field;
-    char addr_buf[256]; /* NC_MAXHOSTNAMELEN, + must be in sync with scanf */
-    int port;
-    int weight;
-    char name_buf[256];
+    uint8_t *p, *q, *start;
+    uint8_t *pname, *addr, *port, *weight, *name;
+    uint32_t k, delimlen, pnamelen, addrlen, portlen, weightlen, namelen;
+    char delim[] = " ::";
 
-    a = (struct array *)((char *)conf + cmd->offset);
+    p = conf;
+    a = (struct array *)(p + cmd->offset);
 
     field = array_push(a);
-    if (field) {
-        conf_server_init(field);
-    } else {
+    if (field == NULL) {
         return CONF_ERROR;
     }
+
+    conf_server_init(field);
 
     value = array_top(&cf->arg);
 
     /* parse "hostname:port:weight [name]" or "/path/unix_socket:weight [name]" from the end */
+    p = value->data + value->len - 1;
+    start = value->data;
+    addr = NULL;
+    addrlen = 0;
+    weight = NULL;
+    weightlen = 0;
+    port = NULL;
+    portlen = 0;
+    name = NULL;
+    namelen = 0;
 
-    int pname_start, pname_end;
+    delimlen = value->data[0] == '/' ? 2 : 3;
 
-    /* "hostname:port:weight [name]" */
-    int rc = sscanf((char *)value->data,
-          " "   /* "%[]" specification does not eat whitespace; compensate */
-          "%n"              /* remember current position (for pname) */
-          "%255[^: ]:%d:%d"  /* host:port:weight */
-          "%n"              /* remember current position (for pname) */
-          " %255s",         /* optional name specification */
-          &pname_start,
-          addr_buf, &port, &weight,
-          &pname_end, name_buf);
-    switch(rc) {
-    case 2: /* Check "/path/unix_socket:weight [name]" variant */
-        rc = sscanf((char *)value->data,
-              " "
-              "%n"              /* remember current position (for pname) */
-              "%255[^: ]:%d"    /* host:weight */
-              "%n"              /* remember current position (for pname) */
-              " %255s",         /* optional name specification */
-              &pname_start,
-              addr_buf, &weight,
-              &pname_end, name_buf);
-        switch(rc) {
-        case 2:
-            name_buf[0] = '\0';
-            /* FALL THROUGH */
-        case 3:
-            port = 0;
+    for (k = 0; k < sizeof(delim); k++) {
+        q = nc_strrchr(p, start, delim[k]);
+        if (q == NULL) {
+            if (k == 0) {
+                /*
+                 * name in "hostname:port:weight [name]" format string is
+                 * optional
+                 */
+                continue;
+            }
             break;
-        default:
-            log_debug(LOG_ERR, "scanned \"%s\" into %d tokens, exp 2 or 3",
-                (char *)value->data, rc);
-        return "has an invalid \"hostname:port:weight [name]\"or \"/path/unix_socket:weight [name]\" format string";
         }
-        /* FALL THROUGH */
-    case 3:
-        name_buf[0] = '\0'; /* Optional name; assume empty. */
-        break;
-    case 4:
-        break;
-    default:
-        log_debug(LOG_ERR, "scanned \"%s\" into %d tokens, exp 5 or 6",
-                (char *)value->data, rc);
+
+        switch (k) {
+        case 0:
+            name = q + 1;
+            namelen = (uint32_t)(p - name + 1);
+            break;
+
+        case 1:
+            weight = q + 1;
+            weightlen = (uint32_t)(p - weight + 1);
+            break;
+
+        case 2:
+            port = q + 1;
+            portlen = (uint32_t)(p - port + 1);
+            break;
+
+        default:
+            NOT_REACHED();
+        }
+
+        p = q - 1;
+    }
+
+    if (k != delimlen) {
         return "has an invalid \"hostname:port:weight [name]\"or \"/path/unix_socket:weight [name]\" format string";
     }
 
-    status = string_copy(&field->pname, value->data + pname_start, (size_t)(pname_end - pname_start));
+    pname = value->data;
+    pnamelen = namelen > 0 ? value->len - (namelen + 1) : value->len;
+    status = string_copy(&field->pname, pname, pnamelen);
     if (status != NC_OK) {
+        array_pop(a);
         return CONF_ERROR;
     }
 
-    /*
-     * Data validation.
-     */
-    if (weight < 1) {
-        return "has lower than 1 weight in \"hostname:port:weight [name]\" format string";
-    }
-    if(addr_buf[0] != '/' && !nc_valid_port(port)) {
-        return "has an invalid port in \"hostname:port:weight [name]\" format string";
+    addr = start;
+    addrlen = (uint32_t)(p - start + 1);
+
+    field->weight = nc_atoi(weight, weightlen);
+    if (field->weight < 0) {
+        return "has an invalid weight in \"hostname:port:weight [name]\" format string";
+    } else if (field->weight == 0) {
+        return "has a zero weight in \"hostname:port:weight [name]\" format string";
     }
 
-    /*
-     * Data assignment.
-     */
-    field->weight = weight;
-    field->port = port;
+    if (value->data[0] != '/') {
+        field->port = nc_atoi(port, portlen);
+        if (field->port < 0 || !nc_valid_port(field->port)) {
+            return "has an invalid port in \"hostname:port:weight [name]\" format string";
+        }
+    }
 
-    /* if [name] is indeed not set, generate the name for seeding hashes. */
-    if (name_buf[0] == '\0') {
+    if (name == NULL) {
         /*
          * To maintain backward compatibility with libmemcached, we don't
          * include the port as the part of the input string to the consistent
          * hashing algorithm, when it is equal to 11211.
          */
-        if (port == CONF_DEFAULT_KETAMA_PORT) {
-            snprintf(name_buf, sizeof(name_buf), "%s", addr_buf);
+        if (field->port == CONF_DEFAULT_KETAMA_PORT) {
+            name = addr;
+            namelen = addrlen;
         } else {
-            snprintf(name_buf, sizeof(name_buf), "%s:%u", addr_buf, port);
+            name = addr;
+            namelen = addrlen + 1 + portlen;
         }
     }
 
-    status = string_copy(&field->name, (uint8_t *)name_buf, strlen(name_buf));
+    status = string_copy(&field->name, name, namelen);
     if (status != NC_OK) {
         return CONF_ERROR;
     }
 
-    status = string_copy(&field->addrstr, (uint8_t *)addr_buf, strlen(addr_buf));
+    status = string_copy(&field->addrstr, (uint8_t *)addr, addrlen);
     if (status != NC_OK) {
         return CONF_ERROR;
     }

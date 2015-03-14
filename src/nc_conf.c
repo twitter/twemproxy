@@ -117,7 +117,7 @@ conf_server_init(struct conf_server *cs)
     cs->port = 0;
     cs->weight = 0;
 
-    memset(&cs->info, 0, sizeof(cs->info));
+    memset(&cs->saddr, 0, sizeof(cs->saddr));
 
     cs->valid = 0;
 
@@ -148,14 +148,14 @@ conf_server_each_transform(void *elem, void *data)
     s->idx = array_idx(server, s);
     s->owner = NULL;
 
-    s->pname = cs->pname;
-    s->name = cs->name;
+    string_init(&s->pname);
+    string_init(&s->name);
+    string_duplicate(&s->pname, &cs->pname);
+    string_duplicate(&s->name, &cs->name);
     s->port = (uint16_t)cs->port;
     s->weight = (uint32_t)cs->weight;
 
-    s->family = cs->info.family;
-    s->addrlen = cs->info.addrlen;
-    s->addr = (struct sockaddr *)&cs->info.addr;
+    s->saddr = cs->saddr;
 
     s->ns_conn_q = 0;
     TAILQ_INIT(&s->s_conn_q);
@@ -180,7 +180,7 @@ conf_pool_init(struct conf_pool *cp, struct string *name)
     string_init(&cp->listen.name);
     string_init(&cp->redis_auth);
     cp->listen.port = 0;
-    memset(&cp->listen.info, 0, sizeof(cp->listen.info));
+    memset(&cp->listen.saddr, 0, sizeof(cp->listen.saddr));
     cp->listen.valid = 0;
 
     cp->hash = CONF_UNSET_HASH;
@@ -242,48 +242,38 @@ conf_pool_deinit(struct conf_pool *cp)
 }
 
 rstatus_t
-conf_pool_each_transform(void *elem, void *data)
+conf_pool_each_create(void *elem, void *data)
 {
     rstatus_t status;
     struct conf_pool *cp = elem;
-    struct array *server_pool = data;
+    struct server_pools *server_pools = data;
     struct server_pool *sp;
 
     ASSERT(cp->valid);
 
-    sp = array_push(server_pool);
+    sp = server_pool_new();
     ASSERT(sp != NULL);
 
-    sp->idx = array_idx(server_pool, sp);
-    sp->ctx = NULL;
-
-    sp->p_conn = NULL;
-    sp->nc_conn_q = 0;
     TAILQ_INIT(&sp->c_conn_q);
 
-    array_null(&sp->server);
-    sp->ncontinuum = 0;
-    sp->nserver_continuum = 0;
-    sp->continuum = NULL;
-    sp->nlive_server = 0;
-    sp->next_rebuild = 0LL;
-
-    sp->name = cp->name;
-    sp->addrstr = cp->listen.pname;
+    status = string_duplicate(&sp->name, &cp->name);
+    ASSERT(status == NC_OK);
+    status = string_duplicate(&sp->addrstr, &cp->listen.pname);
+    ASSERT(status == NC_OK);
     sp->port = (uint16_t)cp->listen.port;
 
-    sp->family = cp->listen.info.family;
-    sp->addrlen = cp->listen.info.addrlen;
-    sp->addr = (struct sockaddr *)&cp->listen.info.addr;
+    sp->saddr = cp->listen.saddr;
     sp->perm = cp->listen.perm;
 
     sp->key_hash_type = cp->hash;
     sp->key_hash = hash_algos[cp->hash];
     sp->dist_type = cp->distribution;
-    sp->hash_tag = cp->hash_tag;
+    status = string_duplicate_if_nonempty(&sp->hash_tag, &cp->hash_tag);
+    ASSERT(status == NC_OK);
 
     sp->redis = cp->redis ? 1 : 0;
-    sp->redis_auth = cp->redis_auth;
+    status = string_duplicate_if_nonempty(&sp->redis_auth, &cp->redis_auth);
+    ASSERT(status == NC_OK);
     sp->redis_db = cp->redis_db;
     sp->timeout = cp->timeout;
     sp->backlog = cp->backlog;
@@ -296,10 +286,12 @@ conf_pool_each_transform(void *elem, void *data)
     sp->auto_eject_hosts = cp->auto_eject_hosts ? 1 : 0;
     sp->preconnect = cp->preconnect ? 1 : 0;
 
-    status = server_init(&sp->server, &cp->server, sp);
+    status = servers_init(&sp->server, &cp->server, sp);
     if (status != NC_OK) {
         return status;
     }
+
+    TAILQ_INSERT_TAIL(server_pools, sp, pool_tqe);
 
     log_debug(LOG_VERB, "transform to pool %"PRIu32" '%.*s'", sp->idx,
               sp->name.len, sp->name.data);
@@ -1498,7 +1490,7 @@ conf_set_listen(struct conf *cf, struct command *cmd, void *conf)
         return CONF_ERROR;
     }
 
-    status = nc_resolve(&field->name, field->port, &field->info);
+    status = nc_resolve(&field->name, field->port, &field->saddr);
     if (status != NC_OK) {
         return CONF_ERROR;
     }
@@ -1515,136 +1507,128 @@ conf_add_server(struct conf *cf, struct command *cmd, void *conf)
     struct array *a;
     struct string *value;
     struct conf_server *field;
-    uint8_t *p, *q, *start;
-    uint8_t *pname, *addr, *port, *weight, *name;
-    uint32_t k, delimlen, pnamelen, addrlen, portlen, weightlen, namelen;
-    struct string address;
-    char delim[] = " ::";
+    char addr_buf[256]; /* NC_MAXHOSTNAMELEN, + must be in sync with scanf */
+    int port;
+    int weight;
+    char name_buf[256];
 
-    string_init(&address);
-    p = conf;
-    a = (struct array *)(p + cmd->offset);
+    a = (struct array *)((char *)conf + cmd->offset);
 
     field = array_push(a);
-    if (field == NULL) {
+    if (field) {
+        conf_server_init(field);
+    } else {
         return CONF_ERROR;
     }
-
-    conf_server_init(field);
 
     value = array_top(&cf->arg);
 
     /* parse "hostname:port:weight [name]" or "/path/unix_socket:weight [name]" from the end */
-    p = value->data + value->len - 1;
-    start = value->data;
-    addr = NULL;
-    addrlen = 0;
-    weight = NULL;
-    weightlen = 0;
-    port = NULL;
-    portlen = 0;
-    name = NULL;
-    namelen = 0;
 
-    delimlen = value->data[0] == '/' ? 2 : 3;
+    int pname_start, pname_end;
 
-    for (k = 0; k < sizeof(delim); k++) {
-        q = nc_strrchr(p, start, delim[k]);
-        if (q == NULL) {
-            if (k == 0) {
-                /*
-                 * name in "hostname:port:weight [name]" format string is
-                 * optional
-                 */
-                continue;
-            }
-            break;
-        }
-
-        switch (k) {
-        case 0:
-            name = q + 1;
-            namelen = (uint32_t)(p - name + 1);
-            break;
-
-        case 1:
-            weight = q + 1;
-            weightlen = (uint32_t)(p - weight + 1);
-            break;
-
+    /* "hostname:port:weight [name]" */
+    int rc = sscanf((char *)value->data,
+          " "   /* "%[]" specification does not eat whitespace; compensate */
+          "%n"              /* remember current position (for pname) */
+          "%255[^: ]:%d:%d"  /* host:port:weight */
+          "%n"              /* remember current position (for pname) */
+          " %255s",         /* optional name specification */
+          &pname_start,
+          addr_buf, &port, &weight,
+          &pname_end, name_buf);
+    switch(rc) {
+    case 2: /* Check "/path/unix_socket:weight [name]" variant */
+        rc = sscanf((char *)value->data,
+              " "
+              "%n"              /* remember current position (for pname) */
+              "%255[^: ]:%d"    /* host:weight */
+              "%n"              /* remember current position (for pname) */
+              " %255s",         /* optional name specification */
+              &pname_start,
+              addr_buf, &weight,
+              &pname_end, name_buf);
+        switch(rc) {
         case 2:
-            port = q + 1;
-            portlen = (uint32_t)(p - port + 1);
+            name_buf[0] = '\0';
+            /* FALL THROUGH */
+        case 3:
+            port = 0;
             break;
-
         default:
-            NOT_REACHED();
+            log_debug(LOG_ERR, "scanned \"%s\" into %d tokens, exp 2 or 3",
+                (char *)value->data, rc);
+        return "has an invalid \"hostname:port:weight [name]\"or \"/path/unix_socket:weight [name]\" format string";
         }
-
-        p = q - 1;
-    }
-
-    if (k != delimlen) {
+        /* FALL THROUGH */
+    case 3:
+        name_buf[0] = '\0'; /* Optional name; assume empty. */
+        break;
+    case 4:
+        break;
+    default:
+        log_debug(LOG_ERR, "scanned \"%s\" into %d tokens, exp 5 or 6",
+                (char *)value->data, rc);
         return "has an invalid \"hostname:port:weight [name]\"or \"/path/unix_socket:weight [name]\" format string";
     }
 
-    pname = value->data;
-    pnamelen = namelen > 0 ? value->len - (namelen + 1) : value->len;
-    status = string_copy(&field->pname, pname, pnamelen);
+    status = string_copy(&field->pname, value->data + pname_start, (size_t)(pname_end - pname_start));
     if (status != NC_OK) {
-        array_pop(a);
         return CONF_ERROR;
     }
 
-    addr = start;
-    addrlen = (uint32_t)(p - start + 1);
-
-    field->weight = nc_atoi(weight, weightlen);
-    if (field->weight < 0) {
-        return "has an invalid weight in \"hostname:port:weight [name]\" format string";
-    } else if (field->weight == 0) {
-        return "has a zero weight in \"hostname:port:weight [name]\" format string";
+    /*
+     * Data validation.
+     */
+    if (weight < 1) {
+        return "has lower than 1 weight in \"hostname:port:weight [name]\" format string";
+    }
+    if(addr_buf[0] != '/' && !nc_valid_port(port)) {
+        return "has an invalid port in \"hostname:port:weight [name]\" format string";
     }
 
-    if (value->data[0] != '/') {
-        field->port = nc_atoi(port, portlen);
-        if (field->port < 0 || !nc_valid_port(field->port)) {
-            return "has an invalid port in \"hostname:port:weight [name]\" format string";
-        }
-    }
+    /*
+     * Data assignment.
+     */
+    field->weight = weight;
+    field->port = port;
 
-    if (name == NULL) {
+    /* if [name] is indeed not set, generate the name for seeding hashes. */
+    if (name_buf[0] == '\0') {
         /*
          * To maintain backward compatibility with libmemcached, we don't
          * include the port as the part of the input string to the consistent
          * hashing algorithm, when it is equal to 11211.
          */
-        if (field->port == CONF_DEFAULT_KETAMA_PORT) {
-            name = addr;
-            namelen = addrlen;
+        if (port == CONF_DEFAULT_KETAMA_PORT) {
+            snprintf(name_buf, sizeof(name_buf), "%s", addr_buf);
         } else {
-            name = addr;
-            namelen = addrlen + 1 + portlen;
+            snprintf(name_buf, sizeof(name_buf), "%s:%u", addr_buf, port);
         }
     }
 
-    status = string_copy(&field->name, name, namelen);
+    status = string_copy(&field->name, (uint8_t *)name_buf, strlen(name_buf));
     if (status != NC_OK) {
         return CONF_ERROR;
     }
 
-    status = string_copy(&address, addr, addrlen);
-    if (status != NC_OK) {
-        return CONF_ERROR;
-    }
-
-    status = nc_resolve(&address, field->port, &field->info);
-    if (status != NC_OK) {
+    struct string address;
+    string_init(&address);
+    status = string_copy(&address, (uint8_t *)addr_buf, strlen(addr_buf));
+    if (status == NC_OK) {
+        status = nc_resolve(&address, field->port, &field->saddr);
         string_deinit(&address);
+        if (status == NC_OK) {
+            log_debug(LOG_INFO, "resolved %s (%s) into %s",
+                (char *)field->pname.data, name_buf,
+                nc_unresolve(&field->saddr));
+        } else {
+            return CONF_ERROR;
+        }
+    } else {
         return CONF_ERROR;
     }
 
-    string_deinit(&address);
     field->valid = 1;
 
     return CONF_OK;
@@ -1726,7 +1710,7 @@ conf_set_hash(struct conf *cf, struct command *cmd, void *conf)
             continue;
         }
 
-        *hp = hash - hash_strings;
+        *hp = (hash_type_t)(hash - hash_strings);
 
         return CONF_OK;
     }
@@ -1755,7 +1739,7 @@ conf_set_distribution(struct conf *cf, struct command *cmd, void *conf)
             continue;
         }
 
-        *dp = dist - dist_strings;
+        *dp = (dist_type_t)(dist - dist_strings);
 
         return CONF_OK;
     }

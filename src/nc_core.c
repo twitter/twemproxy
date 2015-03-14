@@ -21,6 +21,7 @@
 #include <nc_conf.h>
 #include <nc_server.h>
 #include <nc_proxy.h>
+#include <nc_signal_conn.h>
 
 static uint32_t ctx_id; /* context generation */
 
@@ -51,15 +52,17 @@ core_ctx_create(struct instance *nci)
     rstatus_t status;
     struct context *ctx;
 
-    ctx = nc_alloc(sizeof(*ctx));
+    ctx = nc_zalloc(sizeof(*ctx));
     if (ctx == NULL) {
         return NULL;
     }
+    ctx->nci = nci;
     ctx->id = ++ctx_id;
     ctx->cf = NULL;
     ctx->stats = NULL;
     ctx->evb = NULL;
-    array_null(&ctx->pool);
+    TAILQ_INIT(&ctx->pools);
+    TAILQ_INIT(&ctx->replacement_pools);
     ctx->max_timeout = nci->stats_interval;
     ctx->timeout = ctx->max_timeout;
     ctx->max_nfd = 0;
@@ -74,7 +77,7 @@ core_ctx_create(struct instance *nci)
     }
 
     /* initialize server pool from configuration */
-    status = server_pool_init(&ctx->pool, &ctx->cf->pool, ctx);
+    status = server_pools_init(&ctx->pools, &ctx->cf->pool, ctx);
     if (status != NC_OK) {
         conf_destroy(ctx->cf);
         nc_free(ctx);
@@ -87,7 +90,7 @@ core_ctx_create(struct instance *nci)
      */
     status = core_calc_connections(ctx);
     if (status != NC_OK) {
-        server_pool_deinit(&ctx->pool);
+        server_pools_deinit(&ctx->pools);
         conf_destroy(ctx->cf);
         nc_free(ctx);
         return NULL;
@@ -95,9 +98,9 @@ core_ctx_create(struct instance *nci)
 
     /* create stats per server pool */
     ctx->stats = stats_create(nci->stats_port, nci->stats_addr, nci->stats_interval,
-                              nci->hostname, &ctx->pool);
+                              nci->hostname, &ctx->pools);
     if (ctx->stats == NULL) {
-        server_pool_deinit(&ctx->pool);
+        server_pools_deinit(&ctx->pools);
         conf_destroy(ctx->cf);
         nc_free(ctx);
         return NULL;
@@ -107,31 +110,44 @@ core_ctx_create(struct instance *nci)
     ctx->evb = event_base_create(EVENT_SIZE, &core_core);
     if (ctx->evb == NULL) {
         stats_destroy(ctx->stats);
-        server_pool_deinit(&ctx->pool);
+        server_pools_deinit(&ctx->pools);
+        conf_destroy(ctx->cf);
+        nc_free(ctx);
+        return NULL;
+    }
+
+    /* Create a channel to receive async signals synchronously. */
+    ctx->sig_conn = create_signal_listener(ctx);
+    if(ctx->sig_conn == NULL) {
+        event_base_destroy(ctx->evb);
+        stats_destroy(ctx->stats);
+        server_pools_deinit(&ctx->pools);
         conf_destroy(ctx->cf);
         nc_free(ctx);
         return NULL;
     }
 
     /* preconnect? servers in server pool */
-    status = server_pool_preconnect(ctx);
+    status = server_pools_preconnect(ctx);
     if (status != NC_OK) {
-        server_pool_disconnect(ctx);
+        ctx->sig_conn->close(ctx, ctx->sig_conn);
+        server_pools_disconnect(&ctx->pools);
         event_base_destroy(ctx->evb);
         stats_destroy(ctx->stats);
-        server_pool_deinit(&ctx->pool);
+        server_pools_deinit(&ctx->pools);
         conf_destroy(ctx->cf);
         nc_free(ctx);
         return NULL;
     }
 
     /* initialize proxy per server pool */
-    status = proxy_init(ctx);
+    status = proxy_init(ctx, &ctx->pools);
     if (status != NC_OK) {
-        server_pool_disconnect(ctx);
+        ctx->sig_conn->close(ctx, ctx->sig_conn);
+        server_pools_disconnect(&ctx->pools);
         event_base_destroy(ctx->evb);
         stats_destroy(ctx->stats);
-        server_pool_deinit(&ctx->pool);
+        server_pools_deinit(&ctx->pools);
         conf_destroy(ctx->cf);
         nc_free(ctx);
         return NULL;
@@ -146,11 +162,14 @@ static void
 core_ctx_destroy(struct context *ctx)
 {
     log_debug(LOG_VVERB, "destroy ctx %p id %"PRIu32"", ctx, ctx->id);
-    proxy_deinit(ctx);
-    server_pool_disconnect(ctx);
+    if(ctx->sig_conn)
+        ctx->sig_conn->close(ctx, ctx->sig_conn);
+    proxy_deinit(ctx, &ctx->replacement_pools);
+    proxy_deinit(ctx, &ctx->pools);
+    server_pools_disconnect(&ctx->pools);
     event_base_destroy(ctx->evb);
     stats_destroy(ctx->stats);
-    server_pool_deinit(&ctx->pool);
+    server_pools_deinit(&ctx->pools);
     conf_destroy(ctx->cf);
     nc_free(ctx);
 }
@@ -193,9 +212,9 @@ core_recv(struct context *ctx, struct conn *conn)
 
     status = conn->recv(ctx, conn);
     if (status != NC_OK) {
-        log_debug(LOG_INFO, "recv on %c %d failed: %s",
-                  conn->client ? 'c' : (conn->proxy ? 'p' : 's'), conn->sd,
-                  strerror(errno));
+        log_debug(LOG_INFO, "recv on %s %d failed: %s",
+                  CONN_KIND_AS_STRING(conn),
+                  conn->sd, strerror(errno));
     }
 
     return status;
@@ -208,9 +227,9 @@ core_send(struct context *ctx, struct conn *conn)
 
     status = conn->send(ctx, conn);
     if (status != NC_OK) {
-        log_debug(LOG_INFO, "send on %c %d failed: status: %d errno: %d %s",
-                  conn->client ? 'c' : (conn->proxy ? 'p' : 's'), conn->sd,
-                  status, errno, strerror(errno));
+        log_debug(LOG_INFO, "send on %s %d failed: status: %d errno: %d %s",
+                  CONN_KIND_AS_STRING(conn),
+                  conn->sd, status, errno, strerror(errno));
     }
 
     return status;
@@ -220,26 +239,19 @@ static void
 core_close(struct context *ctx, struct conn *conn)
 {
     rstatus_t status;
-    char type, *addrstr;
 
     ASSERT(conn->sd > 0);
 
-    if (conn->client) {
-        type = 'c';
-        addrstr = nc_unresolve_peer_desc(conn->sd);
-    } else {
-        type = conn->proxy ? 'p' : 's';
-        addrstr = nc_unresolve_addr(conn->addr, conn->addrlen);
-    }
-    log_debug(LOG_NOTICE, "close %c %d '%s' on event %04"PRIX32" eof %d done "
-              "%d rb %zu sb %zu%c %s", type, conn->sd, addrstr, conn->events,
+    log_debug(LOG_NOTICE, "close %s %d '%s' on event %04"PRIX32" eof %d done "
+              "%d rb %zu sb %zu%c %s", CONN_KIND_AS_STRING(conn), conn->sd,
+              conn_unresolve_descriptive(conn), conn->events,
               conn->eof, conn->done, conn->recv_bytes, conn->send_bytes,
               conn->err ? ':' : ' ', conn->err ? strerror(conn->err) : "");
 
     status = event_del_conn(ctx->evb, conn);
     if (status < 0) {
-        log_warn("event del conn %c %d failed, ignored: %s",
-                 type, conn->sd, strerror(errno));
+        log_warn("event del conn %s %d failed, ignored: %s",
+                 CONN_KIND_AS_STRING(conn), conn->sd, strerror(errno));
     }
 
     conn->close(ctx, conn);
@@ -249,12 +261,11 @@ static void
 core_error(struct context *ctx, struct conn *conn)
 {
     rstatus_t status;
-    char type = conn->client ? 'c' : (conn->proxy ? 'p' : 's');
 
     status = nc_get_soerror(conn->sd);
     if (status < 0) {
-        log_warn("get soerr on %c %d failed, ignored: %s", type, conn->sd,
-                  strerror(errno));
+        log_warn("get soerr on %s %d failed, ignored: %s",
+                 CONN_KIND_AS_STRING(conn), conn->sd, strerror(errno));
     }
     conn->err = errno;
 
@@ -269,7 +280,7 @@ core_timeout(struct context *ctx)
         struct conn *conn;
         int64_t now, then;
 
-        msg = msg_tmo_min();
+        msg = msg_tmo_min();    /* O(logN) */
         if (msg == NULL) {
             ctx->timeout = ctx->max_timeout;
             return;
@@ -313,8 +324,8 @@ core_core(void *arg, uint32_t events)
     struct conn *conn = arg;
     struct context *ctx = conn_to_ctx(conn);
 
-    log_debug(LOG_VVERB, "event %04"PRIX32" on %c %d", events,
-              conn->client ? 'c' : (conn->proxy ? 'p' : 's'), conn->sd);
+    log_debug(LOG_VVERB, "event %04"PRIX32" on %s %d", events,
+              CONN_KIND_AS_STRING(conn), conn->sd);
 
     conn->events = events;
 
@@ -344,19 +355,122 @@ core_core(void *arg, uint32_t events)
     return NC_OK;
 }
 
+static void config_reload(struct context *ctx) {
+    rstatus_t status;
+
+    if(ctx->state == CTX_STATE_STEADY) {
+        log_debug(LOG_NOTICE, "reconfiguration requested, proceeding");
+        ctx->state = CTX_STATE_RELOADING;
+    } else {
+        log_debug(LOG_NOTICE, "reconfiguration is already in progress");
+        server_pools_log(ctx->nci->log_level, "Current runtime:", &ctx->pools);
+        return;
+    }
+
+    struct conf *cf = conf_create(ctx->nci->conf_filename);
+    if (cf == NULL) {
+        log_error("configuration file \"%s\" reload failed: %s",
+            ctx->nci->conf_filename, strerror(errno));
+        ctx->state = CTX_STATE_STEADY;
+        return;
+    }
+
+    /* initialize server pool from configuration */
+    TAILQ_INIT(&ctx->replacement_pools);
+    status = server_pools_init(&ctx->replacement_pools, &cf->pool, ctx);
+    if (status != NC_OK) {
+        server_pools_deinit(&ctx->replacement_pools);
+        conf_destroy(cf);
+        ctx->state = CTX_STATE_STEADY;
+        return;
+    }
+
+    conf_destroy(cf);
+
+    server_pools_log(ctx->nci->log_level, "Effective runtime:", &ctx->pools);
+    server_pools_log(ctx->nci->log_level, "Replacement runtime:", &ctx->replacement_pools);
+
+    stats_pause(ctx->stats);
+
+    /*
+     * Replacement is a complex project, done in stages. We initiate the
+     * replacement process here and mark context as pending until the
+     * pool replacement process finishs.
+     */
+    if(server_pools_kick_replacement(&ctx->pools, &ctx->replacement_pools)) {
+        server_pools_deinit(&ctx->replacement_pools);
+        ctx->state = CTX_STATE_STEADY;
+        stats_resume(ctx->stats);
+        log_debug(LOG_NOTICE, "Reload failed, current config:");
+        server_pools_log(ctx->nci->log_level,
+            "Reload failed, current config:", &ctx->pools);
+    } else {
+        ctx->state = CTX_STATE_RELOADING;
+        server_pools_log(ctx->nci->log_level,
+            "Reload in progress; config:", &ctx->pools);
+    }
+}
+
+static void
+handle_accumulated_signals(struct context *ctx) {
+    int sig;
+
+    while((sig = conn_next_signal()) > 0) {
+        switch(sig) {
+        default:
+            continue;
+        case SIGUSR1:
+            /*
+             * Reload configuration.
+             */
+            config_reload(ctx);
+        }
+    }
+}
+
 rstatus_t
 core_loop(struct context *ctx)
 {
     int nsd;
+    int effective_timeout = ctx->timeout;
 
-    nsd = event_wait(ctx->evb, ctx->timeout);
+    /*
+     * A logic concerning reload: try to finish the reload
+     * (pool replacement) every few dozen milliseconds, and switch
+     * back to the normal mode when it finally succeeds.
+     */
+    switch(ctx->state) {
+    case CTX_STATE_STEADY:
+        stats_swap(ctx->stats);
+        break;
+    case CTX_STATE_RELOADING:
+        if(server_pools_finish_replacement(&ctx->pools)) {
+            int64_t original_start_ts = ctx->stats->start_ts;
+            stats_destroy(ctx->stats);
+            ctx->stats = stats_create(ctx->nci->stats_port,
+                                      ctx->nci->stats_addr,
+                                      ctx->nci->stats_interval,
+                                      ctx->nci->hostname, &ctx->pools);
+            ctx->stats->start_ts = original_start_ts;
+            ASSERT(ctx->stats);
+            ctx->state = CTX_STATE_STEADY;
+            server_pools_log(ctx->nci->log_level,
+                "Config reloaded, current runtime:", &ctx->pools);
+        } else {
+            /* Check whether we finished reloading every 10 milliseconds. */
+            effective_timeout = 10;
+        }
+        break;
+    }
+
+    nsd = event_wait(ctx->evb, effective_timeout);
     if (nsd < 0) {
         return nsd;
     }
 
-    core_timeout(ctx);
+    handle_accumulated_signals(ctx);
 
-    stats_swap(ctx->stats);
+    core_timeout(ctx);
 
     return NC_OK;
 }

@@ -274,7 +274,7 @@ done:
 }
 
 struct msg *
-msg_get(struct conn *conn, bool request, bool redis)
+msg_get(struct conn *conn, bool request)
 {
     struct msg *msg;
 
@@ -285,9 +285,9 @@ msg_get(struct conn *conn, bool request, bool redis)
 
     msg->owner = conn;
     msg->request = request ? 1 : 0;
-    msg->redis = redis ? 1 : 0;
+    msg->redis = CONN_KIND_IS_REDIS(conn);
 
-    if (redis) {
+    if (msg->redis) {
         if (request) {
             msg->parser = redis_parse_req;
         } else {
@@ -586,7 +586,7 @@ msg_parsed(struct context *ctx, struct conn *conn, struct msg *msg)
         return NC_ENOMEM;
     }
 
-    nmsg = msg_get(msg->owner, msg->request, conn->redis);
+    nmsg = msg_get(msg->owner, msg->request);
     if (nmsg == NULL) {
         mbuf_put(nbuf);
         return NC_ENOMEM;

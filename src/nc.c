@@ -45,11 +45,17 @@
 #define NC_MBUF_MIN_SIZE    MBUF_MIN_SIZE
 #define NC_MBUF_MAX_SIZE    MBUF_MAX_SIZE
 
-static int show_help;
-static int show_version;
-static int test_conf;
-static int daemonize;
-static int describe_stats;
+/*
+ * Settings captured by parsing the command line arguments.
+ */
+struct cmdline_options {
+    int show_help;      /* -h, --help */
+    int show_version;   /* -V, --version */
+    int test_conf;      /* -t, --test-conf */
+    int daemonize;      /* -d, --daemonize */
+    int describe_stats; /* -D, --describe-stats */
+};
+#define DEFAULT_CMDLINE_SETTINGS    { 0, 0, 0, 0, 0 }
 
 static struct option long_options[] = {
     { "help",           no_argument,        NULL,   'h' },
@@ -303,7 +309,7 @@ nc_set_default_options(struct instance *nci)
 }
 
 static rstatus_t
-nc_get_options(int argc, char **argv, struct instance *nci)
+nc_get_options(int argc, char **argv, struct cmdline_options *cmdopts, struct instance *nci)
 {
     int c, value;
 
@@ -318,25 +324,25 @@ nc_get_options(int argc, char **argv, struct instance *nci)
 
         switch (c) {
         case 'h':
-            show_version = 1;
-            show_help = 1;
+            cmdopts->show_version = 1;
+            cmdopts->show_help = 1;
             break;
 
         case 'V':
-            show_version = 1;
+            cmdopts->show_version = 1;
             break;
 
         case 't':
-            test_conf = 1;
+            cmdopts->test_conf = 1;
             break;
 
         case 'd':
-            daemonize = 1;
+            cmdopts->daemonize = 1;
             break;
 
         case 'D':
-            describe_stats = 1;
-            show_version = 1;
+            cmdopts->describe_stats = 1;
+            cmdopts->show_version = 1;
             break;
 
         case 'v':
@@ -465,7 +471,7 @@ nc_test_conf(struct instance *nci)
 }
 
 static rstatus_t
-nc_pre_run(struct instance *nci)
+nc_pre_run(struct cmdline_options *cmdopts, struct instance *nci)
 {
     rstatus_t status;
 
@@ -474,7 +480,7 @@ nc_pre_run(struct instance *nci)
         return status;
     }
 
-    if (daemonize) {
+    if (cmdopts->daemonize) {
         status = nc_daemonize(1);
         if (status != NC_OK) {
             return status;
@@ -541,36 +547,37 @@ main(int argc, char **argv)
 {
     rstatus_t status;
     struct instance nci;
+    struct cmdline_options cmdopts = DEFAULT_CMDLINE_SETTINGS;
 
     nc_set_default_options(&nci);
 
-    status = nc_get_options(argc, argv, &nci);
+    status = nc_get_options(argc, argv, &cmdopts, &nci);
     if (status != NC_OK) {
         nc_show_usage();
         exit(1);
     }
 
-    if (show_version) {
+    if (cmdopts.show_version) {
         log_stderr("This is nutcracker-%s" CRLF, NC_VERSION_STRING);
-        if (show_help) {
+        if (cmdopts.show_help) {
             nc_show_usage();
         }
 
-        if (describe_stats) {
+        if (cmdopts.describe_stats) {
             stats_describe();
         }
 
         exit(0);
     }
 
-    if (test_conf) {
+    if (cmdopts.test_conf) {
         if (!nc_test_conf(&nci)) {
             exit(1);
         }
         exit(0);
     }
 
-    status = nc_pre_run(&nci);
+    status = nc_pre_run(&cmdopts, &nci);
     if (status != NC_OK) {
         nc_post_run(&nci);
         exit(1);

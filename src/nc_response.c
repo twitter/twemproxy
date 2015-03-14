@@ -23,9 +23,9 @@ rsp_get(struct conn *conn)
 {
     struct msg *msg;
 
-    ASSERT(!conn->client && !conn->proxy);
+    ASSERT(CONN_KIND_IS_SERVER(conn));
 
-    msg = msg_get(conn, false, conn->redis);
+    msg = msg_get(conn, false);
     if (msg == NULL) {
         conn->err = errno;
     }
@@ -49,7 +49,7 @@ rsp_make_error(struct context *ctx, struct conn *conn, struct msg *msg)
     uint64_t id;
     err_t err;
 
-    ASSERT(conn->client && !conn->proxy);
+    ASSERT(CONN_KIND_IS_CLIENT(conn));
     ASSERT(msg->request && req_error(conn, msg));
     ASSERT(msg->owner == conn);
 
@@ -80,7 +80,7 @@ rsp_make_error(struct context *ctx, struct conn *conn, struct msg *msg)
         rsp_put(pmsg);
     }
 
-    return msg_get_error(conn->redis, err);
+    return msg_get_error(CONN_KIND_IS_REDIS(conn), err);
 }
 
 struct msg *
@@ -88,7 +88,7 @@ rsp_recv_next(struct context *ctx, struct conn *conn, bool alloc)
 {
     struct msg *msg;
 
-    ASSERT(!conn->client && !conn->proxy);
+    ASSERT(CONN_KIND_IS_SERVER(conn));
 
     if (conn->eof) {
         msg = conn->rmsg;
@@ -100,8 +100,9 @@ rsp_recv_next(struct context *ctx, struct conn *conn, bool alloc)
             ASSERT(msg->peer == NULL);
             ASSERT(!msg->request);
 
-            log_error("eof s %d discarding incomplete rsp %"PRIu64" len "
-                      "%"PRIu32"", conn->sd, msg->id, msg->mlen);
+            log_error("eof %s %d discarding incomplete rsp %"PRIu64" len "
+                      "%"PRIu32"", CONN_KIND_AS_STRING(conn), conn->sd,
+                      msg->id, msg->mlen);
 
             rsp_put(msg);
         }
@@ -115,7 +116,8 @@ rsp_recv_next(struct context *ctx, struct conn *conn, bool alloc)
          * it crashes
          */
         conn->done = 1;
-        log_error("s %d active %d is done", conn->sd, conn->active(conn));
+        log_error("%s %d active %d is done",
+                 CONN_KIND_AS_STRING(conn), conn->sd, conn->active(conn));
 
         return NULL;
     }
@@ -143,20 +145,20 @@ rsp_filter(struct context *ctx, struct conn *conn, struct msg *msg)
 {
     struct msg *pmsg;
 
-    ASSERT(!conn->client && !conn->proxy);
+    ASSERT(CONN_KIND_IS_SERVER(conn));
 
     if (msg_empty(msg)) {
         ASSERT(conn->rmsg == NULL);
-        log_debug(LOG_VERB, "filter empty rsp %"PRIu64" on s %d", msg->id,
-                  conn->sd);
+        log_debug(LOG_VERB, "filter empty rsp %"PRIu64" on %s %d", msg->id,
+                  CONN_KIND_AS_STRING(conn), conn->sd);
         rsp_put(msg);
         return true;
     }
 
     pmsg = TAILQ_FIRST(&conn->omsg_q);
     if (pmsg == NULL) {
-        log_debug(LOG_ERR, "filter stray rsp %"PRIu64" len %"PRIu32" on s %d",
-                  msg->id, msg->mlen, conn->sd);
+        log_debug(LOG_ERR, "filter stray rsp %"PRIu64" len %"PRIu32" on %s %d",
+                  msg->id, msg->mlen, CONN_KIND_AS_STRING(conn), conn->sd);
         rsp_put(msg);
 
         /*
@@ -191,8 +193,8 @@ rsp_filter(struct context *ctx, struct conn *conn, struct msg *msg)
         pmsg->done = 1;
 
         log_debug(LOG_INFO, "swallow rsp %"PRIu64" len %"PRIu32" of req "
-                  "%"PRIu64" on s %d", msg->id, msg->mlen, pmsg->id,
-                  conn->sd);
+                  "%"PRIu64" on %s %d", msg->id, msg->mlen, pmsg->id,
+                  CONN_KIND_AS_STRING(conn), conn->sd);
 
         rsp_put(msg);
         req_put(pmsg);
@@ -219,7 +221,7 @@ rsp_forward(struct context *ctx, struct conn *s_conn, struct msg *msg)
     struct conn *c_conn;
     uint32_t msgsize;
 
-    ASSERT(!s_conn->client && !s_conn->proxy);
+    ASSERT(CONN_KIND_IS_SERVER(s_conn));
     msgsize = msg->mlen;
 
     /* response from server implies that server is ok and heartbeating */
@@ -240,7 +242,7 @@ rsp_forward(struct context *ctx, struct conn *s_conn, struct msg *msg)
     msg->pre_coalesce(msg);
 
     c_conn = pmsg->owner;
-    ASSERT(c_conn->client && !c_conn->proxy);
+    ASSERT(CONN_KIND_IS_CLIENT(c_conn));
 
     if (req_done(c_conn, TAILQ_FIRST(&c_conn->omsg_q))) {
         status = event_add_out(ctx->evb, c_conn);
@@ -256,7 +258,7 @@ void
 rsp_recv_done(struct context *ctx, struct conn *conn, struct msg *msg,
               struct msg *nmsg)
 {
-    ASSERT(!conn->client && !conn->proxy);
+    ASSERT(CONN_KIND_IS_SERVER(conn));
     ASSERT(msg != NULL && conn->rmsg == msg);
     ASSERT(!msg->request);
     ASSERT(msg->owner == conn);
@@ -278,14 +280,15 @@ rsp_send_next(struct context *ctx, struct conn *conn)
     rstatus_t status;
     struct msg *msg, *pmsg; /* response and it's peer request */
 
-    ASSERT(conn->client && !conn->proxy);
+    ASSERT(CONN_KIND_IS_CLIENT(conn));
 
     pmsg = TAILQ_FIRST(&conn->omsg_q);
     if (pmsg == NULL || !req_done(conn, pmsg)) {
         /* nothing is outstanding, initiate close? */
         if (pmsg == NULL && conn->eof) {
             conn->done = 1;
-            log_debug(LOG_INFO, "c %d is done", conn->sd);
+            log_debug(LOG_INFO, "%s %d is done",
+                      CONN_KIND_AS_STRING(conn), conn->sd);
         }
 
         status = event_del_out(ctx->evb, conn);
@@ -325,7 +328,8 @@ rsp_send_next(struct context *ctx, struct conn *conn)
 
     conn->smsg = msg;
 
-    log_debug(LOG_VVERB, "send next rsp %"PRIu64" on c %d", msg->id, conn->sd);
+    log_debug(LOG_VVERB, "send next rsp %"PRIu64" on %s %d", msg->id,
+              CONN_KIND_AS_STRING(conn), conn->sd);
 
     return msg;
 }
@@ -335,10 +339,11 @@ rsp_send_done(struct context *ctx, struct conn *conn, struct msg *msg)
 {
     struct msg *pmsg; /* peer message (request) */
 
-    ASSERT(conn->client && !conn->proxy);
+    ASSERT(CONN_KIND_IS_CLIENT(conn));
     ASSERT(conn->smsg == NULL);
 
-    log_debug(LOG_VVERB, "send done rsp %"PRIu64" on c %d", msg->id, conn->sd);
+    log_debug(LOG_VVERB, "send done rsp %"PRIu64" on %s %d", msg->id,
+              CONN_KIND_AS_STRING(conn), conn->sd);
 
     pmsg = msg->peer;
 

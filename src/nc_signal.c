@@ -21,6 +21,33 @@
 #include <nc_core.h>
 #include <nc_signal.h>
 
+static struct {
+    int rd;
+    int wr;
+} _signal_fds;
+
+int
+signal_get_fd() {
+    if(!_signal_fds.rd) {
+        int fds[2];
+        int ret;
+        ret = pipe(fds);
+        ASSERT(ret == 0);
+        _signal_fds.rd = fds[0];
+        _signal_fds.wr = fds[1];
+    }
+    return _signal_fds.rd;
+}
+
+/* Send the fact that the signal has been sent into the channel. */
+static void
+signal_report_to_channel(int sig) {
+    if(_signal_fds.wr != 0) {
+        unsigned int c = sig & 0xff;
+        (void)write(_signal_fds.wr, &c, 1);
+    }
+}
+
 static struct signal signals[] = {
     { SIGUSR1, "SIGUSR1", 0,                 signal_handler },
     { SIGUSR2, "SIGUSR2", 0,                 signal_handler },
@@ -84,6 +111,7 @@ signal_handler(int signo)
 
     switch (signo) {
     case SIGUSR1:
+        actionstr = ", config reload";
         break;
 
     case SIGUSR2:
@@ -128,4 +156,6 @@ signal_handler(int signo)
     if (done) {
         exit(1);
     }
+
+    signal_report_to_channel(signo);
 }

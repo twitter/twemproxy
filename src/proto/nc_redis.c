@@ -2382,7 +2382,7 @@ redis_fragment_argx(struct msg *r, uint32_t ncontinuum, struct msg_tqh *frag_msg
         uint32_t idx = msg_backend_idx(r, kpos->start, kpos->end - kpos->start);
 
         if (sub_msgs[idx] == NULL) {
-            sub_msgs[idx] = msg_get(r->owner, r->request, r->redis);
+            sub_msgs[idx] = msg_get(r->owner, r->request);
             if (sub_msgs[idx] == NULL) {
                 nc_free(sub_msgs);
                 return NC_ENOMEM;
@@ -2611,7 +2611,7 @@ redis_handle_auth_req(struct msg *request, struct msg *response)
     struct server_pool *pool;
     struct conn *conn = (struct conn *)response->owner;
 
-    ASSERT(conn->client && !conn->proxy && conn->redis);
+    ASSERT(conn->conn_kind == NC_CONN_CLIENT_REDIS);
 
     pool = (struct server_pool *)conn->owner;
 
@@ -2638,11 +2638,11 @@ redis_add_auth_packet(struct context *ctx, struct conn *c_conn, struct conn *s_c
     struct server_pool *pool;
 
     ASSERT(s_conn->need_auth);
-    ASSERT(!s_conn->client && !s_conn->proxy);
+    ASSERT(s_conn->conn_kind == NC_CONN_SERVER_REDIS);
 
     pool = c_conn->owner;
 
-    msg = msg_get(c_conn, true, c_conn->redis);
+    msg = msg_get(c_conn, true);
     if (msg == NULL) {
         c_conn->err = errno;
         return NC_ENOMEM;
@@ -2670,8 +2670,7 @@ redis_post_connect(struct context *ctx, struct conn *conn, struct server *server
     struct msg *msg;
     int digits;
 
-    ASSERT(!conn->client && conn->connected);
-    ASSERT(conn->redis);
+    ASSERT(conn->conn_kind == NC_CONN_SERVER_REDIS && conn->connected);
 
     /*
      * By default, every connection to redis uses the database DB 0. You
@@ -2688,7 +2687,7 @@ redis_post_connect(struct context *ctx, struct conn *conn, struct server *server
      * message to be head of queue as it might already contain a command
      * that triggered the connect.
      */
-    msg = msg_get(conn, true, conn->redis);
+    msg = msg_get(conn, true);
     if (msg == NULL) {
         return;
     }

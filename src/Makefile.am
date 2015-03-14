@@ -46,7 +46,9 @@ nutcracker_SOURCES =			\
 	nc_conf.c nc_conf.h		\
 	nc_stats.c nc_stats.h		\
 	nc_signal.c nc_signal.h		\
+	nc_signal_conn.c nc_signal_conn.h	\
 	nc_rbtree.c nc_rbtree.h		\
+	nc_introspect.c nc_introspect.h		\
 	nc_log.c nc_log.h		\
 	nc_string.c nc_string.h		\
 	nc_array.c nc_array.h		\

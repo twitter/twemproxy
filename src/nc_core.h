@@ -118,12 +118,15 @@ struct event_base;
 #include <nc_connection.h>
 #include <nc_server.h>
 
+struct instance;
+
 struct context {
+    struct instance    *nci;        /* instance */
     uint32_t           id;          /* unique context id */
     struct conf        *cf;         /* configuration */
     struct stats       *stats;      /* stats */
 
-    struct array       pool;        /* server_pool[] */
+    struct server_pools pools;
     struct event_base  *evb;        /* event base */
     int                max_timeout; /* max timeout in msec */
     int                timeout;     /* timeout in msec */
@@ -131,6 +134,16 @@ struct context {
     uint32_t           max_nfd;     /* max # files */
     uint32_t           max_ncconn;  /* max # client connections */
     uint32_t           max_nsconn;  /* max # server connections */
+
+    /*
+     * Part of the context having to do with config reload.
+     */
+    struct conn        *sig_conn;
+    enum {
+        CTX_STATE_STEADY,
+        CTX_STATE_RELOADING,
+    }                  state;
+    struct server_pools replacement_pools;  /* pools created by config relaod */
 };
 
 

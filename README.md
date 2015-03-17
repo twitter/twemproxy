@@ -250,6 +250,7 @@ https://launchpad.net/~twemproxy/+archive/ubuntu/daily
 + [sensu-metrics](https://github.com/sensu/sensu-community-plugins/blob/master/plugins/twemproxy/twemproxy-metrics.rb)
 + [redis-mgr](https://github.com/idning/redis-mgr)
 + [smitty for twemproxy failover](https://github.com/areina/smitty)
++ [Beholder, a Python agent for twemproxy failover](https://github.com/Serekh/beholder)
 + [chef cookbook](https://supermarket.getchef.com/cookbooks/twemproxy)
 + [twemsentinel] (https://github.com/yak0/twemsentinel)
 

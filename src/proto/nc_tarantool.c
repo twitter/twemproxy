@@ -1019,9 +1019,15 @@ void tarantool_post_coalesce(struct msg *orig_req)
 
     while (frag_mbuf) {
         msg_append(orig_rsp, frag_mbuf->pos, mbuf_length(frag_mbuf));
+        /*
+         * Reset all 'fragment' response mbufs so that they are not sent along
+         * with the 'original' response by msg_send_chain().
+         */
+        mbuf_rewind(frag_mbuf);
         frag_mbuf = STAILQ_NEXT(frag_mbuf, next);
     }
 
+    frag_rsp->mlen = 0;
     orig_rsp->mlen = msg_len;
 }
 

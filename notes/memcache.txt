@@ -37,6 +37,10 @@
   where,
   <value> - uint64_t
 
+- Touch Command (touch):
+
+  touch <key> <expiry>[noreply]\r\n
+
 - Misc Commands (quit)
 
   quit\r\n
@@ -73,7 +77,7 @@
   EXISTS indicates that the item you are trying to store with a cas has been modified since you last fetched it.
   NOT_FOUND indicates that the item you are trying to store with a cas does not exist.
 
-- Delete Command Response:
+- Delete Command Responses:
 
   NOT_FOUND\r\n
   DELETED\r\n
@@ -92,10 +96,15 @@
   where,
   <value> - uint64_t : new key value after incr or decr operation
 
+- Touch Command Responses:
+
+  NOT_FOUND\r\n
+  TOUCHED\r\n
+
 - Statistics Response
   [STAT <name> <value>\r\n]+END\r\n
 
-- Misc Response
+- Misc Responses
 
   OK\r\n
   VERSION <version>\r\n

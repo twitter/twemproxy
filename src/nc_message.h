@@ -46,6 +46,7 @@ typedef enum msg_parse_result {
     ACTION( REQ_MC_PREPEND )                                                                        \
     ACTION( REQ_MC_INCR )                      /* memcache arithmetic request */                    \
     ACTION( REQ_MC_DECR )                                                                           \
+    ACTION( REQ_MC_TOUCH )                     /* memcache touch request */                         \
     ACTION( REQ_MC_QUIT )                      /* memcache quit request */                          \
     ACTION( RSP_MC_NUM )                       /* memcache arithmetic response */                   \
     ACTION( RSP_MC_STORED )                    /* memcache cas and storage response */              \
@@ -55,6 +56,7 @@ typedef enum msg_parse_result {
     ACTION( RSP_MC_END )                                                                            \
     ACTION( RSP_MC_VALUE )                                                                          \
     ACTION( RSP_MC_DELETED )                   /* memcache delete response */                       \
+    ACTION( RSP_MC_TOUCHED )                   /* memcache touch response */                        \
     ACTION( RSP_MC_ERROR )                     /* memcache error responses */                       \
     ACTION( RSP_MC_CLIENT_ERROR )                                                                   \
     ACTION( RSP_MC_SERVER_ERROR )                                                                   \

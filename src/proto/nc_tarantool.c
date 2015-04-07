@@ -359,10 +359,9 @@ tarantool_parse_req(struct msg *r)
 
 needmore:
     ASSERT(p == b->last);
-    r->pos = p;
+    r->pos = r->token;
 
     if (b->last == b->end && r->token != NULL) {
-        r->pos = r->token;
         r->token = NULL;
         r->result = MSG_PARSE_REPAIR;
     } else {

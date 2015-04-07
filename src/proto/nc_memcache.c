@@ -554,7 +554,7 @@ memcache_parse_req(struct msg *r)
 
         case SW_SPACES_BEFORE_NUM:
             if (ch != ' ') {
-                if (!isdigit(ch)) {
+                if (!(isdigit(ch) || ch == '-')) {
                     goto error;
                 }
                 /* num_start <- p; num <- ch - '0'  */

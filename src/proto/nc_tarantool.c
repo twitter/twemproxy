@@ -317,7 +317,7 @@ tarantool_parse_req(struct msg *r)
     }
 
     if (mp_check_uint((const char *)r->token, (const char *)b->last) > 0) {
-        p = b->last - 1;
+        p = b->last;
         goto needmore;
     }
 
@@ -326,7 +326,7 @@ tarantool_parse_req(struct msg *r)
     m = p + r->reqlen;
 
     if (m > b->last) {
-        p = b->last - 1;
+        p = b->last;
         goto needmore;
     }
 

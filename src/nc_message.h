@@ -19,12 +19,14 @@
 #define _NC_MESSAGE_H_
 
 #include <nc_core.h>
+#include <proto/nc_proto.h>
 
 typedef void (*msg_parse_t)(struct msg *);
 typedef rstatus_t (*msg_add_auth_t)(struct context *ctx, struct conn *c_conn, struct conn *s_conn);
 typedef rstatus_t (*msg_fragment_t)(struct msg *, uint32_t, struct msg_tqh *);
 typedef void (*msg_coalesce_t)(struct msg *r);
 typedef rstatus_t (*msg_reply_t)(struct msg *r);
+typedef void (*msg_get_error_t)(struct msg *, struct msg *, const char *);
 
 typedef enum msg_parse_result {
     MSG_PARSE_OK,                         /* parsing ok */
@@ -35,6 +37,7 @@ typedef enum msg_parse_result {
 
 #define MSG_TYPE_CODEC(ACTION)                                                                      \
     ACTION( UNKNOWN )                                                                               \
+    ACTION( REQ_CONNECT )                      /* pseudo message emitted on a client connect */     \
     ACTION( REQ_MC_GET )                       /* memcache retrieval requests */                    \
     ACTION( REQ_MC_GETS )                                                                           \
     ACTION( REQ_MC_DELETE )                    /* memcache delete request */                        \
@@ -170,6 +173,17 @@ typedef enum msg_parse_result {
     ACTION( RSP_REDIS_INTEGER )                                                                     \
     ACTION( RSP_REDIS_BULK )                                                                        \
     ACTION( RSP_REDIS_MULTIBULK )                                                                   \
+    ACTION( REQ_TARANTOOL_SELECT )             /* Tarantool requests types */                       \
+    ACTION( REQ_TARANTOOL_INSERT )                                                                  \
+    ACTION( REQ_TARANTOOL_REPLACE )                                                                 \
+    ACTION( REQ_TARANTOOL_UPDATE )                                                                  \
+    ACTION( REQ_TARANTOOL_DELETE )                                                                  \
+    ACTION( REQ_TARANTOOL_CALL )                                                                    \
+    ACTION( REQ_TARANTOOL_AUTH )                                                                    \
+    ACTION( REQ_TARANTOOL_PING )                                                                    \
+    ACTION( RSP_TARANTOOL_OK )                 /* Tarantool response types */                       \
+    ACTION( RSP_TARANTOOL_ERROR)                                                                    \
+    ACTION( RSP_TARANTOOL_GREETING)                                                                 \
     ACTION( SENTINEL )                                                                              \
 
 
@@ -212,6 +226,7 @@ struct msg {
 
     msg_coalesce_t       pre_coalesce;    /* message pre-coalesce */
     msg_coalesce_t       post_coalesce;   /* message post-coalesce */
+    msg_get_error_t      get_error;       /* error message constructor */
 
     msg_type_t           type;            /* message type */
 
@@ -227,6 +242,13 @@ struct msg {
     uint32_t             rlen;            /* running length in parsing fsa (redis) */
     uint32_t             integer;         /* integer reply value (redis) */
 
+    uint32_t             reqlen;          /* request length (tarantool) */
+    uint32_t             code;            /* iproto message code (tarantool) */
+    uint32_t             sync;            /* iproto sync value (tarantool) */
+    uint32_t             key_offset;      /* binary key value offset from body start (tarantool) */
+    uint32_t             key_len;         /* binary key value length (tarantool) */
+    uint8_t              *body_start;     /* binary message body start (tarantool) */
+
     struct msg           *frag_owner;     /* owner of fragment message */
     uint32_t             nfrag;           /* # fragment */
     uint32_t             nfrag_done;      /* # fragment done */
@@ -234,6 +256,7 @@ struct msg {
     struct msg           **frag_seq;      /* sequence of fragment message, map from keys to fragments*/
 
     err_t                err;             /* errno on error? */
+    proto_type_t         proto;           /* protocol */
     unsigned             error:1;         /* error? */
     unsigned             ferror:1;        /* one or more fragments are in error? */
     unsigned             request:1;       /* request? or response? */
@@ -243,7 +266,7 @@ struct msg {
     unsigned             done:1;          /* done? */
     unsigned             fdone:1;         /* all fragments are done? */
     unsigned             swallow:1;       /* swallow response? */
-    unsigned             redis:1;         /* redis? */
+    unsigned             emitted:1;       /* emitted by proxy (not originated by a client request) */
 };
 
 TAILQ_HEAD(msg_tqh, msg);
@@ -255,9 +278,9 @@ void msg_tmo_delete(struct msg *msg);
 void msg_init(void);
 void msg_deinit(void);
 struct string *msg_type_string(msg_type_t type);
-struct msg *msg_get(struct conn *conn, bool request, bool redis);
+struct msg *msg_get(struct conn *conn, bool request, proto_type_t proto);
 void msg_put(struct msg *msg);
-struct msg *msg_get_error(bool redis, err_t err);
+struct msg *msg_get_error(struct msg *msg, err_t err);
 void msg_dump(struct msg *msg, int level);
 bool msg_empty(struct msg *msg);
 rstatus_t msg_recv(struct context *ctx, struct conn *conn);
@@ -268,6 +291,7 @@ struct mbuf *msg_ensure_mbuf(struct msg *msg, size_t len);
 rstatus_t msg_append(struct msg *msg, uint8_t *pos, size_t n);
 rstatus_t msg_prepend(struct msg *msg, uint8_t *pos, size_t n);
 rstatus_t msg_prepend_format(struct msg *msg, const char *fmt, ...);
+rstatus_t msg_parsed(struct context *ctx, struct conn *conn, struct msg *msg);
 
 struct msg *req_get(struct conn *conn);
 void req_put(struct msg *msg);

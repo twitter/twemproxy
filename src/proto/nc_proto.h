@@ -20,6 +20,18 @@
 
 #include <nc_core.h>
 
+#define PROTO_CODEC(ACTION)                            \
+    ACTION( PROTO_MEMCACHED,        memcached        ) \
+    ACTION( PROTO_REDIS,            redis            ) \
+    ACTION( PROTO_TARANTOOL,        tarantool        ) \
+
+#define DEFINE_ACTION(_proto, _name) _proto,
+typedef enum proto_type {
+    PROTO_CODEC( DEFINE_ACTION )
+    PROTO_SENTINEL
+} proto_type_t;
+#undef DEFINE_ACTION
+
 #ifdef NC_LITTLE_ENDIAN
 
 #define str4cmp(m, c0, c1, c2, c3)                                                          \
@@ -138,6 +150,25 @@
     (str15icmp(m, c0, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14) &&       \
      (m[15] == c15 || m[15] == (c15 ^ 0x20)))
 
+static inline const char *
+proto_type_string(proto_type_t proto)
+{
+    switch (proto) {
+    case PROTO_MEMCACHED:
+        return "memcached";
+
+    case PROTO_REDIS:
+        return "redis";
+
+    case PROTO_TARANTOOL:
+        return "tarantool";
+
+    default:
+        NOT_REACHED();
+        return "UNKNOWN";
+    }
+}
+
 void memcache_parse_req(struct msg *r);
 void memcache_parse_rsp(struct msg *r);
 void memcache_pre_coalesce(struct msg *r);
@@ -145,8 +176,9 @@ void memcache_post_coalesce(struct msg *r);
 rstatus_t memcache_add_auth_packet(struct context *ctx, struct conn *c_conn, struct conn *s_conn);
 rstatus_t memcache_fragment(struct msg *r, uint32_t ncontinuum, struct msg_tqh *frag_msgq);
 rstatus_t memcache_reply(struct msg *r);
-void memcache_post_connect(struct context *ctx, struct conn *conn, struct server *server);
+void memcache_post_connect(struct context *ctx, struct conn *conn);
 void memcache_swallow_msg(struct conn *conn, struct msg *pmsg, struct msg *msg);
+void memcache_get_error(struct msg *r, struct msg *msg, const char *errstr);
 
 void redis_parse_req(struct msg *r);
 void redis_parse_rsp(struct msg *r);
@@ -155,7 +187,22 @@ void redis_post_coalesce(struct msg *r);
 rstatus_t redis_add_auth_packet(struct context *ctx, struct conn *c_conn, struct conn *s_conn);
 rstatus_t redis_fragment(struct msg *r, uint32_t ncontinuum, struct msg_tqh *frag_msgq);
 rstatus_t redis_reply(struct msg *r);
-void redis_post_connect(struct context *ctx, struct conn *conn, struct server *server);
+void redis_post_connect(struct context *ctx, struct conn *conn);
 void redis_swallow_msg(struct conn *conn, struct msg *pmsg, struct msg *msg);
+void redis_get_error(struct msg *r, struct msg *msg, const char *errstr);
+
+void tarantool_parse_req(struct msg *r);
+void tarantool_parse_rsp(struct msg *r);
+void tarantool_pre_coalesce(struct msg *r);
+void tarantool_post_coalesce(struct msg *r);
+rstatus_t tarantool_add_auth_packet(struct context *ctx, struct conn *c_conn,
+                                    struct conn *s_conn);
+rstatus_t tarantool_fragment(struct msg *r, uint32_t ncontinuum,
+                             struct msg_tqh *frag_msgq);
+rstatus_t tarantool_reply(struct msg *r);
+void tarantool_get_error(struct msg *r, struct msg *msg, const char *errstr);
+void tarantool_post_connect(struct context *ctx, struct conn *conn);
+void tarantool_swallow_msg(struct conn *conn, struct msg *pmsg,
+                           struct msg *msg);
 
 #endif

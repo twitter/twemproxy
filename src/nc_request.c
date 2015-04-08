@@ -25,7 +25,7 @@ req_get(struct conn *conn)
 
     ASSERT(conn->client && !conn->proxy);
 
-    msg = msg_get(conn, true, conn->redis);
+    msg = msg_get(conn, true, conn->proto);
     if (msg == NULL) {
         conn->err = errno;
     }
@@ -455,7 +455,7 @@ req_make_reply(struct context *ctx, struct conn *conn, struct msg *req)
 {
     struct msg *msg;
 
-    msg = msg_get(conn, false, conn->redis); /* replay */
+    msg = msg_get(conn, false, conn->proto); /* replay */
     if (msg == NULL) {
         conn->err = errno;
         return NC_ENOMEM;

@@ -183,7 +183,7 @@ server_conn(struct server *server)
      */
 
     if (server->ns_conn_q < pool->server_connections) {
-        return conn_get(server, false, pool->redis);
+        return conn_get(server, false, pool->proto);
     }
     ASSERT(server->ns_conn_q == pool->server_connections);
 
@@ -537,7 +537,7 @@ server_connected(struct context *ctx, struct conn *conn)
     conn->connecting = 0;
     conn->connected = 1;
 
-    conn->post_connect(ctx, conn, server);
+    conn->post_connect(ctx, conn);
 
     log_debug(LOG_INFO, "connected on s %d to server '%.*s'", conn->sd,
               server->pname.len, server->pname.data);

@@ -8,8 +8,8 @@ if [ -n "$TRAVIS" ]; then
     sudo pip install redis
     sudo pip install nose
 
-    pip install git+https://github.com/andymccurdy/redis-py.git@2.9.0
-    pip install git+https://github.com/idning/python-memcached.git#egg=memcache
+    sudo pip install git+https://github.com/andymccurdy/redis-py.git@2.9.0
+    sudo pip install git+https://github.com/idning/python-memcached.git#egg=memcache
 fi 
 
 #build twemproxy

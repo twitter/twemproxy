@@ -23,6 +23,7 @@ nc_nopass = NutCracker('127.0.0.1', 4102, '/tmp/r/nutcracker-4102', CLUSTER_NAME
 def setup():
     print 'setup(mbuf=%s, verbose=%s)' %(mbuf, nc_verbose)
     for r in all_redis + [nc, nc_badpass, nc_nopass]:
+        r.clean()
         r.deploy()
         r.stop()
         r.start()
@@ -31,8 +32,6 @@ def teardown():
     for r in all_redis + [nc, nc_badpass, nc_nopass]:
         assert(r._alive())
         r.stop()
-        if clean:
-            r.clean()
 
 default_kv = {'kkk-%s' % i : 'vvv-%s' % i for i in range(10)}
 

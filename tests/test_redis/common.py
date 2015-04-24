@@ -19,7 +19,6 @@ CLUSTER_NAME = 'ntest'
 nc_verbose = int(getenv('T_VERBOSE', 5))
 mbuf = int(getenv('T_MBUF', 512))
 large = int(getenv('T_LARGE', 1000))
-clean = int(getenv('T_CLEAN', 1))
 
 all_redis = [
         RedisServer('127.0.0.1', 2100, '/tmp/r/redis-2100/', CLUSTER_NAME, 'redis-2100'),
@@ -32,6 +31,7 @@ nc = NutCracker('127.0.0.1', 4100, '/tmp/r/nutcracker-4100', CLUSTER_NAME,
 def setup():
     print 'setup(mbuf=%s, verbose=%s)' %(mbuf, nc_verbose)
     for r in all_redis + [nc]:
+        r.clean()
         r.deploy()
         r.stop()
         r.start()
@@ -40,8 +40,6 @@ def teardown():
     for r in all_redis + [nc]:
         assert(r._alive())
         r.stop()
-        if clean: # TODO: move clean to setup
-            r.clean()
 
 default_kv = {'kkk-%s' % i : 'vvv-%s' % i for i in range(10)}
 

@@ -21,5 +21,5 @@ cp `which redis-cli` tests/_binaries/
 cp `which memcached` tests/_binaries/
 
 #run test
-cd tests/ && nosetests --nologcapture -x 
+cd tests/ && nosetests --nologcapture -x -v
 

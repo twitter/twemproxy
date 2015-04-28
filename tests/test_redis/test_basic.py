@@ -112,5 +112,16 @@ def test_nc_stats():
     assert(get_stat('requests') == 22)
     assert(get_stat('responses') == 22)
 
+def test_issue_323():
+    # do on redis
+    r = all_redis[0]
+    c = redis.Redis(r.host(), r.port())
+    assert([1, 'OK'] == c.eval("return {1, redis.call('set', 'x', '1')}", 1, 'tmp'))
+
+    # do on twemproxy
+    c = getconn()
+    assert([1, 'OK'] == c.eval("return {1, redis.call('set', 'x', '1')}", 1, 'tmp'))
+
 def setup_and_wait():
     time.sleep(60*60)
+

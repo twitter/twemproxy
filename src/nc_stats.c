@@ -834,6 +834,11 @@ stats_listen(struct stats *st)
         return NC_ERROR;
     }
 
+    if (si.family == AF_UNIX && si.addr.un.sun_path[0] == '/' &&
+        unlink(si.addr.un.sun_path) && errno != ENOENT) {
+        log_error("unlink %s failed: %s", si.addr.un.sun_path, strerror(errno));
+        return NC_ERROR;
+    }
     status = bind(st->sd, (struct sockaddr *)&si.addr, si.addrlen);
     if (status < 0) {
         log_error("bind on m %d to addr '%.*s:%u' failed: %s", st->sd,

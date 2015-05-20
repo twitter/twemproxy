@@ -67,12 +67,13 @@ def _test_bad(req):
 
 def test_badreq():
     reqs = [
-            # '*1\r\n$3\r\nPING\r\n',
+        # '*1\r\n$3\r\nPING\r\n',
         '\r\n',
         # '*3abcdefg\r\n',
         '*3\r\n*abcde\r\n',
 
-        '*4\r\n$4\r\nMSET\r\n$1\r\nA\r\n$1\r\nA\r\n$1\r\nA\r\n'
+        '*4\r\n$4\r\nMSET\r\n$1\r\nA\r\n$1\r\nA\r\n$1\r\nA\r\n',
+        '*2\r\n$4\r\nMSET\r\n$1\r\nA\r\n',
         # '*3\r\n$abcde\r\n',
         # '*3\r\n$3abcde\r\n',
         # '*3\r\n$3\r\nabcde\r\n',

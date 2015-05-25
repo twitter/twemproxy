@@ -746,7 +746,7 @@ server_pool_conn(struct context *ctx, struct server_pool *pool, uint8_t *key,
 }
 
 static rstatus_t
-server_pool_preconnect(struct server_pool *sp, void *data)
+server_pool_preconnect_fn(struct server_pool *sp, void *data)
 {
     rstatus_t status;
 
@@ -779,21 +779,21 @@ server_pool_each(struct server_pools *server_pools, pool_each_t func, void *key)
 }
 
 rstatus_t
-server_pools_preconnect(struct context *ctx)
+server_pool_preconnect(struct context *ctx)
 {
-    return server_pool_each(&ctx->pools, server_pool_preconnect, NULL);
+    return server_pool_each(&ctx->pools, server_pool_preconnect_fn, NULL);
 }
 
 static rstatus_t
-server_pool_disconnect(struct server_pool *sp, void *data)
+server_pool_disconnect_fn(struct server_pool *sp, void *data)
 {
     return array_each(&sp->server, server_each_disconnect, NULL);
 }
 
 void
-server_pools_disconnect(struct server_pools *server_pools)
+server_pool_disconnect(struct server_pools *server_pools)
 {
-    server_pool_each(server_pools, server_pool_disconnect, NULL);
+    server_pool_each(server_pools, server_pool_disconnect_fn, NULL);
 }
 
 rstatus_t
@@ -902,7 +902,7 @@ server_pool_deinit(struct server_pool *pool, void *data) {
     ASSERT(pool->p_conn == NULL);
     ASSERT(TAILQ_EMPTY(&pool->c_conn_q) && pool->nc_conn_q == 0);
 
-    if(pool->pool_counterpart) {
+    if (pool->pool_counterpart) {
         pool->pool_counterpart->pool_counterpart = 0;
         pool->pool_counterpart = 0;
     }
@@ -914,7 +914,7 @@ server_pool_deinit(struct server_pool *pool, void *data) {
         pool->nlive_server = 0;
     }
 
-    server_pool_disconnect(pool, NULL);
+    server_pool_disconnect_fn(pool, NULL);
     server_deinit(&pool->server);
 
     log_debug(LOG_DEBUG, "deinit pool %"PRIu32" '%.*s'", pool->idx,

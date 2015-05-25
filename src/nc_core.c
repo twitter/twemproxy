@@ -128,10 +128,10 @@ core_ctx_create(struct instance *nci)
     }
 
     /* preconnect? servers in server pool */
-    status = server_pools_preconnect(ctx);
+    status = server_pool_preconnect(ctx);
     if (status != NC_OK) {
         ctx->sig_conn->close(ctx, ctx->sig_conn);
-        server_pools_disconnect(&ctx->pools);
+        server_pool_disconnect(&ctx->pools);
         event_base_destroy(ctx->evb);
         stats_destroy(ctx->stats);
         server_pools_deinit(&ctx->pools);
@@ -144,7 +144,7 @@ core_ctx_create(struct instance *nci)
     status = proxy_init(ctx, &ctx->pools);
     if (status != NC_OK) {
         ctx->sig_conn->close(ctx, ctx->sig_conn);
-        server_pools_disconnect(&ctx->pools);
+        server_pool_disconnect(&ctx->pools);
         event_base_destroy(ctx->evb);
         stats_destroy(ctx->stats);
         server_pools_deinit(&ctx->pools);
@@ -166,7 +166,7 @@ core_ctx_destroy(struct context *ctx)
         ctx->sig_conn->close(ctx, ctx->sig_conn);
     proxy_deinit(ctx, &ctx->replacement_pools);
     proxy_deinit(ctx, &ctx->pools);
-    server_pools_disconnect(&ctx->pools);
+    server_pool_disconnect(&ctx->pools);
     event_base_destroy(ctx->evb);
     stats_destroy(ctx->stats);
     server_pools_deinit(&ctx->pools);

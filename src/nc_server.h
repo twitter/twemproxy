@@ -153,8 +153,8 @@ uint32_t server_pools_n(struct server_pools *server_pools);  /* number of pools 
 uint32_t server_pool_idx(struct server_pool *pool, uint8_t *key, uint32_t keylen);
 struct conn *server_pool_conn(struct context *ctx, struct server_pool *pool, uint8_t *key, uint32_t keylen);
 rstatus_t server_pool_run(struct server_pool *pool);
-rstatus_t server_pools_preconnect(struct context *ctx);
-void server_pools_disconnect(struct server_pools *server_pools);
+rstatus_t server_pool_preconnect(struct context *ctx);
+void server_pool_disconnect(struct server_pools *server_pools);
 rstatus_t server_pools_init(struct server_pools *server_pools, struct array *conf_pool, struct context *ctx);
 void server_pools_deinit(struct server_pools *server_pools);
 

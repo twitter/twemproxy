@@ -820,7 +820,7 @@ server_pool_run(struct server_pool *pool)
 }
 
 rstatus_t
-server_pools_init(struct server_pools *server_pools, struct array *conf_pool,
+server_pool_init(struct server_pools *server_pools, struct array *conf_pool,
                  struct context *ctx)
 {
     rstatus_t status;
@@ -834,7 +834,7 @@ server_pools_init(struct server_pools *server_pools, struct array *conf_pool,
     /* transform conf pool to server pool */
     status = array_each(conf_pool, conf_pool_each_transform, server_pools);
     if (status != NC_OK) {
-        server_pools_deinit(server_pools);
+        server_pool_deinit(server_pools);
         return status;
     }
 
@@ -897,7 +897,7 @@ server_pool_move_client_connections(struct server_pool *from, struct server_pool
 }
 
 static rstatus_t
-server_pool_deinit(struct server_pool *pool, void *data) {
+server_pool_deinit_fn(struct server_pool *pool, void *data) {
 
     ASSERT(pool->p_conn == NULL);
     ASSERT(TAILQ_EMPTY(&pool->c_conn_q) && pool->nc_conn_q == 0);
@@ -929,9 +929,9 @@ server_pool_deinit(struct server_pool *pool, void *data) {
 }
 
 void
-server_pools_deinit(struct server_pools *server_pools)
+server_pool_deinit(struct server_pools *server_pools)
 {
-    server_pool_each(server_pools, server_pool_deinit, NULL);
+    server_pool_each(server_pools, server_pool_deinit_fn, NULL);
 
     log_debug(LOG_DEBUG, "deinit pools");
 }
@@ -1163,7 +1163,7 @@ server_pools_kick_state_machine(struct server_pools *pools)
                 ASSERT(pool->p_conn);
                 proxy_each_deinit(pool, 0);
                 pool->p_conn = 0;
-                server_pool_deinit(pool, 0);
+                server_pool_deinit_fn(pool, 0);
                 break;
             } else {
                 ASSERT(pool->p_conn);
@@ -1192,7 +1192,7 @@ server_pools_kick_state_machine(struct server_pools *pools)
                 server_pool_run(npool);
 
                 /* Remove the old pool*/
-                server_pool_deinit(pool, 0);
+                server_pool_deinit_fn(pool, 0);
             }
             break;
         }
@@ -1222,10 +1222,10 @@ server_pools_undo_partial_reload(struct server_pools *pools) {
             pool->pool_counterpart = 0;
             break;
         case RSTATE_NEW:
-            server_pool_deinit(pool, 0);
+            server_pool_deinit_fn(pool, 0);
             break;
         case RSTATE_NEW_WAIT_FOR_OLD:
-            server_pool_deinit(pool, 0);
+            server_pool_deinit_fn(pool, 0);
             break;
         }
     }

@@ -155,8 +155,8 @@ struct conn *server_pool_conn(struct context *ctx, struct server_pool *pool, uin
 rstatus_t server_pool_run(struct server_pool *pool);
 rstatus_t server_pool_preconnect(struct context *ctx);
 void server_pool_disconnect(struct server_pools *server_pools);
-rstatus_t server_pools_init(struct server_pools *server_pools, struct array *conf_pool, struct context *ctx);
-void server_pools_deinit(struct server_pools *server_pools);
+rstatus_t server_pool_init(struct server_pools *server_pools, struct array *conf_pool, struct context *ctx);
+void server_pool_deinit(struct server_pools *server_pools);
 
 /* Initiate the pool replacement process. */
 rstatus_t server_pools_kick_replacement(struct server_pools *old, struct server_pools *new);

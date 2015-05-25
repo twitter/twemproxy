@@ -150,7 +150,7 @@ struct server_pool *server_pool_new(void);
 void server_pool_free(struct server_pool *);
 
 typedef rstatus_t (*pool_each_t)(struct server_pool *, void *);
-rstatus_t server_pools_each(struct server_pools *server_pools, pool_each_t func, void *key);
+rstatus_t server_pool_each(struct server_pools *server_pools, pool_each_t func, void *key);
 
 uint32_t server_pools_n(struct server_pools *server_pools);  /* number of pools in the pools list */
 uint32_t server_pool_idx(struct server_pool *pool, uint8_t *key, uint32_t keylen);

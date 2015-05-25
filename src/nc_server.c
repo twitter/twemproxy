@@ -1112,7 +1112,7 @@ connection_is_drained(enum nc_morph_elem_type etype, void *elem, void *acc0) {
                 || msg_empty(conn->rmsg))
             && conn->smsg == NULL
             && TAILQ_EMPTY(&conn->imsg_q)
-            && (TAILQ_EMPTY(&conn->omsg_q) 
+            && (TAILQ_EMPTY(&conn->omsg_q)
                 || CONN_KIND_IS_CLIENT(conn))
         ) {
             /* Connection is effectively drained. */
@@ -1153,7 +1153,8 @@ server_pool_drained(struct server_pool *pool) {
  * reloading safely initiated.
  */
 static rstatus_t
-server_pools_kick_state_machine(struct server_pools *pools) {
+server_pools_kick_state_machine(struct server_pools *pools)
+{
     struct server_pool *pool, *tpool;
     rstatus_t rstatus;
 
@@ -1256,27 +1257,22 @@ server_pools_undo_partial_reload(struct server_pools *pools) {
 }
 
 rstatus_t
-server_pools_kick_replacement(struct server_pools *old_pools, struct server_pools *new_pools) {
+server_pools_kick_replacement(struct server_pools *old_pools, struct server_pools *new_pools)
+{
     struct server_pool *npool, *tmp_npool;
     struct server_pool *opool;
 
-    ASSERT(server_pools_check_reload_state(old_pools,
-                                           RSTATE_OLD_AND_ACTIVE));
-    server_pools_set_reload_state(old_pools, RSTATE_OLD_AND_ACTIVE);
-    server_pools_set_reload_state(new_pools, RSTATE_NEW);
+    ASSERT(server_pools_check_reload_state(old_pools, RSTATE_OLD_AND_ACTIVE));
+    ASSERT(server_pools_n(new_pools) != 0);
 
-    if(server_pools_n(new_pools) == 0) {
-        log_error("Was being asked to change to empty pools configuration. I'am afraid I can't do that, Dave.");
-        return NC_ERROR;
-    }
+    server_pools_set_reload_state(old_pools, RSTATE_OLD_AND_ACTIVE); server_pools_set_reload_state(new_pools, RSTATE_NEW);
 
     /*
      * Establish correspondence between old and new pools.
      */
     TAILQ_FOREACH(opool, old_pools, pool_tqe) {
         TAILQ_FOREACH_SAFE(npool, new_pools, pool_tqe, tmp_npool) {
-            if(npool->reload_state == RSTATE_NEW
-               && string_compare(&opool->name, &npool->name) == 0) {
+            if (npool->reload_state == RSTATE_NEW && string_compare(&opool->name, &npool->name) == 0) {
                 npool->reload_state = RSTATE_NEW_WAIT_FOR_OLD;
                 opool->reload_state = RSTATE_OLD_TO_SHUTDOWN;
                 npool->pool_counterpart = opool;
@@ -1338,7 +1334,8 @@ server_pools_kick_replacement(struct server_pools *old_pools, struct server_pool
  * Attempt to complete the code reload (pool replacement) process.
  */
 bool
-server_pools_finish_replacement(struct server_pools *pools) {
+server_pools_finish_replacement(struct server_pools *pools)
+{
 
     log_debug(LOG_DEBUG, "replacement completion test invoked");
 
@@ -1350,13 +1347,13 @@ server_pools_finish_replacement(struct server_pools *pools) {
     finished = server_pools_check_reload_state(pools, RSTATE_OLD_AND_ACTIVE);
     log_debug(LOG_DEBUG, "replacement %s",
         finished ? "is finished" : "is still in progress");
-
     return finished;
 }
 
 
 void
-server_pools_log(int level, const char *prefix, struct server_pools *pools) {
+server_pools_log(int level, const char *prefix, struct server_pools *pools)
+{
     log_debug(LOG_NOTICE, "%s", prefix);
     log_runtime_objects(LOG_NOTICE, TAILQ_FIRST(pools)->ctx, pools,
         FRO_POOLS | FRO_SERVERS | FRO_SERVER_CONNS

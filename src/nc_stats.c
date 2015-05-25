@@ -308,7 +308,7 @@ stats_pool_map(struct array *stats_pool, struct server_pools *server_pools)
         return status;
     }
 
-    status = server_pools_each(server_pools, stats_pool_each_init, stats_pool);
+    status = server_pool_each(server_pools, stats_pool_each_init, stats_pool);
 
     log_debug(LOG_VVVERB, "map %"PRIu32" stats pools%s",
         npool, status == NC_OK ? "" : " failed");

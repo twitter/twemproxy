@@ -234,7 +234,7 @@ proxy_init(struct context *ctx, struct server_pools *server_pools)
         return NC_ERROR;
     }
 
-    status = server_pools_each(server_pools, proxy_each_init, NULL);
+    status = server_pool_each(server_pools, proxy_each_init, NULL);
     if (status != NC_OK) {
         proxy_deinit(ctx, server_pools);
         return status;
@@ -267,7 +267,7 @@ proxy_deinit(struct context *ctx, struct server_pools *server_pools)
 
     npool = server_pools_n(server_pools);
 
-    status = server_pools_each(server_pools, proxy_each_deinit, NULL);
+    status = server_pool_each(server_pools, proxy_each_deinit, NULL);
     if (status != NC_OK) {
         return;
     }

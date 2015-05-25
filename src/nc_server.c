@@ -763,15 +763,16 @@ server_pool_preconnect(struct server_pool *sp, void *data)
 }
 
 rstatus_t
-server_pools_each(struct server_pools *server_pools, pool_each_t func, void *key)
+server_pool_each(struct server_pools *server_pools, pool_each_t func, void *key)
 {
     rstatus_t status;
     struct server_pool *pool, *tmpool;
 
     TAILQ_FOREACH_SAFE(pool, server_pools, pool_tqe, tmpool) {
         status = func(pool, key);
-        if(status != NC_OK)
+        if (status != NC_OK) {
             return status;
+        }
     }
 
     return NC_OK;
@@ -780,7 +781,7 @@ server_pools_each(struct server_pools *server_pools, pool_each_t func, void *key
 rstatus_t
 server_pools_preconnect(struct context *ctx)
 {
-    return server_pools_each(&ctx->pools, server_pool_preconnect, NULL);
+    return server_pool_each(&ctx->pools, server_pool_preconnect, NULL);
 }
 
 static rstatus_t
@@ -792,7 +793,7 @@ server_pool_disconnect(struct server_pool *sp, void *data)
 void
 server_pools_disconnect(struct server_pools *server_pools)
 {
-    server_pools_each(server_pools, server_pool_disconnect, NULL);
+    server_pool_each(server_pools, server_pool_disconnect, NULL);
 }
 
 rstatus_t
@@ -930,7 +931,7 @@ server_pool_deinit(struct server_pool *pool, void *data) {
 void
 server_pools_deinit(struct server_pools *server_pools)
 {
-    server_pools_each(server_pools, server_pool_deinit, NULL);
+    server_pool_each(server_pools, server_pool_deinit, NULL);
 
     log_debug(LOG_DEBUG, "deinit pools");
 }

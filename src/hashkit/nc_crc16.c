@@ -56,7 +56,7 @@ uint32_t
 hash_crc16(const char *key, size_t key_length)
 {
     uint64_t x;
-    uint32_t crc = 0;
+    uint16_t crc = 0;
 
     for (x=0; x < key_length; x++) {
         crc = (crc << 8) ^ crc16tab[((crc >> 8) ^ *key++) & 0x00ff];

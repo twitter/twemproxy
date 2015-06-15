@@ -54,6 +54,7 @@
 #define CONF_DEFAULT_SERVER_FAILURE_LIMIT    2
 #define CONF_DEFAULT_SERVER_CONNECTIONS      1
 #define CONF_DEFAULT_KETAMA_PORT             11211
+#define CONF_DEFAULT_TCPKEEPALIVE            false
 
 struct conf_listen {
     struct string   pname;   /* listen: as "name:port" */
@@ -83,6 +84,7 @@ struct conf_pool {
     int                backlog;               /* backlog: */
     int                client_connections;    /* client_connections: */
     int                redis;                 /* redis: */
+    int                tcpkeepalive;          /* tcpkeepalive: */
     struct string      redis_auth;            /* redis auth password */
     int                redis_db;              /* redis_db: */
     int                preconnect;            /* preconnect: */

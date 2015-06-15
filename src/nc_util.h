@@ -85,6 +85,7 @@ int nc_set_tcpnodelay(int sd);
 int nc_set_linger(int sd, int timeout);
 int nc_set_sndbuf(int sd, int size);
 int nc_set_rcvbuf(int sd, int size);
+int nc_set_tcpkeepalive(int sd);
 int nc_get_soerror(int sd);
 int nc_get_sndbuf(int sd);
 int nc_get_rcvbuf(int sd);

@@ -84,59 +84,60 @@
 
 #### Error Responses
 
-  ERROR\r\n
-  CLIENT_ERROR [error]\r\n
-  SERVER_ERROR [error]\r\n
+    ERROR\r\n
+    CLIENT_ERROR [error]\r\n
+    SERVER_ERROR [error]\r\n
 
-  where,
-  ERROR means client sent a non-existent command name
-  CLIENT_ERROR means that command sent by the client does not conform to the protocol
-  SERVER_ERROR means that there was an error on the server side that made processing of the command impossible
+    Where,
+    - ERROR means client sent a non-existent command name
+    - CLIENT_ERROR means that command sent by the client does not conform to the protocol
+    - SERVER_ERROR means that there was an error on the server side that made processing of the command impossible
 
 #### Storage Command Responses
 
-  STORED\r\n
-  NOT_STORED\r\n
-  EXISTS\r\n
-  NOT_FOUND\r\n
+    STORED\r\n
+    NOT_STORED\r\n
+    EXISTS\r\n
+    NOT_FOUND\r\n
 
-  where,
-  STORED indicates success.
-  NOT_STORED indicates the data was not stored because condition for an add or replace wasn't met.
-  EXISTS indicates that the item you are trying to store with a cas has been modified since you last fetched it.
-  NOT_FOUND indicates that the item you are trying to store with a cas does not exist.
+    Where,
+    - STORED indicates success.
+    - NOT_STORED indicates the data was not stored because condition for an add or replace wasn't met.
+    - EXISTS indicates that the item you are trying to store with a cas has been modified since you last fetched it.
+    - NOT_FOUND indicates that the item you are trying to store with a cas does not exist.
 
 #### Delete Command Responses
 
-  NOT_FOUND\r\n
-  DELETED\r\n
+    NOT_FOUND\r\n
+    DELETED\r\n
 
 #### Retrival Responses
 
-  END\r\n
-  VALUE <key> <flags> <datalen> [<cas>]\r\n<data>\r\nEND\r\n
-  VALUE <key> <flags> <datalen> [<cas>]\r\n<data>\r\n[VALUE <key> <flags> <datalen> [<cas>]\r\n<data>]+\r\nEND\r\n
+    END\r\n
+    VALUE <key> <flags> <datalen> [<cas>]\r\n<data>\r\nEND\r\n
+    VALUE <key> <flags> <datalen> [<cas>]\r\n<data>\r\n[VALUE <key> <flags> <datalen> [<cas>]\r\n<data>]+\r\nEND\r\n
 
 #### Arithmetic Responses
 
-  NOT_FOUND\r\n
-  <value>\r\n
+    NOT_FOUND\r\n
+    <value>\r\n
 
-  where,
-  <value> - uint64_t : new key value after incr or decr operation
+    Where,
+    - <value> - uint64_t : new key value after incr or decr operation
 
 #### Touch Command Responses
 
-  NOT_FOUND\r\n
-  TOUCHED\r\n
+    NOT_FOUND\r\n
+    TOUCHED\r\n
 
-- Statistics Response
-  [STAT <name> <value>\r\n]+END\r\n
+#### Statistics Response
+
+    [STAT <name> <value>\r\n]+END\r\n
 
 #### Misc Responses
 
-  OK\r\n
-  VERSION <version>\r\n
+    OK\r\n
+    VERSION <version>\r\n
 
 ### Notes
 

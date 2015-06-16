@@ -312,6 +312,37 @@ redis_argeval(struct msg *r)
 }
 
 /*
+ * Return true, if the redis response is an error response i.e. a simple
+ * string whose first character is '-', otherwise return false.
+ */
+static bool
+redis_error(struct msg *r)
+{
+    switch (r->type) {
+    case MSG_RSP_REDIS_ERROR:
+    case MSG_RSP_REDIS_ERROR_ERR:
+    case MSG_RSP_REDIS_ERROR_OOM:
+    case MSG_RSP_REDIS_ERROR_BUSY:
+    case MSG_RSP_REDIS_ERROR_NOAUTH:
+    case MSG_RSP_REDIS_ERROR_LOADING:
+    case MSG_RSP_REDIS_ERROR_BUSYKEY:
+    case MSG_RSP_REDIS_ERROR_MISCONF:
+    case MSG_RSP_REDIS_ERROR_NOSCRIPT:
+    case MSG_RSP_REDIS_ERROR_READONLY:
+    case MSG_RSP_REDIS_ERROR_WRONGTYPE:
+    case MSG_RSP_REDIS_ERROR_EXECABORT:
+    case MSG_RSP_REDIS_ERROR_MASTERDOWN:
+    case MSG_RSP_REDIS_ERROR_NOREPLICAS:
+        return true;
+
+    default:
+        break;
+    }
+
+    return false;
+}
+
+/*
  * Reference: http://redis.io/topics/protocol
  *
  * Redis >= 1.2 uses the unified protocol to send requests to the Redis
@@ -1761,8 +1792,125 @@ redis_parse_rsp(struct msg *r)
             break;
 
         case SW_ERROR:
-            /* rsp_start <- p */
-            state = SW_RUNTO_CRLF;
+            if (r->token == NULL) {
+                if (ch != '-') {
+                    goto error;
+                }
+              /* rsp_start <- p */
+              r->token = p;
+            }
+            if (ch == ' ' || ch == CR) {
+                m = r->token;
+                r->token = NULL;
+                switch (p - m) {
+
+                case 4:
+                    /*
+                     * -ERR no such key\r\n
+                     * -ERR syntax error\r\n
+                     * -ERR source and destination objects are the same\r\n
+                     * -ERR index out of range\r\n
+                     */
+                    if (str4cmp(m, '-', 'E', 'R', 'R')) {
+                        r->type = MSG_RSP_REDIS_ERROR_ERR;
+                        break;
+                    }
+
+                    /* -OOM command not allowed when used memory > 'maxmemory'.\r\n */
+                    if (str4cmp(m, '-', 'O', 'O', 'M')) {
+                        r->type = MSG_RSP_REDIS_ERROR_OOM;
+                        break;
+                    }
+
+                    break;
+
+                case 5:
+                    /* -BUSY Redis is busy running a script. You can only call SCRIPT KILL or SHUTDOWN NOSAVE.\r\n" */
+                    if (str5cmp(m, '-', 'B', 'U', 'S', 'Y')) {
+                        r->type = MSG_RSP_REDIS_ERROR_BUSY;
+                        break;
+                    }
+
+                    break;
+
+                case 7:
+                    /* -NOAUTH Authentication required.\r\n */
+                    if (str7cmp(m, '-', 'N', 'O', 'A', 'U', 'T', 'H')) {
+                        r->type = MSG_RSP_REDIS_ERROR_NOAUTH;
+                        break;
+                    }
+
+                    break;
+
+                case 8:
+                    /* rsp: "-LOADING Redis is loading the dataset in memory\r\n" */
+                    if (str8cmp(m, '-', 'L', 'O', 'A', 'D', 'I', 'N', 'G')) {
+                        r->type = MSG_RSP_REDIS_ERROR_LOADING;
+                        break;
+                    }
+
+                    /* -BUSYKEY Target key name already exists.\r\n */
+                    if (str8cmp(m, '-', 'B', 'U', 'S', 'Y', 'K', 'E', 'Y')) {
+                        r->type = MSG_RSP_REDIS_ERROR_BUSYKEY;
+                        break;
+                    }
+
+                    /* "-MISCONF Redis is configured to save RDB snapshots, but is currently not able to persist on disk. Commands that may modify the data set are disabled. Please check Redis logs for details about the error.\r\n" */
+                    if (str8cmp(m, '-', 'M', 'I', 'S', 'C', 'O', 'N', 'F')) {
+                        r->type = MSG_RSP_REDIS_ERROR_MISCONF;
+                        break;
+                    }
+
+                    break;
+
+                case 9:
+                    /* -NOSCRIPT No matching script. Please use EVAL.\r\n */
+                    if (str9cmp(m, '-', 'N', 'O', 'S', 'C', 'R', 'I', 'P', 'T')) {
+                        r->type = MSG_RSP_REDIS_ERROR_NOSCRIPT;
+                        break;
+                    }
+
+                    /* -READONLY You can't write against a read only slave.\r\n */
+                    if (str9cmp(m, '-', 'R', 'E', 'A', 'D', 'O', 'N', 'L', 'Y')) {
+                        r->type = MSG_RSP_REDIS_ERROR_READONLY;
+                        break;
+                    }
+
+                    break;
+
+                case 10:
+                    /* -WRONGTYPE Operation against a key holding the wrong kind of value\r\n */
+                    if (str10cmp(m, '-', 'W', 'R', 'O', 'N', 'G', 'T', 'Y', 'P', 'E')) {
+                        r->type = MSG_RSP_REDIS_ERROR_WRONGTYPE;
+                        break;
+                    }
+
+                    /* -EXECABORT Transaction discarded because of previous errors.\r\n" */
+                    if (str10cmp(m, '-', 'E', 'X', 'E', 'C', 'A', 'B', 'O', 'R', 'T')) {
+                        r->type = MSG_RSP_REDIS_ERROR_EXECABORT;
+                        break;
+                    }
+
+                    break;
+
+                case 11:
+                    /* -MASTERDOWN Link with MASTER is down and slave-serve-stale-data is set to 'no'.\r\n */
+                    if (str11cmp(m, '-', 'M', 'A', 'S', 'T', 'E', 'R', 'D', 'O', 'W', 'N')) {
+                        r->type = MSG_RSP_REDIS_ERROR_MASTERDOWN;
+                        break;
+                    }
+
+                    /* -NOREPLICAS Not enough good slaves to write.\r\n */
+                    if (str11cmp(m, '-', 'N', 'O', 'R', 'E', 'P', 'L', 'I', 'C', 'A', 'S')) {
+                        r->type = MSG_RSP_REDIS_ERROR_NOREPLICAS;
+                        break;
+                    }
+
+                    break;
+                }
+                state = SW_RUNTO_CRLF;
+            }
+
             break;
 
         case SW_INTEGER:
@@ -2729,7 +2877,7 @@ void
 redis_swallow_msg(struct conn *conn, struct msg *pmsg, struct msg *msg)
 {
     if (pmsg != NULL && pmsg->type == MSG_REQ_REDIS_SELECT &&
-        msg != NULL && msg->type == MSG_RSP_REDIS_ERROR) {
+        msg != NULL && redis_error(msg)) {
         struct server* conn_server;
         struct server_pool* conn_pool;
         struct mbuf* rsp_buffer;

@@ -167,6 +167,19 @@ typedef enum msg_parse_result {
     ACTION( REQ_REDIS_SELECT)                  /* only during init */                               \
     ACTION( RSP_REDIS_STATUS )                 /* redis response */                                 \
     ACTION( RSP_REDIS_ERROR )                                                                       \
+    ACTION( RSP_REDIS_ERROR_ERR )                                                                   \
+    ACTION( RSP_REDIS_ERROR_OOM )                                                                   \
+    ACTION( RSP_REDIS_ERROR_BUSY )                                                                  \
+    ACTION( RSP_REDIS_ERROR_NOAUTH )                                                                \
+    ACTION( RSP_REDIS_ERROR_LOADING )                                                               \
+    ACTION( RSP_REDIS_ERROR_BUSYKEY )                                                               \
+    ACTION( RSP_REDIS_ERROR_MISCONF )                                                               \
+    ACTION( RSP_REDIS_ERROR_NOSCRIPT )                                                              \
+    ACTION( RSP_REDIS_ERROR_READONLY )                                                              \
+    ACTION( RSP_REDIS_ERROR_WRONGTYPE )                                                             \
+    ACTION( RSP_REDIS_ERROR_EXECABORT )                                                             \
+    ACTION( RSP_REDIS_ERROR_MASTERDOWN )                                                            \
+    ACTION( RSP_REDIS_ERROR_NOREPLICAS )                                                            \
     ACTION( RSP_REDIS_INTEGER )                                                                     \
     ACTION( RSP_REDIS_BULK )                                                                        \
     ACTION( RSP_REDIS_MULTIBULK )                                                                   \

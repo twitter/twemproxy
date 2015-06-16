@@ -283,6 +283,7 @@ https://launchpad.net/~twemproxy/+archive/ubuntu/daily
 + [Soysuper](https://soysuper.com/)
 + [Vinted](http://vinted.com/)
 + [Poshmark](https://poshmark.com/)
++ [FanDuel](https://www.fanduel.com/)
 
 ## Issues and Support
 

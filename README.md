@@ -42,7 +42,7 @@ A quick checklist:
 + Supports proxying to multiple servers.
 + Supports multiple server pools simultaneously.
 + Shard data automatically across multiple servers.
-+ Implements the complete [memcached ascii](notes/memcache.txt) and [redis](notes/redis.md) protocol.
++ Implements the complete [memcached ascii](notes/memcache.md) and [redis](notes/redis.md) protocol.
 + Easy configuration of server pools through a YAML file.
 + Supports multiple hashing modes including consistent hashing and distribution.
 + Can be configured to disable nodes on failures.

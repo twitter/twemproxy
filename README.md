@@ -280,6 +280,7 @@ https://launchpad.net/~twemproxy/+archive/ubuntu/daily
 + [Yahoo!](https://www.yahoo.com)
 + [Path](https://path.com)
 + [AOL](http://engineering.aol.com/)
++ [Soysuper](https://soysuper.com/)
 + [Vinted](http://vinted.com/)
 + [Poshmark](https://poshmark.com/)
 

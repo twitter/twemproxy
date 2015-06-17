@@ -351,6 +351,8 @@ memcache_parse_req(struct msg *r)
                               r->token, p - r->token);
                     goto error;
                 } else if (keylen == 0) {
+                    log_error("parsed bad req %"PRIu64" of type %d with an "
+                              "empty key", r->id, r->type);
                     goto error;
                 }
 

@@ -1196,6 +1196,12 @@ error:
                 r->state);
 }
 
+bool
+memcache_failure(struct msg *r)
+{
+    return false;
+}
+
 static rstatus_t
 memcache_append_key(struct msg *r, uint8_t *key, uint32_t keylen)
 {

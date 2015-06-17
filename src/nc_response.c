@@ -184,6 +184,25 @@ rsp_filter(struct context *ctx, struct conn *conn, struct msg *msg)
     ASSERT(pmsg->peer == NULL);
     ASSERT(pmsg->request && !pmsg->done);
 
+    /*
+     * If the response from a server suggests a protocol level transient
+     * failure, close the server connection and send back a generic error
+     * response to the client.
+     *
+     * If auto_eject_host is enabled, this will also update the failure_count
+     * and eject the server if it exceeds the failure_limit
+     */
+    if (msg->failure(msg)) {
+        log_debug(LOG_INFO, "server failure rsp %"PRIu64" len %"PRIu32" "
+                  "type %d on s %d", msg->id, msg->mlen, msg->type, conn->sd);
+        rsp_put(msg);
+
+        conn->err = EINVAL;
+        conn->done = 1;
+
+        return true;
+    }
+
     if (pmsg->swallow) {
         conn->swallow_msg(conn, pmsg, msg);
 

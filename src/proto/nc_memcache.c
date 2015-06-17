@@ -343,12 +343,14 @@ memcache_parse_req(struct msg *r)
             }
             if (ch == ' ' || ch == CR) {
                 struct keypos *kpos;
-
-                if ((p - r->token) > MEMCACHE_MAX_KEY_LENGTH) {
+                int keylen = p - r->token;
+                if (keylen > MEMCACHE_MAX_KEY_LENGTH) {
                     log_error("parsed bad req %"PRIu64" of type %d with key "
                               "prefix '%.*s...' and length %d that exceeds "
                               "maximum key length", r->id, r->type, 16,
                               r->token, p - r->token);
+                    goto error;
+                } else if (keylen == 0) {
                     goto error;
                 }
 

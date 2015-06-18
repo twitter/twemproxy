@@ -162,10 +162,10 @@ ketama_update(struct server_pool *pool)
         pointer_per_server = (uint32_t) ((floorf((float) (pct * KETAMA_POINTS_PER_SERVER / 4 * (float)nlive_server + 0.0000000001))) * 4);
         pointer_per_hash = 4;
 
-        log_debug(LOG_VERB, "%.*s:%"PRIu16" weight %"PRIu32" of %"PRIu32" "
+        log_debug(LOG_VERB, "%.*s weight %"PRIu32" of %"PRIu32" "
                   "pct %0.5f points per server %"PRIu32"",
-                  server->name.len, server->name.data, server->port,
-                  server->weight, total_weight, pct, pointer_per_server);
+                  server->name.len, server->name.data, server->weight,
+                  total_weight, pct, pointer_per_server);
 
         for (pointer_index = 1;
              pointer_index <= pointer_per_server / pointer_per_hash;

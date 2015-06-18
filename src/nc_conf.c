@@ -114,6 +114,7 @@ conf_server_init(struct conf_server *cs)
 {
     string_init(&cs->pname);
     string_init(&cs->name);
+    string_init(&cs->addrstr);
     cs->port = 0;
     cs->weight = 0;
 
@@ -129,6 +130,7 @@ conf_server_deinit(struct conf_server *cs)
 {
     string_deinit(&cs->pname);
     string_deinit(&cs->name);
+    string_deinit(&cs->addrstr);
     cs->valid = 0;
     log_debug(LOG_VVERB, "deinit conf server %p", cs);
 }
@@ -150,12 +152,11 @@ conf_server_each_transform(void *elem, void *data)
 
     s->pname = cs->pname;
     s->name = cs->name;
+    s->addrstr = cs->addrstr;
     s->port = (uint16_t)cs->port;
     s->weight = (uint32_t)cs->weight;
 
-    s->family = cs->info.family;
-    s->addrlen = cs->info.addrlen;
-    s->addr = (struct sockaddr *)&cs->info.addr;
+    nc_memcpy(&s->info, &cs->info, sizeof(cs->info));
 
     s->ns_conn_q = 0;
     TAILQ_INIT(&s->s_conn_q);
@@ -272,9 +273,7 @@ conf_pool_each_transform(void *elem, void *data)
     sp->addrstr = cp->listen.pname;
     sp->port = (uint16_t)cp->listen.port;
 
-    sp->family = cp->listen.info.family;
-    sp->addrlen = cp->listen.info.addrlen;
-    sp->addr = (struct sockaddr *)&cp->listen.info.addr;
+    nc_memcpy(&sp->info, &cp->listen.info, sizeof(cp->listen.info));
     sp->perm = cp->listen.perm;
 
     sp->key_hash_type = cp->hash;
@@ -1518,10 +1517,8 @@ conf_add_server(struct conf *cf, struct command *cmd, void *conf)
     uint8_t *p, *q, *start;
     uint8_t *pname, *addr, *port, *weight, *name;
     uint32_t k, delimlen, pnamelen, addrlen, portlen, weightlen, namelen;
-    struct string address;
     char delim[] = " ::";
 
-    string_init(&address);
     p = conf;
     a = (struct array *)(p + cmd->offset);
 
@@ -1633,18 +1630,16 @@ conf_add_server(struct conf *cf, struct command *cmd, void *conf)
         return CONF_ERROR;
     }
 
-    status = string_copy(&address, addr, addrlen);
+    status = string_copy(&field->addrstr, addr, addrlen);
     if (status != NC_OK) {
         return CONF_ERROR;
     }
 
-    status = nc_resolve(&address, field->port, &field->info);
+    status = nc_resolve(&field->addrstr, field->port, &field->info);
     if (status != NC_OK) {
-        string_deinit(&address);
         return CONF_ERROR;
     }
 
-    string_deinit(&address);
     field->valid = 1;
 
     return CONF_OK;

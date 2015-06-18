@@ -70,13 +70,12 @@ struct server {
     uint32_t           idx;           /* server index */
     struct server_pool *owner;        /* owner pool */
 
-    struct string      pname;         /* name:port:weight (ref in conf_server) */
-    struct string      name;          /* name (ref in conf_server) */
+    struct string      pname;         /* hostname:port:weight (ref in conf_server) */
+    struct string      name;          /* hostname:port or [name] (ref in conf_server) */
+    struct string      addrstr;       /* hostname (ref in conf_server) */
     uint16_t           port;          /* port */
     uint32_t           weight;        /* weight */
-    int                family;        /* socket family */
-    socklen_t          addrlen;       /* socket length */
-    struct sockaddr    *addr;         /* socket address (ref in conf_server) */
+    struct sockinfo    info;          /* server socket info */
 
     uint32_t           ns_conn_q;     /* # server connection */
     struct conn_tqh    s_conn_q;      /* server connection q */
@@ -101,12 +100,10 @@ struct server_pool {
     int64_t            next_rebuild;         /* next distribution rebuild time in usec */
 
     struct string      name;                 /* pool name (ref in conf_pool) */
-    struct string      addrstr;              /* pool address (ref in conf_pool) */
+    struct string      addrstr;              /* pool address - hostname:port (ref in conf_pool) */
     struct string      redis_auth;           /* redis_auth password */
     uint16_t           port;                 /* port */
-    int                family;               /* socket family */
-    socklen_t          addrlen;              /* socket length */
-    struct sockaddr    *addr;                /* socket address (ref in conf_pool) */
+    struct sockinfo    info;                 /* listen socket info */
     mode_t             perm;                 /* socket permission */
     int                dist_type;            /* distribution type (dist_type_t) */
     int                key_hash_type;        /* key hash type (hash_type_t) */

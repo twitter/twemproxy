@@ -30,9 +30,9 @@ server_ref(struct conn *conn, void *owner)
     ASSERT(!conn->client && !conn->proxy);
     ASSERT(conn->owner == NULL);
 
-    conn->family = server->family;
-    conn->addrlen = server->addrlen;
-    conn->addr = server->addr;
+    conn->family = server->info.family;
+    conn->addrlen = server->info.addrlen;
+    conn->addr = (struct sockaddr *)&server->info.addr;
 
     server->ns_conn_q++;
     TAILQ_INSERT_TAIL(&server->s_conn_q, conn, conn_tqe);

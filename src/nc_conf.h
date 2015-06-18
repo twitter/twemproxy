@@ -56,8 +56,8 @@
 #define CONF_DEFAULT_KETAMA_PORT             11211
 
 struct conf_listen {
-    struct string   pname;   /* listen: as "name:port" */
-    struct string   name;    /* name */
+    struct string   pname;   /* listen: as "hostname:port" */
+    struct string   name;    /* hostname:port */
     int             port;    /* port */
     mode_t          perm;    /* socket permissions */
     struct sockinfo info;    /* listen socket info */
@@ -65,8 +65,9 @@ struct conf_listen {
 };
 
 struct conf_server {
-    struct string   pname;      /* server: as "name:port:weight" */
-    struct string   name;       /* name */
+    struct string   pname;      /* server: as "hostname:port:weight" */
+    struct string   name;       /* hostname:port or [name] */
+    struct string   addrstr;    /* hostname */
     int             port;       /* port */
     int             weight;     /* weight */
     struct sockinfo info;       /* connect socket info */

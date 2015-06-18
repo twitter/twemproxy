@@ -1099,6 +1099,8 @@ redis_parse_req(struct msg *r)
             case LF:
                 if (redis_argz(r)) {
                     goto done;
+                } else if (r->narg == 1) {
+                    goto error;
                 } else if (redis_argeval(r)) {
                     state = SW_ARG1_LEN;
                 } else {

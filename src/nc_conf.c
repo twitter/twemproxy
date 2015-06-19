@@ -1635,10 +1635,13 @@ conf_add_server(struct conf *cf, struct command *cmd, void *conf)
         return CONF_ERROR;
     }
 
-    status = nc_resolve(&field->addrstr, field->port, &field->info);
-    if (status != NC_OK) {
-        return CONF_ERROR;
-    }
+    /*
+     * The address resolution of the backend server hostname is lazy.
+     * The resolution occurs when a new connection to the server is
+     * created, which could either be the first time or every time
+     * or every time the server gets re-added to the pool after an
+     * auto ejection.
+     */
 
     field->valid = 1;
 

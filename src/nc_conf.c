@@ -1639,8 +1639,7 @@ conf_add_server(struct conf *cf, struct command *cmd, void *conf)
      * The address resolution of the backend server hostname is lazy.
      * The resolution occurs when a new connection to the server is
      * created, which could either be the first time or every time
-     * or every time the server gets re-added to the pool after an
-     * auto ejection.
+     * the server gets re-added to the pool after an auto ejection
      */
 
     field->valid = 1;

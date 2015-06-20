@@ -22,12 +22,16 @@
 #include <nc_core.h>
 #include <nc_proto.h>
 
-#define REPL_OK     "+OK\r\n"
-#define REPL_PONG   "+PONG\r\n"
+#define RSP_STRING(ACTION)                                                          \
+    ACTION( ok,               "+OK\r\n"                                           ) \
+    ACTION( pong,             "+PONG\r\n"                                         ) \
+    ACTION( invalid_password, "-ERR invalid password\r\n"                         ) \
+    ACTION( auth_required,    "-NOAUTH Authentication required\r\n"               ) \
+    ACTION( no_password,      "-ERR Client sent AUTH, but no password is set\r\n" ) \
 
-#define AUTH_INVALID_PASSWORD "-ERR invalid password\r\n"
-#define AUTH_REQUIRE_PASSWORD "-NOAUTH Authentication required\r\n"
-#define AUTH_NO_PASSWORD      "-ERR Client sent AUTH, but no password is set\r\n"
+#define DEFINE_ACTION(_var, _str) static struct string rsp_##_var = string(#_str);
+    RSP_STRING( DEFINE_ACTION )
+#undef DEFINE_ACTION
 
 static rstatus_t redis_handle_auth_req(struct msg *request, struct msg *response);
 
@@ -2652,8 +2656,10 @@ redis_fragment(struct msg *r, uint32_t ncontinuum, struct msg_tqh *frag_msgq)
     case MSG_REQ_REDIS_MGET:
     case MSG_REQ_REDIS_DEL:
         return redis_fragment_argx(r, ncontinuum, frag_msgq, 1);
+
     case MSG_REQ_REDIS_MSET:
         return redis_fragment_argx(r, ncontinuum, frag_msgq, 2);
+
     default:
         return NC_OK;
     }
@@ -2673,12 +2679,12 @@ redis_reply(struct msg *r)
     }
 
     if (c_conn->need_auth == 1) {
-        return msg_append(response, (uint8_t *)AUTH_REQUIRE_PASSWORD, strlen(AUTH_REQUIRE_PASSWORD));
+        return msg_append(response, rsp_auth_required.data, rsp_auth_required.len);
     }
 
     switch (r->type) {
     case MSG_REQ_REDIS_PING:
-        return msg_append(response, (uint8_t *)REPL_PONG, nc_strlen(REPL_PONG));
+        return msg_append(response, rsp_pong.data, rsp_pong.len);
 
     default:
         NOT_REACHED();
@@ -2689,10 +2695,10 @@ redis_reply(struct msg *r)
 void
 redis_post_coalesce_mset(struct msg *request)
 {
-    struct msg *response = request->peer;
     rstatus_t status;
+    struct msg *response = request->peer;
 
-    status = msg_append(response, (uint8_t *)REPL_OK, nc_strlen(REPL_OK));
+    status = msg_append(response, rsp_ok.data, rsp_ok.len);
     if (status != NC_OK) {
         response->error = 1;        /* mark this msg as err */
         response->err = errno;
@@ -2765,10 +2771,13 @@ redis_post_coalesce(struct msg *r)
     switch (r->type) {
     case MSG_REQ_REDIS_MGET:
         return redis_post_coalesce_mget(r);
+
     case MSG_REQ_REDIS_DEL:
         return redis_post_coalesce_del(r);
+
     case MSG_REQ_REDIS_MSET:
         return redis_post_coalesce_mset(r);
+
     default:
         NOT_REACHED();
     }
@@ -2810,15 +2819,15 @@ redis_handle_auth_req(struct msg *request, struct msg *response)
     pool = (struct server_pool *)conn->owner;
 
     if (pool->redis_auth.len == 0) {
-        return msg_append(response, (uint8_t *)AUTH_NO_PASSWORD, nc_strlen(AUTH_NO_PASSWORD));
+        return msg_append(response, rsp_no_password.data, rsp_no_password.len);
     }
 
     if (redis_valid_auth(conn, request)) {
         conn->need_auth = 0;
-        return msg_append(response, (uint8_t *)REPL_OK, nc_strlen(REPL_OK));
+        return msg_append(response, rsp_ok.data, rsp_ok.len);
     } else {
         conn->need_auth = 1;
-        return msg_append(response, (uint8_t *)AUTH_INVALID_PASSWORD, nc_strlen(AUTH_INVALID_PASSWORD));
+        return msg_append(response, rsp_invalid_password.data, rsp_invalid_password.len);
     }
 
     NOT_REACHED();

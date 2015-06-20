@@ -453,20 +453,21 @@ req_recv_next(struct context *ctx, struct conn *conn, bool alloc)
 static rstatus_t
 req_make_reply(struct context *ctx, struct conn *conn, struct msg *req)
 {
-    struct msg *msg;
+    struct msg *rsp;
 
-    msg = msg_get(conn, false, conn->redis); /* replay */
-    if (msg == NULL) {
+    rsp = msg_get(conn, false, conn->redis); /* replay */
+    if (rsp == NULL) {
         conn->err = errno;
         return NC_ENOMEM;
     }
 
-    req->peer = msg;
-    msg->peer = req;
-    msg->request = 0;
+    req->peer = rsp;
+    rsp->peer = req;
+    rsp->request = 0;
 
     req->done = 1;
     conn->enqueue_outq(ctx, conn, req);
+
     return NC_OK;
 }
 

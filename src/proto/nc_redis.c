@@ -29,7 +29,7 @@
     ACTION( auth_required,    "-NOAUTH Authentication required\r\n"               ) \
     ACTION( no_password,      "-ERR Client sent AUTH, but no password is set\r\n" ) \
 
-#define DEFINE_ACTION(_var, _str) static struct string rsp_##_var = string(#_str);
+#define DEFINE_ACTION(_var, _str) static struct string rsp_##_var = string(_str);
     RSP_STRING( DEFINE_ACTION )
 #undef DEFINE_ACTION
 

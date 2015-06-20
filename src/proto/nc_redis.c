@@ -2834,7 +2834,7 @@ redis_handle_auth_req(struct msg *request, struct msg *response)
 }
 
 rstatus_t
-redis_add_auth_packet(struct context *ctx, struct conn *c_conn, struct conn *s_conn)
+redis_add_auth(struct context *ctx, struct conn *c_conn, struct conn *s_conn)
 {
     rstatus_t status;
     struct msg *msg;

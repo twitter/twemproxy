@@ -101,7 +101,6 @@ struct server_pool {
 
     struct string      name;                 /* pool name (ref in conf_pool) */
     struct string      addrstr;              /* pool address - hostname:port (ref in conf_pool) */
-    struct string      redis_auth;           /* redis_auth password */
     uint16_t           port;                 /* port */
     struct sockinfo    info;                 /* listen socket info */
     mode_t             perm;                 /* socket permission */
@@ -116,6 +115,8 @@ struct server_pool {
     uint32_t           server_connections;   /* maximum # server connection */
     int64_t            server_retry_timeout; /* server retry timeout in usec */
     uint32_t           server_failure_limit; /* server failure limit */
+    struct string      redis_auth;           /* redis_auth password (matches requirepass on redis) */
+    unsigned           require_auth;         /* require_auth? */
     unsigned           auto_eject_hosts:1;   /* auto_eject_hosts? */
     unsigned           preconnect:1;         /* preconnect? */
     unsigned           redis:1;              /* redis? */

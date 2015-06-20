@@ -84,7 +84,7 @@ struct conf_pool {
     int                backlog;               /* backlog: */
     int                client_connections;    /* client_connections: */
     int                redis;                 /* redis: */
-    struct string      redis_auth;            /* redis_auth: redis auth password */
+    struct string      redis_auth;            /* redis_auth: redis auth password (matches requirepass on redis) */
     int                redis_db;              /* redis_db: redis db */
     int                preconnect;            /* preconnect: */
     int                auto_eject_hosts;      /* auto_eject_hosts: */

@@ -165,10 +165,11 @@ _conn_get(void)
 }
 
 static bool
-conn_need_auth(void *owner, bool redis) {
+conn_need_auth(void *owner)
+{
     struct server_pool *pool = (struct server_pool *)(owner);
 
-    if (redis && pool->redis_auth.len > 0) {
+    if (pool->require_auth) {
         return true;
     }
 
@@ -208,7 +209,7 @@ conn_get(void *owner, bool client, bool redis)
 
         conn->ref = client_ref;
         conn->unref = client_unref;
-        conn->need_auth = conn_need_auth(owner, redis);
+        conn->need_auth = conn_need_auth(owner);
 
         conn->enqueue_inq = NULL;
         conn->dequeue_inq = NULL;
@@ -239,7 +240,7 @@ conn_get(void *owner, bool client, bool redis)
         conn->ref = server_ref;
         conn->unref = server_unref;
 
-        conn->need_auth = conn_need_auth(server->owner, redis);
+        conn->need_auth = conn_need_auth(server->owner);
 
         conn->enqueue_inq = req_server_enqueue_imsgq;
         conn->dequeue_inq = req_server_dequeue_imsgq;

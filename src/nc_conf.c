@@ -282,13 +282,14 @@ conf_pool_each_transform(void *elem, void *data)
     sp->hash_tag = cp->hash_tag;
 
     sp->redis = cp->redis ? 1 : 0;
-    sp->redis_auth = cp->redis_auth;
-    sp->redis_db = cp->redis_db;
     sp->timeout = cp->timeout;
     sp->backlog = cp->backlog;
+    sp->redis_db = cp->redis_db;
+
+    sp->redis_auth = cp->redis_auth;
+    sp->require_auth = cp->redis_auth.len > 0 ? 1 : 0;
 
     sp->client_connections = (uint32_t)cp->client_connections;
-
     sp->server_connections = (uint32_t)cp->server_connections;
     sp->server_retry_timeout = (int64_t)cp->server_retry_timeout * 1000LL;
     sp->server_failure_limit = (uint32_t)cp->server_failure_limit;
@@ -1252,6 +1253,11 @@ conf_validate_pool(struct conf *cf, struct conf_pool *cp)
 
     if (cp->server_failure_limit == CONF_UNSET_NUM) {
         cp->server_failure_limit = CONF_DEFAULT_SERVER_FAILURE_LIMIT;
+    }
+
+    if (!cp->redis && cp->redis_auth.len > 0) {
+        log_error("conf: directive \"redis_auth:\" is only valid for a redis pool");
+        return NC_ERROR;
     }
 
     status = conf_validate_server(cf, cp);

@@ -477,11 +477,13 @@ msg_ensure_mbuf(struct msg *msg, size_t len)
     } else {
         mbuf = STAILQ_LAST(&msg->mhdr, mbuf, next);
     }
+
     return mbuf;
 }
 
 /*
- * append small(small than a mbuf) content into msg
+ * Append n bytes of data, with n <= mbuf_size(mbuf)
+ * into mbuf
  */
 rstatus_t
 msg_append(struct msg *msg, uint8_t *pos, size_t n)
@@ -499,11 +501,13 @@ msg_append(struct msg *msg, uint8_t *pos, size_t n)
 
     mbuf_copy(mbuf, pos, n);
     msg->mlen += (uint32_t)n;
+
     return NC_OK;
 }
 
 /*
- * prepend small(small than a mbuf) content into msg
+ * Prepend n bytes of data, with n <= mbuf_size(mbuf)
+ * into mbuf
  */
 rstatus_t
 msg_prepend(struct msg *msg, uint8_t *pos, size_t n)
@@ -521,6 +525,7 @@ msg_prepend(struct msg *msg, uint8_t *pos, size_t n)
     msg->mlen += (uint32_t)n;
 
     STAILQ_INSERT_HEAD(&msg->mhdr, mbuf, next);
+
     return NC_OK;
 }
 

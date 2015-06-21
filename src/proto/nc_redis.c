@@ -2678,7 +2678,7 @@ redis_reply(struct msg *r)
         return redis_handle_auth_req(r, response);
     }
 
-    if (c_conn->need_auth == 1) {
+    if (!conn_authenticated(c_conn)) {
         return msg_append(response, rsp_auth_required.data, rsp_auth_required.len);
     }
 
@@ -2809,28 +2809,46 @@ redis_valid_auth(struct conn *conn, struct msg *msg)
 }
 
 static rstatus_t
-redis_handle_auth_req(struct msg *request, struct msg *response)
+redis_handle_auth_req(struct msg *req, struct msg *rsp)
 {
+    struct conn *conn = (struct conn *)rsp->owner;
     struct server_pool *pool;
-    struct conn *conn = (struct conn *)response->owner;
+    struct keypos *kpos;
+    uint8_t *key;
+    uint32_t keylen;
+    bool valid;
 
-    ASSERT(conn->client && !conn->proxy && conn->redis);
+    ASSERT(conn->client && !conn->proxy);
 
     pool = (struct server_pool *)conn->owner;
 
-    if (pool->redis_auth.len == 0) {
-        return msg_append(response, rsp_no_password.data, rsp_no_password.len);
+    if (!pool->require_auth) {
+        /*
+         * AUTH command from the client in absence of a redis_auth:
+         * directive should be treated as an error
+         */
+        return msg_append(rsp, rsp_no_password.data, rsp_no_password.len);
     }
 
-    if (redis_valid_auth(conn, request)) {
-        conn->need_auth = 0;
-        return msg_append(response, rsp_ok.data, rsp_ok.len);
-    } else {
-        conn->need_auth = 1;
-        return msg_append(response, rsp_invalid_password.data, rsp_invalid_password.len);
+    kpos = array_get(req->keys, 0);
+    key = kpos->start;
+    keylen = (uint32_t)(kpos->end - kpos->start);
+    valid = (keylen == pool->redis_auth.len) &&
+            (memcmp(pool->redis_auth.data, key, keylen) == 0) ? true : false;
+    if (valid) {
+        conn->authenticated = 1;
+        return msg_append(rsp, rsp_ok.data, rsp_ok.len);
     }
 
-    NOT_REACHED();
+    /*
+     * Password in the AUTH command doesn't match the one configured in
+     * redis_auth: directive
+     *
+     * We mark the connection has unauthenticated until the client
+     * reauthenticates with the correct password
+     */
+    conn->authenticated = 0;
+    return msg_append(rsp, rsp_invalid_password.data, rsp_invalid_password.len);
 }
 
 rstatus_t
@@ -2840,8 +2858,8 @@ redis_add_auth(struct context *ctx, struct conn *c_conn, struct conn *s_conn)
     struct msg *msg;
     struct server_pool *pool;
 
-    ASSERT(s_conn->need_auth);
     ASSERT(!s_conn->client && !s_conn->proxy);
+    ASSERT(!conn_authenticated(s_conn));
 
     pool = c_conn->owner;
 
@@ -2860,7 +2878,7 @@ redis_add_auth(struct context *ctx, struct conn *c_conn, struct conn *s_conn)
 
     msg->swallow = 1;
     s_conn->enqueue_inq(ctx, s_conn, msg);
-    s_conn->need_auth = 0;
+    s_conn->authenticated = 1;
 
     return NC_OK;
 }

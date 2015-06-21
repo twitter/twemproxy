@@ -507,7 +507,7 @@ req_filter(struct context *ctx, struct conn *conn, struct msg *msg)
      * If this conn is not authenticated, we will mark it as noforward,
      * and handle it in the redis_reply handler.
      */
-    if (conn->need_auth) {
+    if (!conn_authenticated(conn)) {
         msg->noforward = 1;
     }
 
@@ -593,7 +593,7 @@ req_forward(struct context *ctx, struct conn *c_conn, struct msg *msg)
         }
     }
 
-    if (s_conn->need_auth) {
+    if (!conn_authenticated(s_conn)) {
         status = msg->add_auth(ctx, c_conn, s_conn);
         if (status != NC_OK) {
             req_forward_error(ctx, c_conn, msg);

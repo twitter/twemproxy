@@ -2577,7 +2577,7 @@ redis_fragment_argx(struct msg *r, uint32_t ncontinuum, struct msg_tqh *frag_msg
     for (i = 0; i < array_n(r->keys); i++) {        /* for each key */
         struct msg *sub_msg;
         struct keypos *kpos = array_get(r->keys, i);
-        uint32_t idx = msg_backend_idx(r, kpos->start, kpos->end - kpos->start);
+        uint32_t idx = msg_backend_idx(r, kpos->start, kpos->end - kpos->start) % ncontinuum;
 
         if (sub_msgs[idx] == NULL) {
             sub_msgs[idx] = msg_get(r->owner, r->request, r->redis);

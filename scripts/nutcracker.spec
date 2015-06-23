@@ -1,6 +1,6 @@
 Summary: Twitter's nutcracker redis and memcached proxy
 Name: nutcracker
-Version: 0.3.0
+Version: 0.4.0
 Release: 1
 
 URL: https://github.com/twitter/twemproxy/
@@ -65,6 +65,15 @@ fi
 %config(noreplace)%{_sysconfdir}/%{name}/%{name}.yml
 
 %changelog
+* Tue Oct 18 2014 idning <idning@gmail.com>
+- twemproxy: version 0.4.0 release
+- mget improve (idning)
+- many new commands supported: LEX, PFADD, PFMERGE, SORT, PING, QUIT, SCAN... (mattrobenolt, areina, idning)
+- handle max open file limit(allenlz)
+- add notice-log and use ms time in log(idning)
+- fix bug in string_compare (andyqzb)
+- fix deadlock in sighandler (idning)
+
 * Fri Dec 20 2013  Manju Rajashekhar  <manj@cs.stanford.edu>
 - twemproxy: version 0.3.0 release
 - SRANDMEMBER support for the optional count argument (mkhq)

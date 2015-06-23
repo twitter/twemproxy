@@ -37,14 +37,14 @@ def test_pingpong():
     _test(req, resp)
 
 def test_quit():
-    if nc.version() < '0.4.1':
+    if nc.version() < '0.4.2':
         return
     req = '*1\r\n$4\r\nQUIT\r\n'
     resp = '+OK\r\n'
     _test(req, resp)
 
 def test_quit_without_recv():
-    if nc.version() < '0.4.1':
+    if nc.version() < '0.4.2':
         return
     req = '*1\r\n$4\r\nQUIT\r\n'
     resp = '+OK\r\n'

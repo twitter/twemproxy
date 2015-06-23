@@ -1,6 +1,6 @@
 Summary: Twitter's nutcracker redis and memcached proxy
 Name: nutcracker
-Version: 0.4.0
+Version: 0.4.1
 Release: 1
 
 URL: https://github.com/twitter/twemproxy/
@@ -16,7 +16,8 @@ BuildRequires: libtool
 
 %description
 twemproxy (pronounced "two-em-proxy"), aka nutcracker is a fast and lightweight proxy for memcached and redis protocol.
-It was primarily built to reduce the connection count on the backend caching servers.
+It was primarily built to reduce the connection count on the backend caching servers. This, together with protocol
+pipelining and sharding enables you to horizontally scale your distributed caching architecture.
 
 %prep
 %setup -q
@@ -65,6 +66,30 @@ fi
 %config(noreplace)%{_sysconfdir}/%{name}/%{name}.yml
 
 %changelog
+* Mon Jun 22 2015  Manju Rajashekhar  <manj@cs.stanford.edu>
+- twemproxy: version 0.4.1 release
+- redis_auth is only valid for a redis pool
+- getaddrinfo returns non-zero +ve value on error
+- fix-hang-when-command-only (charsyam)
+- fix bug crash when get command without key and whitespace (charsyam)
+- mark server as failed on protocol level transiet failures like -OOM, -LOADING, etc
+- implemented support for parsing fine grained redis error response
+- remove redundant conditional judgement in rbtree deletion (leo ma)
+- fix bug mset has invalid pair (charsyam)
+- fix bug mset has invalid pair (charsyam)
+- temp fix a core on kqueue (idning)
+- support "touch" command for memcached (panmiaocai)
+- fix redis parse rsp bug (charsyam)
+- SORT command can take multiple arguments. So it should be part of redis_argn() and not redis_arg0()
+- remove incorrect assert because client could send data after sending a quit request which must be discarded
+- allow file permissions to be set for UNIX domain listening socket (ori liveneh)
+- return error if formatted is greater than mbuf size by using nc_vsnprintf() in msg_prepend_format()
+- fix req_make_reply on msg_get, mark it as response (idning)
+- redis database select upon connect (arne claus)
+- redis_auth (charsyam)
+- allow null key(empty key) (idning)
+- fix core on invalid mset like "mset a a a" (idning)
+
 * Tue Oct 18 2014 idning <idning@gmail.com>
 - twemproxy: version 0.4.0 release
 - mget improve (idning)

@@ -59,7 +59,7 @@ def send_cmd(s, req, resp):
 
 @with_setup(_setup, _teardown)
 def test_reload_with_old_conf():
-    if nc.version() < '0.4.1':
+    if nc.version() < '0.4.2':
         print 'Ignore test_reload for version %s' % nc.version()
         return
     pid = nc.pid()
@@ -99,7 +99,7 @@ def test_reload_with_old_conf():
 
 @with_setup(_setup, _teardown)
 def test_new_port():
-    if nc.version() < '0.4.1':
+    if nc.version() < '0.4.2':
         print 'Ignore test_reload for version %s' % nc.version()
         return
     r = redis.Redis(nc.host(), nc.port())
@@ -128,7 +128,7 @@ reload_test:
 
 @with_setup(_setup, _teardown)
 def test_pool_add_del():
-    if nc.version() < '0.4.1':
+    if nc.version() < '0.4.2':
         print 'Ignore test_reload for version %s' % nc.version()
         return
 

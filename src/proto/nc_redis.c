@@ -2783,31 +2783,6 @@ redis_post_coalesce(struct msg *r)
     }
 }
 
-static bool
-redis_valid_auth(struct conn *conn, struct msg *msg)
-{
-    struct server_pool *pool = (struct server_pool *)conn->owner;
-
-    if (pool->redis_auth.len > 0) {
-        struct keypos *kpos;
-        uint8_t *key;
-        uint32_t keylen;
-
-        kpos = array_get(msg->keys, 0);
-        key = kpos->start;
-        keylen = (uint32_t)(kpos->end - kpos->start);
-        if (keylen != pool->redis_auth.len) {
-            return false;
-        }
-
-        if (memcmp(pool->redis_auth.data, key, keylen) != 0) {
-            return false;
-        }
-    }
-
-    return true;
-}
-
 static rstatus_t
 redis_handle_auth_req(struct msg *req, struct msg *rsp)
 {

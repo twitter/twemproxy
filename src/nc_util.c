@@ -64,6 +64,18 @@ nc_set_nonblocking(int sd)
 }
 
 int
+nc_set_reuseport(int sd)
+{
+    int reuse;
+    socklen_t len;
+
+    reuse = 1;
+    len = sizeof(reuse);
+
+    return setsockopt(sd, SOL_SOCKET, SO_REUSEPORT, &reuse, len);
+}
+
+int
 nc_set_reuseaddr(int sd)
 {
     int reuse;

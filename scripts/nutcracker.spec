@@ -68,6 +68,7 @@ fi
 %changelog
 * Mon Jun 22 2015  Manju Rajashekhar  <manj@cs.stanford.edu>
 - twemproxy: version 0.4.1 release
+- backend server hostnames are resolved lazily
 - redis_auth is only valid for a redis pool
 - getaddrinfo returns non-zero +ve value on error
 - fix-hang-when-command-only (charsyam)

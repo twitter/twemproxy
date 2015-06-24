@@ -36,7 +36,7 @@ log_init(int level, char *name)
     if (name == NULL || !strlen(name)) {
         l->fd = STDERR_FILENO;
     } else {
-        l->fd = open(name, O_WRONLY | O_APPEND | O_CREAT, 0644);
+        l->fd = open(name, O_WRONLY | O_APPEND | O_CREAT | O_CLOEXEC, 0644);
         if (l->fd < 0) {
             log_stderr("opening log file '%s' failed: %s", name,
                        strerror(errno));
@@ -66,7 +66,7 @@ log_reopen(void)
 
     if (l->fd != STDERR_FILENO) {
         close(l->fd);
-        l->fd = open(l->name, O_WRONLY | O_APPEND | O_CREAT, 0644);
+        l->fd = open(l->name, O_WRONLY | O_APPEND | O_CREAT | O_CLOEXEC, 0644);
         if (l->fd < 0) {
             log_stderr_safe("reopening log file '%s' failed, ignored: %s", l->name,
                        strerror(errno));
@@ -150,7 +150,7 @@ _log(const char *file, int line, int panic, const char *fmt, ...)
     buf[len++] = '[';
     len += nc_strftime(buf + len, size - len, "%Y-%m-%d %H:%M:%S.", localtime(&tv.tv_sec));
     len += nc_scnprintf(buf + len, size - len, "%03ld", tv.tv_usec/1000);
-    len += nc_scnprintf(buf + len, size - len, "] %s:%d ", file, line);
+    len += nc_scnprintf(buf + len, size - len, "] [%d] %s:%d ", getpid(), file, line);
 
     va_start(args, fmt);
     len += nc_vscnprintf(buf + len, size - len, fmt, args);

@@ -17,6 +17,7 @@
 
 #include <stdlib.h>
 #include <unistd.h>
+#include <netdb.h>
 #include <nc_core.h>
 #include <nc_conf.h>
 #include <nc_server.h>
@@ -149,8 +150,8 @@ core_ctx_destroy(struct context *ctx)
     proxy_deinit(ctx);
     server_pool_disconnect(ctx);
     event_base_destroy(ctx->evb);
-    stats_destroy(ctx->stats);
     server_pool_deinit(&ctx->pool);
+    stats_destroy(ctx->stats);
     conf_destroy(ctx->cf);
     nc_free(ctx);
 }
@@ -180,10 +181,10 @@ core_start(struct instance *nci)
 void
 core_stop(struct context *ctx)
 {
+    core_ctx_destroy(ctx);
     conn_deinit();
     msg_deinit();
     mbuf_deinit();
-    core_ctx_destroy(ctx);
 }
 
 static rstatus_t
@@ -367,3 +368,136 @@ core_loop(struct context *ctx)
 
     return NC_OK;
 }
+
+rstatus_t
+core_exec_new_binary(struct instance *nci)
+{
+    int32_t size, len;
+    uint32_t i;
+    char *envp[] = { NULL, NULL };
+    char *fds = NULL;
+    struct context *ctx = nci->ctx;
+    struct array *pool = &(ctx->pool);
+
+    /*
+     * 1. fork
+     */
+    int pid = fork();
+
+    switch (pid) {
+    case -1:
+        log_debug(LOG_WARN, "fork in core_exec_new_binary got error");
+        return NC_ERROR;
+
+    case 0: /* child */
+        break;
+
+    default: /* parent */
+        return NC_OK;
+    }
+
+    /* this is in child if we got here */
+
+    /*
+     * 2. put all listen fds to NC_ENV_FDS:
+     *    NC_ENV_FDS=4;5;10;12;
+     */
+    size = (int32_t)(sizeof(NC_ENV_FDS) + (1 + array_n(pool)) * (1 + NC_UINT32_MAXLEN));
+    len = 0;
+
+    fds = nc_alloc(size);
+    if (fds == NULL) {
+        return NC_ENOMEM;
+    }
+
+    len += nc_scnprintf(fds + len, size - len, NC_ENV_FDS "=");
+    len += nc_scnprintf(fds + len, size - len, "%u;", ctx->stats->sd);
+
+    for (i = 0; i < array_n(pool); i++) {
+        struct server_pool *p = array_get(pool, i);
+        int sd = p->p_conn->sd;
+        if (sd <= 0) {
+            continue;
+        }
+        len += nc_scnprintf(fds + len, size - len, "%u;", sd);
+    }
+    fds[len] = '\0';
+
+    log_debug(LOG_NOTICE, "exec new binary with env: %s", fds);
+
+    /*
+     * 3. exec
+     */
+    envp[0] = fds;
+    execve(nci->argv[0], nci->argv, envp);
+
+    nc_free(fds);  /* actually this is not needed */
+    return NC_OK;
+}
+
+int
+core_inherited_socket(char *listen_address)
+{
+    int sock = 0;
+    char *inherited;
+    char *p, *q;
+    /* we will use nc_unresolve_desc and overwrite input listen_address */
+    char address[NI_MAXHOST + NI_MAXSERV];
+
+    inherited = getenv(NC_ENV_FDS);
+    if (inherited == NULL) {
+        /* not found */
+        return 0;
+    }
+
+    strncpy(address, listen_address, sizeof(address));
+
+    log_debug(LOG_INFO, "trying to get inherited socket '%s' from '%s'",
+              address, inherited);
+
+    for (p = inherited, q = inherited; *p; p++) {
+        if (*p == ';') {
+            sock = nc_atoi(q, p - q);
+
+            if (strcmp(address, nc_unresolve_desc(sock)) == 0) {
+                log_debug(LOG_INFO, "get inherited socket %d for '%s' from '%s'",
+                          sock, address, inherited);
+                sock = dup(sock);
+                log_debug(LOG_INFO, "dup inherited socket as %d", sock);
+
+                return sock;
+            }
+
+            q = p + 1;
+        }
+    }
+
+    log_debug(LOG_INFO, "can not inherited socket '%s'", address);
+    return 0;
+}
+
+/*
+ * all fd we want is already be copied with dup()
+ * so we can close all fd in NC_ENV_FDS
+ * */
+void
+core_cleanup_inherited_socket(void)
+{
+    int sock = 0;
+    char *inherited;
+    char *p, *q;
+
+    inherited = getenv(NC_ENV_FDS);
+    if (inherited == NULL) {
+        return;
+    }
+
+    for (p = inherited, q = inherited; *p; p++) {
+        if (*p == ';') {
+            sock = nc_atoi(q, p - q);
+            close(sock);
+            q = p + 1;
+        }
+    }
+}
+

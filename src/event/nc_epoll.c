@@ -36,6 +36,16 @@ event_base_create(int nevent, event_cb_t cb)
         return NULL;
     }
 
+    status = fcntl(ep, F_SETFD, FD_CLOEXEC);
+    if (status < 0) {
+        log_error("fcntl for FD_CLOEXEC on e %d failed: %s", ep, strerror(errno));
+        status = close(ep);
+        if (status < 0) {
+            log_error("close e %d failed, ignored: %s", ep, strerror(errno));
+        }
+        return NULL;
+    }
+
     event = nc_calloc(nevent, sizeof(*event));
     if (event == NULL) {
         status = close(ep);
@@ -305,6 +315,12 @@ event_loop_stats(event_stats_cb_t cb, void *arg)
     if (ep < 0) {
         log_error("epoll create failed: %s", strerror(errno));
         return;
+    }
+
+    status = fcntl(ep, F_SETFD, FD_CLOEXEC);
+    if (status < 0) {
+        log_error("fcntl for FD_CLOEXEC on e %d failed: %s", ep, strerror(errno));
+        goto error;
     }
 
     ev.data.fd = st->sd;

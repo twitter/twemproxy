@@ -80,6 +80,12 @@ proxy_close(struct context *ctx, struct conn *conn)
 
     conn->unref(conn);
 
+    status = event_del_conn(ctx->evb, conn);
+    if (status < 0) {
+        log_error("event del conn p %d failed, ignored: %s", conn->sd,
+                  strerror(errno));
+    }
+
     status = close(conn->sd);
     if (status < 0) {
         log_error("close p %d failed, ignored: %s", conn->sd, strerror(errno));
@@ -173,6 +179,28 @@ proxy_listen(struct context *ctx, struct conn *p)
         return NC_ERROR;
     }
 
+    return NC_OK;
+}
+
+static rstatus_t
+proxy_inherited_listen(struct context *ctx, struct conn *p)
+{
+    rstatus_t status;
+    int fd;
+    struct server_pool *pool = p->owner;
+
+    ASSERT(p->proxy);
+
+    fd = core_inherited_socket(nc_unresolve_addr(p->addr, p->addrlen));
+    if (fd > 0) {
+        p->sd = fd;
+    } else {
+        status = proxy_listen(ctx, p);
+        if (status != NC_OK) {
+            return status;
+        }
+    }
+
     status = event_add_conn(ctx->evb, p);
     if (status < 0) {
         log_error("event add conn p %d on addr '%.*s' failed: %s",
@@ -204,7 +232,7 @@ proxy_each_init(void *elem, void *data)
         return NC_ENOMEM;
     }
 
-    status = proxy_listen(pool->ctx, p);
+    status = proxy_inherited_listen(pool->ctx, p);
     if (status != NC_OK) {
         p->close(pool->ctx, p);
         return status;
@@ -293,7 +321,7 @@ proxy_accept(struct context *ctx, struct conn *p)
                 return NC_OK;
             }
 
-            /* 
+            /*
              * Workaround of https://github.com/twitter/twemproxy/issues/97
              *
              * We should never reach here because the check for conn_ncurr_cconn()
@@ -356,6 +384,15 @@ proxy_accept(struct context *ctx, struct conn *p)
         c->close(ctx, c);
         return status;
     }
+
+    status = fcntl(c->sd, F_SETFD, FD_CLOEXEC);
+    if (status < 0) {
+        log_error("fcntl FD_CLOEXEC on c %d from p %d failed: %s",
+                  c->sd, p->sd, strerror(errno));
+        c->close(ctx, c);
+        return status;
+    }
+
 
     if (p->family == AF_INET || p->family == AF_INET6) {
         status = nc_set_tcpnodelay(c->sd);

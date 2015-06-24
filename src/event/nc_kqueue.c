@@ -36,6 +36,17 @@ event_base_create(int nevent, event_cb_t cb)
         return NULL;
     }
 
+    status = fcntl(kq, F_SETFD, FD_CLOEXEC);
+    if (status < 0) {
+        log_error("fcntl on kq %d failed: %s", kq, strerror(errno));
+
+        status = close(kq);
+        if (status < 0) {
+            log_error("close kq %d failed, ignored: %s", kq, strerror(errno));
+        }
+        return NULL;
+    }
+
     change = nc_calloc(nevent, sizeof(*change));
     if (change == NULL) {
         status = close(kq);
@@ -357,6 +368,12 @@ event_loop_stats(event_stats_cb_t cb, void *arg)
     if (kq < 0) {
         log_error("kqueue failed: %s", strerror(errno));
         return;
+    }
+
+    status = fcntl(kq, F_SETFD, FD_CLOEXEC);
+    if (status < 0) {
+        log_error("fcntl on kq %d failed: %s", kq, strerror(errno));
+        goto error;
     }
 
     EV_SET(&change, st->sd, EVFILT_READ, EV_ADD | EV_CLEAR, 0, 0, NULL);

@@ -816,10 +816,17 @@ stats_listen(struct stats *st)
 {
     rstatus_t status;
     struct sockinfo si;
+    int sd;
 
     status = nc_resolve(&st->addr, st->port, &si);
     if (status < 0) {
         return status;
+    }
+
+    sd = core_inherited_socket(nc_unresolve_addr((struct sockaddr *)&si.addr, si.addrlen));
+    if (sd > 0) {
+        st->sd = sd;
+        return NC_OK;
     }
 
     st->sd = socket(si.family, SOCK_STREAM, 0);

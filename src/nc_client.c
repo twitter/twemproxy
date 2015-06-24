@@ -179,6 +179,12 @@ client_close(struct context *ctx, struct conn *conn)
 
     conn->unref(conn);
 
+    status = event_del_conn(ctx->evb, conn);
+    if (status < 0) {
+        log_error("event del conn c %d failed, ignored: %s", conn->sd,
+                  strerror(errno));
+    }
+
     status = close(conn->sd);
     if (status < 0) {
         log_error("close c %d failed, ignored: %s", conn->sd, strerror(errno));

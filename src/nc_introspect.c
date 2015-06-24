@@ -144,7 +144,7 @@ static void format_connection(struct conn *conn, struct accumulator *acc) {
     } else if(CONN_KIND_IS_SERVER(conn)) {
         if(!(acc->detail & FRO_SERVERS))
                 return;
-        buffer_sprintf(&acc->buf, "- %s\n", nc_unresolve(&conn->saddr));
+        buffer_sprintf(&acc->buf, "- %s\n", nc_unresolve(&conn->info));
     } else if(CONN_KIND_IS_PROXY(conn)) {
         /* Do not print anything, printed separately. */
         return;

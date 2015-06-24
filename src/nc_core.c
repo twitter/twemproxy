@@ -77,7 +77,7 @@ core_ctx_create(struct instance *nci)
     }
 
     /* initialize server pool from configuration */
-    status = server_pools_init(&ctx->pools, &ctx->cf->pool, ctx);
+    status = server_pool_init(&ctx->pools, &ctx->cf->pool, ctx);
     if (status != NC_OK) {
         conf_destroy(ctx->cf);
         nc_free(ctx);
@@ -90,7 +90,7 @@ core_ctx_create(struct instance *nci)
      */
     status = core_calc_connections(ctx);
     if (status != NC_OK) {
-        server_pools_deinit(&ctx->pools);
+        server_pool_deinit(&ctx->pools);
         conf_destroy(ctx->cf);
         nc_free(ctx);
         return NULL;
@@ -100,7 +100,7 @@ core_ctx_create(struct instance *nci)
     ctx->stats = stats_create(nci->stats_port, nci->stats_addr, nci->stats_interval,
                               nci->hostname, &ctx->pools);
     if (ctx->stats == NULL) {
-        server_pools_deinit(&ctx->pools);
+        server_pool_deinit(&ctx->pools);
         conf_destroy(ctx->cf);
         nc_free(ctx);
         return NULL;
@@ -110,7 +110,7 @@ core_ctx_create(struct instance *nci)
     ctx->evb = event_base_create(EVENT_SIZE, &core_core);
     if (ctx->evb == NULL) {
         stats_destroy(ctx->stats);
-        server_pools_deinit(&ctx->pools);
+        server_pool_deinit(&ctx->pools);
         conf_destroy(ctx->cf);
         nc_free(ctx);
         return NULL;
@@ -121,20 +121,20 @@ core_ctx_create(struct instance *nci)
     if(ctx->sig_conn == NULL) {
         event_base_destroy(ctx->evb);
         stats_destroy(ctx->stats);
-        server_pools_deinit(&ctx->pools);
+        server_pool_deinit(&ctx->pools);
         conf_destroy(ctx->cf);
         nc_free(ctx);
         return NULL;
     }
 
     /* preconnect? servers in server pool */
-    status = server_pools_preconnect(ctx);
+    status = server_pool_preconnect(ctx);
     if (status != NC_OK) {
         ctx->sig_conn->close(ctx, ctx->sig_conn);
-        server_pools_disconnect(&ctx->pools);
+        server_pool_disconnect(&ctx->pools);
         event_base_destroy(ctx->evb);
         stats_destroy(ctx->stats);
-        server_pools_deinit(&ctx->pools);
+        server_pool_deinit(&ctx->pools);
         conf_destroy(ctx->cf);
         nc_free(ctx);
         return NULL;
@@ -144,10 +144,10 @@ core_ctx_create(struct instance *nci)
     status = proxy_init(ctx, &ctx->pools);
     if (status != NC_OK) {
         ctx->sig_conn->close(ctx, ctx->sig_conn);
-        server_pools_disconnect(&ctx->pools);
+        server_pool_disconnect(&ctx->pools);
         event_base_destroy(ctx->evb);
         stats_destroy(ctx->stats);
-        server_pools_deinit(&ctx->pools);
+        server_pool_deinit(&ctx->pools);
         conf_destroy(ctx->cf);
         nc_free(ctx);
         return NULL;
@@ -166,10 +166,10 @@ core_ctx_destroy(struct context *ctx)
         ctx->sig_conn->close(ctx, ctx->sig_conn);
     proxy_deinit(ctx, &ctx->replacement_pools);
     proxy_deinit(ctx, &ctx->pools);
-    server_pools_disconnect(&ctx->pools);
+    server_pool_disconnect(&ctx->pools);
     event_base_destroy(ctx->evb);
     stats_destroy(ctx->stats);
-    server_pools_deinit(&ctx->pools);
+    server_pool_deinit(&ctx->pools);
     conf_destroy(ctx->cf);
     nc_free(ctx);
 }
@@ -377,9 +377,9 @@ static void config_reload(struct context *ctx) {
 
     /* initialize server pool from configuration */
     TAILQ_INIT(&ctx->replacement_pools);
-    status = server_pools_init(&ctx->replacement_pools, &cf->pool, ctx);
+    status = server_pool_init(&ctx->replacement_pools, &cf->pool, ctx);
     if (status != NC_OK) {
-        server_pools_deinit(&ctx->replacement_pools);
+        server_pool_deinit(&ctx->replacement_pools);
         conf_destroy(cf);
         ctx->state = CTX_STATE_STEADY;
         return;
@@ -398,7 +398,7 @@ static void config_reload(struct context *ctx) {
      * pool replacement process finishs.
      */
     if(server_pools_kick_replacement(&ctx->pools, &ctx->replacement_pools)) {
-        server_pools_deinit(&ctx->replacement_pools);
+        server_pool_deinit(&ctx->replacement_pools);
         ctx->state = CTX_STATE_STEADY;
         stats_resume(ctx->stats);
         log_debug(LOG_NOTICE, "Reload failed, current config:");

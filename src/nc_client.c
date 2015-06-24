@@ -32,7 +32,7 @@ client_ref(struct conn *conn, void *owner)
      * we are not interested in the address of the peer for the accepted
      * connection
      */
-    memset(&conn->saddr, 0, sizeof(conn->saddr));
+    memset(&conn->info, 0, sizeof(conn->info));
 
     pool->nc_conn_q++;
     TAILQ_INSERT_TAIL(&pool->c_conn_q, conn, conn_tqe);

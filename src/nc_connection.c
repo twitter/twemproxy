@@ -484,9 +484,9 @@ conn_ncurr_cconn(void)
 char *
 conn_unresolve_descriptive(struct conn *conn)
 {
-    if(CONN_KIND_IS_CLIENT(conn)) {
+    if (CONN_KIND_IS_CLIENT(conn)) {
         return nc_unresolve_peer_desc(conn->sd);
     } else {
-        return nc_unresolve(&conn->saddr);
+        return nc_unresolve(&conn->info);
     }
 }

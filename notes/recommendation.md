@@ -50,7 +50,7 @@ It is always a good idea to configure nutcracker `timeout:` for every server poo
 
 Relying only on client-side timeouts has the adverse effect of the original request having timedout on the client to proxy connection, but still pending and outstanding on the proxy to server connection. This further gets exacerbated when client retries the original request.
 
-By default, nutcracker waits indefinitely for any request sent to the server. However, when `timeout:` key is configured, a requests for which no response is received from the server in `timeout:` msec is timedout and an error response `SERVER_ERROR Connection timed out\r\n` is sent back to the client.
+By default, nutcracker waits indefinitely for any request sent to the server. However, when `timeout:` key is configured, a requests for which no response is received from the server in `timeout:` msec is timedout and an error response `SERVER_ERROR Connection timed out\r\n` (memcached) or `-ERR Connection timed out\r\n` (redis) is sent back to the client.
 
 ## Error Response
 
@@ -130,8 +130,7 @@ For example, the configuration of server pool _beta_, also shown below, specifie
        - 127.0.0.1:6381:1 server2
        - 127.0.0.1:6382:1 server3
        - 127.0.0.1:6383:1 server4
-       
-       
+
 ## Graphing Cache-pool State
 
 When running nutcracker in production, you often would like to know the list of live and ejected servers at any given time. You can easily answer this question, by generating a time series graph of live and/or dead servers that are part of any cache pool. To do this your graphing client must collect the following stats exposed by nutcracker:

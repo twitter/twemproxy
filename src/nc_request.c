@@ -620,6 +620,7 @@ req_recv_done(struct context *ctx, struct conn *conn, struct msg *msg,
     struct msg_tqh frag_msgq;
     struct msg *sub_msg;
     struct msg *tmsg; 			/* tmp next message */
+    uint32_t nserver;
 
     ASSERT(conn->client && !conn->proxy);
     ASSERT(msg->request);
@@ -657,8 +658,9 @@ req_recv_done(struct context *ctx, struct conn *conn, struct msg *msg,
 
     /* do fragment */
     pool = conn->owner;
+    nserver = array_n(&pool->server);
     TAILQ_INIT(&frag_msgq);
-    status = msg->fragment(msg, pool->ncontinuum, &frag_msgq);
+    status = msg->fragment(msg, nserver, &frag_msgq);
     if (status != NC_OK) {
         if (!msg->noreply) {
             conn->enqueue_outq(ctx, conn, msg);

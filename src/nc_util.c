@@ -116,7 +116,6 @@ nc_set_tcpkeepalive(int sd)
     return setsockopt(sd, SOL_SOCKET, SO_KEEPALIVE, &val, sizeof(val));
 }
 
-
 int
 nc_set_sndbuf(int sd, int size)
 {

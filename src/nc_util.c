@@ -110,6 +110,14 @@ nc_set_linger(int sd, int timeout)
 }
 
 int
+nc_set_tcpkeepalive(int sd)
+{
+    int val = 1;
+    return setsockopt(sd, SOL_SOCKET, SO_KEEPALIVE, &val, sizeof(val));
+}
+
+
+int
 nc_set_sndbuf(int sd, int size)
 {
     socklen_t len;

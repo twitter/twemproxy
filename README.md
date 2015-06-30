@@ -174,7 +174,7 @@ For example, the configuration file in [conf/nutcracker.yml](conf/nutcracker.yml
        - 127.0.0.1:11223:1
 
     omega:
-      listen: /tmp/gamma
+      listen: /tmp/gamma 0666
       hash: hsieh
       distribution: ketama
       auto_eject_hosts: false

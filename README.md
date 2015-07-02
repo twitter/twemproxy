@@ -241,12 +241,13 @@ https://launchpad.net/~twemproxy/+archive/ubuntu/stable
 https://launchpad.net/~twemproxy/+archive/ubuntu/daily
 
 ## Utils
++ [collectd-plugin](https://github.com/bewie/collectd-twemproxy)
++ [munin-plugin](https://github.com/eveiga/contrib/tree/nutcracker/plugins/nutcracker)
++ [twemproxy-ganglia-module](https://github.com/ganglia/gmond_python_modules/tree/master/twemproxy)
 + [nagios checks](https://github.com/wanelo/nagios-checks/blob/master/check_twemproxy)
 + [circunous](https://github.com/wanelo-chef/nad-checks/blob/master/recipes/twemproxy.rb)
 + [puppet module](https://github.com/wuakitv/puppet-twemproxy)
 + [nutcracker-web](https://github.com/kontera-technologies/nutcracker-web)
-+ [munin-plugin](https://github.com/eveiga/contrib/tree/nutcracker/plugins/nutcracker)
-+ [collectd-plugin](https://github.com/bewie/collectd-twemproxy)
 + [redis-twemproxy agent](https://github.com/Stono/redis-twemproxy-agent)
 + [sensu-metrics](https://github.com/sensu/sensu-community-plugins/blob/master/plugins/twemproxy/twemproxy-metrics.rb)
 + [redis-mgr](https://github.com/idning/redis-mgr)

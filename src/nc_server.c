@@ -626,7 +626,7 @@ server_find_by_name(struct context *ctx, struct server_pool *server_pool, struct
             server = NULL;
         }
     }
-    
+
     return server;
 }
 

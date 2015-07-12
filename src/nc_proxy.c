@@ -30,9 +30,9 @@ proxy_ref(struct conn *conn, void *owner)
     ASSERT(!conn->client && conn->proxy);
     ASSERT(conn->owner == NULL);
 
-    conn->family = pool->family;
-    conn->addrlen = pool->addrlen;
-    conn->addr = pool->addr;
+    conn->family = pool->info.family;
+    conn->addrlen = pool->info.addrlen;
+    conn->addr = (struct sockaddr *)&pool->info.addr;
 
     pool->p_conn = conn;
 
@@ -274,6 +274,7 @@ proxy_accept(struct context *ctx, struct conn *p)
     rstatus_t status;
     struct conn *c;
     int sd;
+    struct server_pool *pool = p->owner;
 
     ASSERT(p->proxy && !p->client);
     ASSERT(p->sd > 0);
@@ -355,6 +356,14 @@ proxy_accept(struct context *ctx, struct conn *p)
                   strerror(errno));
         c->close(ctx, c);
         return status;
+    }
+
+    if (pool->tcpkeepalive) {
+        status = nc_set_tcpkeepalive(c->sd);
+        if (status < 0) {
+            log_warn("set tcpkeepalive on c %d from p %d failed, ignored: %s",
+                     c->sd, p->sd, strerror(errno));
+        }
     }
 
     if (p->family == AF_INET || p->family == AF_INET6) {

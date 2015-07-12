@@ -25,6 +25,7 @@ typedef rstatus_t (*msg_add_auth_t)(struct context *ctx, struct conn *c_conn, st
 typedef rstatus_t (*msg_fragment_t)(struct msg *, uint32_t, struct msg_tqh *);
 typedef void (*msg_coalesce_t)(struct msg *r);
 typedef rstatus_t (*msg_reply_t)(struct msg *r);
+typedef bool (*msg_failure_t)(struct msg *r);
 
 typedef enum msg_parse_result {
     MSG_PARSE_OK,                         /* parsing ok */
@@ -46,6 +47,7 @@ typedef enum msg_parse_result {
     ACTION( REQ_MC_PREPEND )                                                                        \
     ACTION( REQ_MC_INCR )                      /* memcache arithmetic request */                    \
     ACTION( REQ_MC_DECR )                                                                           \
+    ACTION( REQ_MC_TOUCH )                     /* memcache touch request */                         \
     ACTION( REQ_MC_QUIT )                      /* memcache quit request */                          \
     ACTION( RSP_MC_NUM )                       /* memcache arithmetic response */                   \
     ACTION( RSP_MC_STORED )                    /* memcache cas and storage response */              \
@@ -55,6 +57,7 @@ typedef enum msg_parse_result {
     ACTION( RSP_MC_END )                                                                            \
     ACTION( RSP_MC_VALUE )                                                                          \
     ACTION( RSP_MC_DELETED )                   /* memcache delete response */                       \
+    ACTION( RSP_MC_TOUCHED )                   /* memcache touch response */                        \
     ACTION( RSP_MC_ERROR )                     /* memcache error responses */                       \
     ACTION( RSP_MC_CLIENT_ERROR )                                                                   \
     ACTION( RSP_MC_SERVER_ERROR )                                                                   \
@@ -165,6 +168,19 @@ typedef enum msg_parse_result {
     ACTION( REQ_REDIS_SELECT)                  /* only during init */                               \
     ACTION( RSP_REDIS_STATUS )                 /* redis response */                                 \
     ACTION( RSP_REDIS_ERROR )                                                                       \
+    ACTION( RSP_REDIS_ERROR_ERR )                                                                   \
+    ACTION( RSP_REDIS_ERROR_OOM )                                                                   \
+    ACTION( RSP_REDIS_ERROR_BUSY )                                                                  \
+    ACTION( RSP_REDIS_ERROR_NOAUTH )                                                                \
+    ACTION( RSP_REDIS_ERROR_LOADING )                                                               \
+    ACTION( RSP_REDIS_ERROR_BUSYKEY )                                                               \
+    ACTION( RSP_REDIS_ERROR_MISCONF )                                                               \
+    ACTION( RSP_REDIS_ERROR_NOSCRIPT )                                                              \
+    ACTION( RSP_REDIS_ERROR_READONLY )                                                              \
+    ACTION( RSP_REDIS_ERROR_WRONGTYPE )                                                             \
+    ACTION( RSP_REDIS_ERROR_EXECABORT )                                                             \
+    ACTION( RSP_REDIS_ERROR_MASTERDOWN )                                                            \
+    ACTION( RSP_REDIS_ERROR_NOREPLICAS )                                                            \
     ACTION( RSP_REDIS_INTEGER )                                                                     \
     ACTION( RSP_REDIS_BULK )                                                                        \
     ACTION( RSP_REDIS_MULTIBULK )                                                                   \
@@ -205,8 +221,9 @@ struct msg {
     msg_parse_result_t   result;          /* message parsing result */
 
     msg_fragment_t       fragment;        /* message fragment */
-    msg_reply_t          reply;           /* gen message reply (example: ping) */
+    msg_reply_t          reply;           /* generate message reply (example: ping) */
     msg_add_auth_t       add_auth;        /* add auth message when we forward msg */
+    msg_failure_t        failure;         /* transient failure response? */
 
     msg_coalesce_t       pre_coalesce;    /* message pre-coalesce */
     msg_coalesce_t       post_coalesce;   /* message post-coalesce */

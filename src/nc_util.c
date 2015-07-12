@@ -110,6 +110,13 @@ nc_set_linger(int sd, int timeout)
 }
 
 int
+nc_set_tcpkeepalive(int sd)
+{
+    int val = 1;
+    return setsockopt(sd, SOL_SOCKET, SO_KEEPALIVE, &val, sizeof(val));
+}
+
+int
 nc_set_sndbuf(int sd, int size)
 {
     socklen_t len;
@@ -127,58 +134,6 @@ nc_set_rcvbuf(int sd, int size)
     len = sizeof(size);
 
     return setsockopt(sd, SOL_SOCKET, SO_RCVBUF, &size, len);
-}
-
-int
-nc_set_keepalive(int sd, int interval)
-{
-    int keepalive, keepidle, keepintvl, keepcnt, status;
-    socklen_t len;
-
-
-    keepalive = 1;
-    len = sizeof(keepalive);
-    status = setsockopt(sd, SOL_SOCKET, SO_KEEPALIVE, &keepalive, len);
-    if (status == -1)
-    {
-        return status;
-    }
-
-#ifdef __linux__
-    /* Default settings are more or less garbage, with the keepalive time
-     * set to 7200 by default on Linux. Modify settings to make the feature
-     * actually useful. */
-
-    /* Send first probe after interval. */
-    keepidle = interval;
-    len = sizeof(keepidle);
-    status = setsockopt(sd, IPPROTO_TCP, TCP_KEEPIDLE, &keepidle, len);
-    if (status < 0) {
-        return status;
-    }
-
-    /* Send next probes after the specified interval. Note that we set the
-     * delay as interval / 3, as we send three probes before detecting
-     * an error (see the next setsockopt call). */
-    keepintvl = interval/3;
-    len = sizeof(keepintvl);
-    if (keepintvl == 0) keepintvl = 1;
-    status = setsockopt(sd, IPPROTO_TCP, TCP_KEEPINTVL, &keepintvl, len);
-    if (status < 0) {
-        return status;
-    }
-
-    /* Consider the socket in error state after three we send three ACK
-     * probes without getting a reply. */
-    keepcnt = 3;
-    len = sizeof(keepcnt);
-    status = setsockopt(sd, IPPROTO_TCP, TCP_KEEPCNT, &keepcnt, len);
-    if (status < 0) {
-        return status;
-    }
-#endif
-
-    return 0;
 }
 
 int
@@ -541,8 +496,12 @@ nc_resolve_inet(struct string *name, int port, struct sockinfo *si)
 
     nc_snprintf(service, NC_UINTMAX_MAXLEN, "%d", port);
 
+    /*
+     * getaddrinfo() returns zero on success or one of the error codes listed
+     * in gai_strerror(3) if an error occurs
+     */
     status = getaddrinfo(node, service, &hints, &ai);
-    if (status < 0) {
+    if (status != 0) {
         log_error("address resolution of node '%s' service '%s' failed: %s",
                   node, service, gai_strerror(status));
         return -1;

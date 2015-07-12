@@ -57,10 +57,11 @@
 #define CONF_DEFAULT_SERVER_FAILURE_LIMIT    2
 #define CONF_DEFAULT_SERVER_CONNECTIONS      1
 #define CONF_DEFAULT_KETAMA_PORT             11211
+#define CONF_DEFAULT_TCPKEEPALIVE            false
 
 struct conf_listen {
-    struct string   pname;   /* listen: as "name:port" */
-    struct string   name;    /* name */
+    struct string   pname;   /* listen: as "hostname:port" */
+    struct string   name;    /* hostname:port */
     int             port;    /* port */
     mode_t          perm;    /* socket permissions */
     struct sockinfo info;    /* listen socket info */
@@ -68,8 +69,9 @@ struct conf_listen {
 };
 
 struct conf_server {
-    struct string   pname;      /* server: as "name:port:weight" */
-    struct string   name;       /* name */
+    struct string   pname;      /* server: as "hostname:port:weight" */
+    struct string   name;       /* hostname:port or [name] */
+    struct string   addrstr;    /* hostname */
     int             port;       /* port */
     int             weight;     /* weight */
     struct sockinfo info;       /* connect socket info */
@@ -85,9 +87,10 @@ struct conf_pool {
     int                timeout;               /* timeout: */
     int                backlog;               /* backlog: */
     int                client_connections;    /* client_connections: */
+    int                tcpkeepalive;          /* tcpkeepalive: */
     int                redis;                 /* redis: */
-    struct string      redis_auth;            /* redis auth password */
-    int                redis_db;              /* redis_db: */
+    struct string      redis_auth;            /* redis_auth: redis auth password (matches requirepass on redis) */
+    int                redis_db;              /* redis_db: redis db */
     int                preconnect;            /* preconnect: */
     int                auto_eject_hosts;      /* auto_eject_hosts: */
     int                server_connections;    /* server_connections: */

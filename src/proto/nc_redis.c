@@ -22,12 +22,16 @@
 #include <nc_core.h>
 #include <nc_proto.h>
 
-#define REPL_OK     "+OK\r\n"
-#define REPL_PONG   "+PONG\r\n"
+#define RSP_STRING(ACTION)                                                          \
+    ACTION( ok,               "+OK\r\n"                                           ) \
+    ACTION( pong,             "+PONG\r\n"                                         ) \
+    ACTION( invalid_password, "-ERR invalid password\r\n"                         ) \
+    ACTION( auth_required,    "-NOAUTH Authentication required\r\n"               ) \
+    ACTION( no_password,      "-ERR Client sent AUTH, but no password is set\r\n" ) \
 
-#define AUTH_INVALID_PASSWORD "-ERR invalid password\r\n"
-#define AUTH_REQUIRE_PASSWORD "-NOAUTH Authentication required\r\n"
-#define AUTH_NO_PASSWORD "-ERR Client sent AUTH, but no password is set\r\n"
+#define DEFINE_ACTION(_var, _str) static struct string rsp_##_var = string(_str);
+    RSP_STRING( DEFINE_ACTION )
+#undef DEFINE_ACTION
 
 static rstatus_t redis_handle_auth_req(struct msg *request, struct msg *response);
 
@@ -61,7 +65,6 @@ redis_arg0(struct msg *r)
     case MSG_REQ_REDIS_EXISTS:
     case MSG_REQ_REDIS_PERSIST:
     case MSG_REQ_REDIS_PTTL:
-    case MSG_REQ_REDIS_SORT:
     case MSG_REQ_REDIS_TTL:
     case MSG_REQ_REDIS_TYPE:
     case MSG_REQ_REDIS_DUMP:
@@ -208,6 +211,8 @@ static bool
 redis_argn(struct msg *r)
 {
     switch (r->type) {
+    case MSG_REQ_REDIS_SORT:
+
     case MSG_REQ_REDIS_BITCOUNT:
 
     case MSG_REQ_REDIS_SET:
@@ -301,6 +306,37 @@ redis_argeval(struct msg *r)
     switch (r->type) {
     case MSG_REQ_REDIS_EVAL:
     case MSG_REQ_REDIS_EVALSHA:
+        return true;
+
+    default:
+        break;
+    }
+
+    return false;
+}
+
+/*
+ * Return true, if the redis response is an error response i.e. a simple
+ * string whose first character is '-', otherwise return false.
+ */
+static bool
+redis_error(struct msg *r)
+{
+    switch (r->type) {
+    case MSG_RSP_REDIS_ERROR:
+    case MSG_RSP_REDIS_ERROR_ERR:
+    case MSG_RSP_REDIS_ERROR_OOM:
+    case MSG_RSP_REDIS_ERROR_BUSY:
+    case MSG_RSP_REDIS_ERROR_NOAUTH:
+    case MSG_RSP_REDIS_ERROR_LOADING:
+    case MSG_RSP_REDIS_ERROR_BUSYKEY:
+    case MSG_RSP_REDIS_ERROR_MISCONF:
+    case MSG_RSP_REDIS_ERROR_NOSCRIPT:
+    case MSG_RSP_REDIS_ERROR_READONLY:
+    case MSG_RSP_REDIS_ERROR_WRONGTYPE:
+    case MSG_RSP_REDIS_ERROR_EXECABORT:
+    case MSG_RSP_REDIS_ERROR_MASTERDOWN:
+    case MSG_RSP_REDIS_ERROR_NOREPLICAS:
         return true;
 
     default:
@@ -1067,6 +1103,8 @@ redis_parse_req(struct msg *r)
             case LF:
                 if (redis_argz(r)) {
                     goto done;
+                } else if (r->narg == 1) {
+                    goto error;
                 } else if (redis_argeval(r)) {
                     state = SW_ARG1_LEN;
                 } else {
@@ -1189,9 +1227,6 @@ redis_parse_req(struct msg *r)
                     }
                     state = SW_KEY_LEN;
                 } else if (redis_argkvx(r)) {
-                    if (r->rnarg == 0) {
-                        goto done;
-                    }
                     if (r->narg % 2 == 0) {
                         goto error;
                     }
@@ -1686,6 +1721,7 @@ redis_parse_rsp(struct msg *r)
         SW_ERROR,
         SW_INTEGER,
         SW_INTEGER_START,
+        SW_SIMPLE,
         SW_BULK,
         SW_BULK_LF,
         SW_BULK_ARG,
@@ -1762,14 +1798,138 @@ redis_parse_rsp(struct msg *r)
             break;
 
         case SW_ERROR:
-            /* rsp_start <- p */
-            state = SW_RUNTO_CRLF;
+            if (r->token == NULL) {
+                if (ch != '-') {
+                    goto error;
+                }
+              /* rsp_start <- p */
+              r->token = p;
+            }
+            if (ch == ' ' || ch == CR) {
+                m = r->token;
+                r->token = NULL;
+                switch (p - m) {
+
+                case 4:
+                    /*
+                     * -ERR no such key\r\n
+                     * -ERR syntax error\r\n
+                     * -ERR source and destination objects are the same\r\n
+                     * -ERR index out of range\r\n
+                     */
+                    if (str4cmp(m, '-', 'E', 'R', 'R')) {
+                        r->type = MSG_RSP_REDIS_ERROR_ERR;
+                        break;
+                    }
+
+                    /* -OOM command not allowed when used memory > 'maxmemory'.\r\n */
+                    if (str4cmp(m, '-', 'O', 'O', 'M')) {
+                        r->type = MSG_RSP_REDIS_ERROR_OOM;
+                        break;
+                    }
+
+                    break;
+
+                case 5:
+                    /* -BUSY Redis is busy running a script. You can only call SCRIPT KILL or SHUTDOWN NOSAVE.\r\n" */
+                    if (str5cmp(m, '-', 'B', 'U', 'S', 'Y')) {
+                        r->type = MSG_RSP_REDIS_ERROR_BUSY;
+                        break;
+                    }
+
+                    break;
+
+                case 7:
+                    /* -NOAUTH Authentication required.\r\n */
+                    if (str7cmp(m, '-', 'N', 'O', 'A', 'U', 'T', 'H')) {
+                        r->type = MSG_RSP_REDIS_ERROR_NOAUTH;
+                        break;
+                    }
+
+                    break;
+
+                case 8:
+                    /* rsp: "-LOADING Redis is loading the dataset in memory\r\n" */
+                    if (str8cmp(m, '-', 'L', 'O', 'A', 'D', 'I', 'N', 'G')) {
+                        r->type = MSG_RSP_REDIS_ERROR_LOADING;
+                        break;
+                    }
+
+                    /* -BUSYKEY Target key name already exists.\r\n */
+                    if (str8cmp(m, '-', 'B', 'U', 'S', 'Y', 'K', 'E', 'Y')) {
+                        r->type = MSG_RSP_REDIS_ERROR_BUSYKEY;
+                        break;
+                    }
+
+                    /* "-MISCONF Redis is configured to save RDB snapshots, but is currently not able to persist on disk. Commands that may modify the data set are disabled. Please check Redis logs for details about the error.\r\n" */
+                    if (str8cmp(m, '-', 'M', 'I', 'S', 'C', 'O', 'N', 'F')) {
+                        r->type = MSG_RSP_REDIS_ERROR_MISCONF;
+                        break;
+                    }
+
+                    break;
+
+                case 9:
+                    /* -NOSCRIPT No matching script. Please use EVAL.\r\n */
+                    if (str9cmp(m, '-', 'N', 'O', 'S', 'C', 'R', 'I', 'P', 'T')) {
+                        r->type = MSG_RSP_REDIS_ERROR_NOSCRIPT;
+                        break;
+                    }
+
+                    /* -READONLY You can't write against a read only slave.\r\n */
+                    if (str9cmp(m, '-', 'R', 'E', 'A', 'D', 'O', 'N', 'L', 'Y')) {
+                        r->type = MSG_RSP_REDIS_ERROR_READONLY;
+                        break;
+                    }
+
+                    break;
+
+                case 10:
+                    /* -WRONGTYPE Operation against a key holding the wrong kind of value\r\n */
+                    if (str10cmp(m, '-', 'W', 'R', 'O', 'N', 'G', 'T', 'Y', 'P', 'E')) {
+                        r->type = MSG_RSP_REDIS_ERROR_WRONGTYPE;
+                        break;
+                    }
+
+                    /* -EXECABORT Transaction discarded because of previous errors.\r\n" */
+                    if (str10cmp(m, '-', 'E', 'X', 'E', 'C', 'A', 'B', 'O', 'R', 'T')) {
+                        r->type = MSG_RSP_REDIS_ERROR_EXECABORT;
+                        break;
+                    }
+
+                    break;
+
+                case 11:
+                    /* -MASTERDOWN Link with MASTER is down and slave-serve-stale-data is set to 'no'.\r\n */
+                    if (str11cmp(m, '-', 'M', 'A', 'S', 'T', 'E', 'R', 'D', 'O', 'W', 'N')) {
+                        r->type = MSG_RSP_REDIS_ERROR_MASTERDOWN;
+                        break;
+                    }
+
+                    /* -NOREPLICAS Not enough good slaves to write.\r\n */
+                    if (str11cmp(m, '-', 'N', 'O', 'R', 'E', 'P', 'L', 'I', 'C', 'A', 'S')) {
+                        r->type = MSG_RSP_REDIS_ERROR_NOREPLICAS;
+                        break;
+                    }
+
+                    break;
+                }
+                state = SW_RUNTO_CRLF;
+            }
+
             break;
 
         case SW_INTEGER:
             /* rsp_start <- p */
             state = SW_INTEGER_START;
             r->integer = 0;
+            break;
+
+        case SW_SIMPLE:
+            if (ch == CR) {
+              state = SW_MULTIBULK_ARGN_LF;
+              r->rnarg--;
+            }
             break;
 
         case SW_INTEGER_START:
@@ -1911,6 +2071,7 @@ redis_parse_rsp(struct msg *r)
                     /* response is '*0\r\n' */
                     goto done;
                 }
+
                 state = SW_MULTIBULK_ARGN_LEN;
                 break;
 
@@ -1952,9 +2113,17 @@ redis_parse_rsp(struct msg *r)
                     break;
                 }
 
-                if (ch != '$' && ch != ':') {
+                if (ch == ':' || ch == '+' || ch == '-') {
+                    /* handles not-found reply = '$-1' or integer reply = ':<num>' */
+                    /* and *2\r\n$2\r\nr0\r\n+OK\r\n or *1\r\n+OK\r\n */
+                    state = SW_SIMPLE;
+                    break;
+                }
+
+                if (ch != '$') {
                     goto error;
                 }
+
                 r->token = p;
                 r->rlen = 0;
             } else if (isdigit(ch)) {
@@ -1966,8 +2135,7 @@ redis_parse_rsp(struct msg *r)
                     goto error;
                 }
 
-                if ((r->rlen == 1 && (p - r->token) == 3) || *r->token == ':') {
-                    /* handles not-found reply = '$-1' or integer reply = ':<num>' */
+                if ((r->rlen == 1 && (p - r->token) == 3)) {
                     r->rlen = 0;
                     state = SW_MULTIBULK_ARGN_LF;
                 } else {
@@ -2074,6 +2242,37 @@ error:
     log_hexdump(LOG_INFO, b->pos, mbuf_length(b), "parsed bad rsp %"PRIu64" "
                 "res %d type %d state %d", r->id, r->result, r->type,
                 r->state);
+}
+
+/*
+ * Return true, if redis replies with a transient server failure response,
+ * otherwise return false
+ *
+ * Transient failures on redis are scenarios when it is temporarily
+ * unresponsive and responds with the following protocol specific error
+ * reply:
+ * -OOM, when redis is out-of-memory
+ * -BUSY, when redis is busy
+ * -LOADING when redis is loading dataset into memory
+ *
+ * See issue: https://github.com/twitter/twemproxy/issues/369
+ */
+bool
+redis_failure(struct msg *r)
+{
+    ASSERT(!r->request);
+
+    switch (r->type) {
+    case MSG_RSP_REDIS_ERROR_OOM:
+    case MSG_RSP_REDIS_ERROR_BUSY:
+    case MSG_RSP_REDIS_ERROR_LOADING:
+        return true;
+
+    default:
+        break;
+    }
+
+    return false;
 }
 
 /*
@@ -2457,8 +2656,10 @@ redis_fragment(struct msg *r, uint32_t ncontinuum, struct msg_tqh *frag_msgq)
     case MSG_REQ_REDIS_MGET:
     case MSG_REQ_REDIS_DEL:
         return redis_fragment_argx(r, ncontinuum, frag_msgq, 1);
+
     case MSG_REQ_REDIS_MSET:
         return redis_fragment_argx(r, ncontinuum, frag_msgq, 2);
+
     default:
         return NC_OK;
     }
@@ -2477,13 +2678,13 @@ redis_reply(struct msg *r)
         return redis_handle_auth_req(r, response);
     }
 
-    if (c_conn->need_auth == 1) {
-        return msg_append(response, (uint8_t *)AUTH_REQUIRE_PASSWORD, strlen(AUTH_REQUIRE_PASSWORD));
+    if (!conn_authenticated(c_conn)) {
+        return msg_append(response, rsp_auth_required.data, rsp_auth_required.len);
     }
 
     switch (r->type) {
     case MSG_REQ_REDIS_PING:
-        return msg_append(response, (uint8_t *)REPL_PONG, nc_strlen(REPL_PONG));
+        return msg_append(response, rsp_pong.data, rsp_pong.len);
 
     default:
         NOT_REACHED();
@@ -2494,10 +2695,10 @@ redis_reply(struct msg *r)
 void
 redis_post_coalesce_mset(struct msg *request)
 {
-    struct msg *response = request->peer;
     rstatus_t status;
+    struct msg *response = request->peer;
 
-    status = msg_append(response, (uint8_t *)REPL_OK, nc_strlen(REPL_OK));
+    status = msg_append(response, rsp_ok.data, rsp_ok.len);
     if (status != NC_OK) {
         response->error = 1;        /* mark this msg as err */
         response->err = errno;
@@ -2570,74 +2771,70 @@ redis_post_coalesce(struct msg *r)
     switch (r->type) {
     case MSG_REQ_REDIS_MGET:
         return redis_post_coalesce_mget(r);
+
     case MSG_REQ_REDIS_DEL:
         return redis_post_coalesce_del(r);
+
     case MSG_REQ_REDIS_MSET:
         return redis_post_coalesce_mset(r);
+
     default:
         NOT_REACHED();
     }
 }
 
-static bool
-redis_valid_auth(struct conn *conn, struct msg *msg)
-{
-    struct server_pool *pool = (struct server_pool *)conn->owner;
-
-    if (pool->redis_auth.len > 0) {
-        struct keypos *kpos;
-        uint8_t *key;
-        uint32_t keylen;
-
-        kpos = array_get(msg->keys, 0);
-        key = kpos->start;
-        keylen = (uint32_t)(kpos->end - kpos->start);
-        if (keylen != pool->redis_auth.len) {
-            return false;
-        }
-
-        if (memcmp(pool->redis_auth.data, key, keylen) != 0) {
-            return false;
-        }
-    }
-
-    return true;
-}
-
 static rstatus_t
-redis_handle_auth_req(struct msg *request, struct msg *response)
+redis_handle_auth_req(struct msg *req, struct msg *rsp)
 {
+    struct conn *conn = (struct conn *)rsp->owner;
     struct server_pool *pool;
-    struct conn *conn = (struct conn *)response->owner;
+    struct keypos *kpos;
+    uint8_t *key;
+    uint32_t keylen;
+    bool valid;
 
-    ASSERT(conn->client && !conn->proxy && conn->redis);
+    ASSERT(conn->client && !conn->proxy);
 
     pool = (struct server_pool *)conn->owner;
 
-    if (pool->redis_auth.len == 0) {
-        return msg_append(response, (uint8_t *)AUTH_NO_PASSWORD, nc_strlen(AUTH_NO_PASSWORD));
+    if (!pool->require_auth) {
+        /*
+         * AUTH command from the client in absence of a redis_auth:
+         * directive should be treated as an error
+         */
+        return msg_append(rsp, rsp_no_password.data, rsp_no_password.len);
     }
 
-    if (redis_valid_auth(conn, request)) {
-        conn->need_auth = 0;
-        return msg_append(response, (uint8_t *)REPL_OK, nc_strlen(REPL_OK));
-    } else {
-        conn->need_auth = 1;
-        return msg_append(response, (uint8_t *)AUTH_INVALID_PASSWORD, nc_strlen(AUTH_INVALID_PASSWORD));
+    kpos = array_get(req->keys, 0);
+    key = kpos->start;
+    keylen = (uint32_t)(kpos->end - kpos->start);
+    valid = (keylen == pool->redis_auth.len) &&
+            (memcmp(pool->redis_auth.data, key, keylen) == 0) ? true : false;
+    if (valid) {
+        conn->authenticated = 1;
+        return msg_append(rsp, rsp_ok.data, rsp_ok.len);
     }
 
-    NOT_REACHED();
+    /*
+     * Password in the AUTH command doesn't match the one configured in
+     * redis_auth: directive
+     *
+     * We mark the connection has unauthenticated until the client
+     * reauthenticates with the correct password
+     */
+    conn->authenticated = 0;
+    return msg_append(rsp, rsp_invalid_password.data, rsp_invalid_password.len);
 }
 
 rstatus_t
-redis_add_auth_packet(struct context *ctx, struct conn *c_conn, struct conn *s_conn)
+redis_add_auth(struct context *ctx, struct conn *c_conn, struct conn *s_conn)
 {
     rstatus_t status;
     struct msg *msg;
     struct server_pool *pool;
 
-    ASSERT(s_conn->need_auth);
     ASSERT(!s_conn->client && !s_conn->proxy);
+    ASSERT(!conn_authenticated(s_conn));
 
     pool = c_conn->owner;
 
@@ -2656,7 +2853,7 @@ redis_add_auth_packet(struct context *ctx, struct conn *c_conn, struct conn *s_c
 
     msg->swallow = 1;
     s_conn->enqueue_inq(ctx, s_conn, msg);
-    s_conn->need_auth = 0;
+    s_conn->authenticated = 1;
 
     return NC_OK;
 }
@@ -2715,7 +2912,7 @@ void
 redis_swallow_msg(struct conn *conn, struct msg *pmsg, struct msg *msg)
 {
     if (pmsg != NULL && pmsg->type == MSG_REQ_REDIS_SELECT &&
-        msg != NULL && msg->type == MSG_RSP_REDIS_ERROR) {
+        msg != NULL && redis_error(msg)) {
         struct server* conn_server;
         struct server_pool* conn_pool;
         struct mbuf* rsp_buffer;

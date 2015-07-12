@@ -23,6 +23,23 @@
 #include <nc_sentinel.h>
 #include <nc_conf.h>
 
+static void
+server_resolve(struct server *server, struct conn *conn)
+{
+    rstatus_t status;
+
+    status = nc_resolve(&server->addrstr, server->port, &server->info);
+    if (status != NC_OK) {
+        conn->err = EHOSTDOWN;
+        conn->done = 1;
+        return;
+    }
+
+    conn->family = server->info.family;
+    conn->addrlen = server->info.addrlen;
+    conn->addr = (struct sockaddr *)&server->info.addr;
+}
+
 void
 server_ref(struct conn *conn, void *owner)
 {
@@ -31,9 +48,7 @@ server_ref(struct conn *conn, void *owner)
     ASSERT(!conn->client && !conn->proxy);
     ASSERT(conn->owner == NULL);
 
-    conn->family = server->family;
-    conn->addrlen = server->addrlen;
-    conn->addr = server->addr;
+    server_resolve(server, conn);
 
     server->ns_conn_q++;
     TAILQ_INSERT_TAIL(&server->s_conn_q, conn, conn_tqe);
@@ -484,6 +499,12 @@ server_connect(struct context *ctx, struct server *server, struct conn *conn)
 
     ASSERT(!conn->client && !conn->proxy);
 
+    if (conn->err) {
+      ASSERT(conn->done && conn->sd < 0);
+      errno = conn->err;
+      return NC_ERROR;
+    }
+
     if (conn->sd > 0) {
         /* already connected on server connection */
         return NC_OK;
@@ -614,41 +635,31 @@ server_set_address(struct server *server, struct string *server_ip, int server_p
 {
     rstatus_t status;
     struct conf_server *conf_server;
-    struct sockinfo info;
     char pname_buf[NC_PNAME_MAXLEN];
 
-    status = nc_resolve(server_ip, server_port, &info);
-    if (status != NC_OK) {
-        log_error("server address %.*s:%d resolve error",
-                server_ip->len, server_ip->data, server_port);
-        return status;
-    }
-
-    /* conf_server's pname and server's pname point to the same data string,
-     * so deinit once enough.
-     */
     conf_server = server->conf_server;
-    string_deinit(&conf_server->pname);
 
+    /* update conf_server's pname used for conf rewrite */
+    string_deinit(&conf_server->pname);
     nc_snprintf(pname_buf, NC_PNAME_MAXLEN, "%.*s:%d:%d",
             server_ip->len, server_ip->data, server_port, server->weight);
-
-    /* update conf_server's pname to used for conf update */
     status = string_copy(&conf_server->pname, (uint8_t *)pname_buf, (uint32_t)(nc_strlen(pname_buf)));
     if (status != NC_OK) {
         return status;
     }
 
-    /* make server's pname points to conf_server's pname */
+    /* update conf_server's addrstr used for connection */
+    string_deinit(&conf_server->addrstr);
+    status = string_duplicate(&conf_server->addrstr, server_ip);
+    if (status != NC_OK) {
+        return status;
+    }
+
+    /* make server's pname and addrstr points to conf_server's */
     server->pname = conf_server->pname;
+    server->addrstr = conf_server->addrstr;
     conf_server->port = (uint16_t)server_port;
     server->port = (uint16_t)server_port;
-    ASSERT(server->family == info.family);
-    ASSERT(server->addrlen == info.addrlen);
-    /* server'addr is a pointer to conf_server->info->addr,
-     * so update conf_server'info can update server's addr
-     */
-    conf_server->info = info;
 
     return NC_OK;
 }

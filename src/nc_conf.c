@@ -74,6 +74,10 @@ static struct command conf_commands[] = {
       conf_set_bool,
       offsetof(struct conf_pool, redis) },
 
+    { string("tcpkeepalive"),
+      conf_set_bool,
+      offsetof(struct conf_pool, tcpkeepalive) },
+
     { string("redis_auth"),
       conf_set_string,
       offsetof(struct conf_pool, redis_auth) },
@@ -118,6 +122,7 @@ conf_server_init(struct conf_server *cs)
 {
     string_init(&cs->pname);
     string_init(&cs->name);
+    string_init(&cs->addrstr);
     cs->port = 0;
     cs->weight = 0;
 
@@ -133,6 +138,7 @@ conf_server_deinit(struct conf_server *cs)
 {
     string_deinit(&cs->pname);
     string_deinit(&cs->name);
+    string_deinit(&cs->addrstr);
     cs->valid = 0;
     log_debug(LOG_VVERB, "deinit conf server %p", cs);
 }
@@ -155,12 +161,11 @@ conf_server_each_transform(void *elem, void *data)
 
     s->pname = cs->pname;
     s->name = cs->name;
+    s->addrstr = cs->addrstr;
     s->port = (uint16_t)cs->port;
     s->weight = (uint32_t)cs->weight;
 
-    s->family = cs->info.family;
-    s->addrlen = cs->info.addrlen;
-    s->addr = (struct sockaddr *)&cs->info.addr;
+    nc_memcpy(&s->info, &cs->info, sizeof(cs->info));
 
     s->ns_conn_q = 0;
     TAILQ_INIT(&s->s_conn_q);
@@ -201,6 +206,7 @@ conf_pool_init(struct conf_pool *cp, struct string *name)
     cp->client_connections = CONF_UNSET_NUM;
 
     cp->redis = CONF_UNSET_NUM;
+    cp->tcpkeepalive = CONF_UNSET_NUM;
     cp->redis_db = CONF_UNSET_NUM;
     cp->preconnect = CONF_UNSET_NUM;
     cp->auto_eject_hosts = CONF_UNSET_NUM;
@@ -291,9 +297,7 @@ conf_pool_each_transform(void *elem, void *data)
     sp->addrstr = cp->listen.pname;
     sp->port = (uint16_t)cp->listen.port;
 
-    sp->family = cp->listen.info.family;
-    sp->addrlen = cp->listen.info.addrlen;
-    sp->addr = (struct sockaddr *)&cp->listen.info.addr;
+    nc_memcpy(&sp->info, &cp->listen.info, sizeof(cp->listen.info));
     sp->perm = cp->listen.perm;
 
     sp->key_hash_type = cp->hash;
@@ -301,14 +305,17 @@ conf_pool_each_transform(void *elem, void *data)
     sp->dist_type = cp->distribution;
     sp->hash_tag = cp->hash_tag;
 
+    sp->tcpkeepalive = cp->tcpkeepalive ? 1 : 0;
+
     sp->redis = cp->redis ? 1 : 0;
-    sp->redis_auth = cp->redis_auth;
-    sp->redis_db = cp->redis_db;
     sp->timeout = cp->timeout;
     sp->backlog = cp->backlog;
+    sp->redis_db = cp->redis_db;
+
+    sp->redis_auth = cp->redis_auth;
+    sp->require_auth = cp->redis_auth.len > 0 ? 1 : 0;
 
     sp->client_connections = (uint32_t)cp->client_connections;
-
     sp->server_connections = (uint32_t)cp->server_connections;
     sp->server_retry_timeout = (int64_t)cp->server_retry_timeout * 1000LL;
     sp->server_failure_limit = (uint32_t)cp->server_failure_limit;
@@ -630,6 +637,9 @@ conf_push_scalar(struct conf *cf)
 
     scalar = cf->event.data.scalar.value;
     scalar_len = (uint32_t)cf->event.data.scalar.length;
+    if (scalar_len == 0) {
+        return NC_ERROR;
+    }
 
     log_debug(LOG_VVERB, "push '%.*s'", scalar_len, scalar);
 
@@ -1450,6 +1460,10 @@ conf_validate_pool(struct conf *cf, struct conf_pool *cp)
         cp->redis = CONF_DEFAULT_REDIS;
     }
 
+    if (cp->tcpkeepalive == CONF_UNSET_NUM) {
+        cp->tcpkeepalive = CONF_DEFAULT_TCPKEEPALIVE;
+    }
+
     if (cp->redis_db == CONF_UNSET_NUM) {
         cp->redis_db = CONF_DEFAULT_REDIS_DB;
     }
@@ -1475,6 +1489,11 @@ conf_validate_pool(struct conf *cf, struct conf_pool *cp)
 
     if (cp->server_failure_limit == CONF_UNSET_NUM) {
         cp->server_failure_limit = CONF_DEFAULT_SERVER_FAILURE_LIMIT;
+    }
+
+    if (!cp->redis && cp->redis_auth.len > 0) {
+        log_error("conf: directive \"redis_auth:\" is only valid for a redis pool");
+        return NC_ERROR;
     }
 
     status = conf_validate_server(cf, cp);
@@ -1598,6 +1617,8 @@ conf_create(char *filename)
     return cf;
 
 error:
+    log_stderr("nutcracker: configuration file '%s' syntax is invalid",
+               filename);
     fclose(cf->fh);
     cf->fh = NULL;
     conf_destroy(cf);
@@ -1745,10 +1766,8 @@ conf_add_server(struct conf *cf, struct command *cmd, void *conf)
     uint8_t *p, *q, *start;
     uint8_t *pname, *addr, *port, *weight, *name;
     uint32_t k, delimlen, pnamelen, addrlen, portlen, weightlen, namelen;
-    struct string address;
     char delim[] = " ::";
 
-    string_init(&address);
     p = conf;
     a = (struct array *)(p + cmd->offset);
 
@@ -1860,18 +1879,18 @@ conf_add_server(struct conf *cf, struct command *cmd, void *conf)
         return CONF_ERROR;
     }
 
-    status = string_copy(&address, addr, addrlen);
+    status = string_copy(&field->addrstr, addr, addrlen);
     if (status != NC_OK) {
         return CONF_ERROR;
     }
 
-    status = nc_resolve(&address, field->port, &field->info);
-    if (status != NC_OK) {
-        string_deinit(&address);
-        return CONF_ERROR;
-    }
+    /*
+     * The address resolution of the backend server hostname is lazy.
+     * The resolution occurs when a new connection to the server is
+     * created, which could either be the first time or every time
+     * the server gets re-added to the pool after an auto ejection
+     */
 
-    string_deinit(&address);
     field->valid = 1;
 
     return CONF_OK;

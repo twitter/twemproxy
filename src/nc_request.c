@@ -458,20 +458,21 @@ req_recv_next(struct context *ctx, struct conn *conn, bool alloc)
 static rstatus_t
 req_make_reply(struct context *ctx, struct conn *conn, struct msg *req)
 {
-    struct msg *msg;
+    struct msg *rsp;
 
-    msg = msg_get(conn, false, conn->redis); /* replay */
-    if (msg == NULL) {
+    rsp = msg_get(conn, false, conn->redis); /* replay */
+    if (rsp == NULL) {
         conn->err = errno;
         return NC_ENOMEM;
     }
 
-    req->peer = msg;
-    msg->peer = req;
-    msg->request = 0;
+    req->peer = rsp;
+    rsp->peer = req;
+    rsp->request = 0;
 
     req->done = 1;
     conn->enqueue_outq(ctx, conn, req);
+
     return NC_OK;
 }
 
@@ -544,7 +545,7 @@ req_filter(struct context *ctx, struct conn *conn, struct msg *msg)
      * If this conn is not authenticated, we will mark it as noforward,
      * and handle it in the redis_reply handler.
      */
-    if (conn->need_auth) {
+    if (!conn_authenticated(conn)) {
         msg->noforward = 1;
     }
 
@@ -630,7 +631,7 @@ req_forward(struct context *ctx, struct conn *c_conn, struct msg *msg)
         }
     }
 
-    if (s_conn->need_auth) {
+    if (!conn_authenticated(s_conn)) {
         status = msg->add_auth(ctx, c_conn, s_conn);
         if (status != NC_OK) {
             req_forward_error(ctx, c_conn, msg);

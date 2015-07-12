@@ -293,10 +293,10 @@ msg_get(struct conn *conn, bool request, bool redis)
         } else {
             msg->parser = redis_parse_rsp;
         }
-
-        msg->add_auth = redis_add_auth_packet;
+        msg->add_auth = redis_add_auth;
         msg->fragment = redis_fragment;
         msg->reply = redis_reply;
+        msg->failure = redis_failure;
         msg->pre_coalesce = redis_pre_coalesce;
         msg->post_coalesce = redis_post_coalesce;
     } else {
@@ -305,8 +305,9 @@ msg_get(struct conn *conn, bool request, bool redis)
         } else {
             msg->parser = memcache_parse_rsp;
         }
-        msg->add_auth = memcache_add_auth_packet;
+        msg->add_auth = memcache_add_auth;
         msg->fragment = memcache_fragment;
+        msg->failure = memcache_failure;
         msg->pre_coalesce = memcache_pre_coalesce;
         msg->post_coalesce = memcache_post_coalesce;
     }
@@ -531,11 +532,13 @@ msg_ensure_mbuf(struct msg *msg, size_t len)
     } else {
         mbuf = STAILQ_LAST(&msg->mhdr, mbuf, next);
     }
+
     return mbuf;
 }
 
 /*
- * append small(small than a mbuf) content into msg
+ * Append n bytes of data, with n <= mbuf_size(mbuf)
+ * into mbuf
  */
 rstatus_t
 msg_append(struct msg *msg, uint8_t *pos, size_t n)
@@ -553,11 +556,13 @@ msg_append(struct msg *msg, uint8_t *pos, size_t n)
 
     mbuf_copy(mbuf, pos, n);
     msg->mlen += (uint32_t)n;
+
     return NC_OK;
 }
 
 /*
- * prepend small(small than a mbuf) content into msg
+ * Prepend n bytes of data, with n <= mbuf_size(mbuf)
+ * into mbuf
  */
 rstatus_t
 msg_prepend(struct msg *msg, uint8_t *pos, size_t n)
@@ -575,6 +580,7 @@ msg_prepend(struct msg *msg, uint8_t *pos, size_t n)
     msg->mlen += (uint32_t)n;
 
     STAILQ_INSERT_HEAD(&msg->mhdr, mbuf, next);
+
     return NC_OK;
 }
 

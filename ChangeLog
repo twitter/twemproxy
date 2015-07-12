@@ -1,5 +1,29 @@
-2014-18-10  idning <idning@gmail.com>
+ 2015-22-06  Manju Rajashekhar  <manj@cs.stanford.edu>
+    * twemproxy: version 0.4.1 release
+      backend server hostnames are resolved lazily
+      redis_auth is only valid for a redis pool
+      getaddrinfo returns non-zero +ve value on error
+      fix-hang-when-command-only (charsyam)
+      fix bug crash when get command without key and whitespace (charsyam)
+      mark server as failed on protocol level transiet failures like -OOM, -LOADING, etc
+      implemented support for parsing fine grained redis error response
+      remove redundant conditional judgement in rbtree deletion (leo ma)
+      fix bug mset has invalid pair (charsyam)
+      fix bug mset has invalid pair (charsyam)
+      temp fix a core on kqueue (idning)
+      support "touch" command for memcached (panmiaocai)
+      fix redis parse rsp bug (charsyam)
+      SORT command can take multiple arguments. So it should be part of redis_argn() and not redis_arg0()
+      remove incorrect assert because client could send data after sending a quit request which must be discarded
+      allow file permissions to be set for UNIX domain listening socket (ori liveneh)
+      return error if formatted is greater than mbuf size by using nc_vsnprintf() in msg_prepend_format()
+      fix req_make_reply on msg_get, mark it as response (idning)
+      redis database select upon connect (arne claus)
+      redis_auth (charsyam)
+      allow null key(empty key) (idning)
+      fix core on invalid mset like "mset a a a" (idning)
 
+2014-18-10  idning <idning@gmail.com>
     * twemproxy: version 0.4.0 release
       mget improve (idning)
       many new commands supported: LEX, PFADD, PFMERGE, SORT, PING, QUIT, SCAN... (mattrobenolt, areina, idning)
@@ -38,12 +62,10 @@
       add support for hash tags
 
 2012-18-10  Manju Rajashekhar  <manj@twitter.com>
-
     * twemproxy: version 0.2.2 release
       fix the off-by-one error when calculating redis key length
 
 2012-12-10  Manju Rajashekhar  <manj@twitter.com>
-
     * twemproxy: version 0.2.1 release
       don't use buf in conf_add_server
       allow an optional instance name for consistent hashing (charsyam)
@@ -51,7 +73,6 @@
       add stats-bind-any -a option (charsyam)
 
 2012-12-03  Manju Rajashekhar  <manj@twitter.com>
-
     * twemproxy: version 0.2.0 release
       add -D or --describe-stats command-line argument to print stats description
       redis support in twemproxy
@@ -64,7 +85,6 @@
       delete stats tracking memcache requests and responses; stats module no longer tracks protocol related stats
 
 2012-10-27  Manju Rajashekhar  <manj@twitter.com>
-
     * twemproxy: version 0.1.20 release
       on msg_repair, msg->pos should point to nbuf->pos and not nbuf->last
       refactor memcache parsing code into proto directory
@@ -73,23 +93,19 @@
       fix log_hexdump and loga_hexdump
 
 2012-07-31  Manju Rajashekhar  <manj@twitter.com>
-
     * twemproxy: version 0.1.19 release
       close server connection on a stray response (yashh, bmatheny)
 
 2012-06-19  Manju Rajashekhar  <manj@twitter.com>
-
     * twemproxy: version 0.1.18 release
       command line option to set mbuf chunk size
 
 2012-05-09  Manju Rajashekhar  <manj@twitter.com>
-
     * twemproxy: version 0.1.17 release
       use _exit(0) instead of exit(0) when daemonizing
       use loga instead of log_stderr in nc_stacktrace
 
 2012-02-09  Manju Rajashekhar  <manj@twitter.com>
-
     * twemproxy: version 0.1.16 release
       twemproxy (aka nutcracker) is a fast and lightweight proxy for memcached protocol.
 

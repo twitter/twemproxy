@@ -157,7 +157,7 @@ _conn_get(void)
     conn->eof = 0;
     conn->done = 0;
     conn->redis = 0;
-    conn->need_auth = 0;
+    conn->authenticated = 0;
 
     conn->status = CONN_DISCONNECTED;
 
@@ -165,17 +165,6 @@ _conn_get(void)
     ncurr_conn++;
 
     return conn;
-}
-
-static bool
-conn_need_auth(void *owner, bool redis) {
-    struct server_pool *pool = (struct server_pool *)(owner);
-
-    if (redis && pool->redis_auth.len > 0) {
-        return true;
-    }
-
-    return false;
 }
 
 struct conn *
@@ -211,7 +200,6 @@ conn_get(void *owner, bool client, bool redis)
 
         conn->ref = client_ref;
         conn->unref = client_unref;
-        conn->need_auth = conn_need_auth(owner, redis);
 
         conn->enqueue_inq = NULL;
         conn->dequeue_inq = NULL;
@@ -249,8 +237,6 @@ conn_get(void *owner, bool client, bool redis)
 
         conn->ref = server_ref;
         conn->unref = server_unref;
-
-        conn->need_auth = conn_need_auth(server->owner, redis);
 
         conn->enqueue_inq = req_server_enqueue_imsgq;
         conn->dequeue_inq = req_server_dequeue_imsgq;
@@ -473,4 +459,28 @@ uint32_t
 conn_ncurr_cconn(void)
 {
     return ncurr_cconn;
+}
+
+/*
+ * Returns true if the connection is authenticated or doesn't require
+ * authentication, otherwise return false
+ */
+bool
+conn_authenticated(struct conn *conn)
+{
+    struct server_pool *pool;
+
+    ASSERT(!conn->proxy);
+
+    pool = conn->client ? conn->owner : ((struct server *)conn->owner)->owner;
+
+    if (!pool->require_auth) {
+        return true;
+    }
+
+    if (!conn->authenticated) {
+        return false;
+    }
+
+    return true;
 }

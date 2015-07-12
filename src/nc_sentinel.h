@@ -3,8 +3,6 @@
 
 #include <nc_core.h>
 
-#define SENTINEL_KEEPALIVE        30
-
 #define INFO_SENTINEL "info sentinel\r\n"
 #define SUB_SWITCH_REDIRECT "subscribe +switch-master +redirect-to-master\r\n"
 

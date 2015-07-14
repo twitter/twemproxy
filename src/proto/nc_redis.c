@@ -62,7 +62,6 @@ static bool
 redis_arg0(struct msg *r)
 {
     switch (r->type) {
-    case MSG_REQ_REDIS_EXISTS:
     case MSG_REQ_REDIS_PERSIST:
     case MSG_REQ_REDIS_PTTL:
     case MSG_REQ_REDIS_TTL:
@@ -267,6 +266,7 @@ redis_argx(struct msg *r)
     switch (r->type) {
     case MSG_REQ_REDIS_MGET:
     case MSG_REQ_REDIS_DEL:
+    case MSG_REQ_REDIS_EXISTS:
         return true;
 
     default:
@@ -2372,8 +2372,8 @@ redis_pre_coalesce(struct msg *r)
 
     switch (r->type) {
     case MSG_RSP_REDIS_INTEGER:
-        /* only redis 'del' fragmented request sends back integer reply */
-        ASSERT(pr->type == MSG_REQ_REDIS_DEL);
+        /* only redis 'del' and 'exists' fragmented request sends back integer reply */
+        ASSERT(pr->type == MSG_REQ_REDIS_DEL || pr->type == MSG_REQ_REDIS_EXISTS);
 
         mbuf = STAILQ_FIRST(&r->mhdr);
         /*
@@ -2626,6 +2626,9 @@ redis_fragment_argx(struct msg *r, uint32_t ncontinuum, struct msg_tqh *frag_msg
         } else if (r->type == MSG_REQ_REDIS_DEL) {
             status = msg_prepend_format(sub_msg, "*%d\r\n$3\r\ndel\r\n",
                                         sub_msg->narg + 1);
+        } else if (r->type == MSG_REQ_REDIS_EXISTS) {
+            status = msg_prepend_format(sub_msg, "*%d\r\n$6\r\nexists\r\n",
+                                        sub_msg->narg + 1);
         } else if (r->type == MSG_REQ_REDIS_MSET) {
             status = msg_prepend_format(sub_msg, "*%d\r\n$4\r\nmset\r\n",
                                         sub_msg->narg + 1);
@@ -2655,6 +2658,7 @@ redis_fragment(struct msg *r, uint32_t ncontinuum, struct msg_tqh *frag_msgq)
     switch (r->type) {
     case MSG_REQ_REDIS_MGET:
     case MSG_REQ_REDIS_DEL:
+    case MSG_REQ_REDIS_EXISTS:
         return redis_fragment_argx(r, ncontinuum, frag_msgq, 1);
 
     case MSG_REQ_REDIS_MSET:
@@ -2706,7 +2710,7 @@ redis_post_coalesce_mset(struct msg *request)
 }
 
 void
-redis_post_coalesce_del(struct msg *request)
+redis_post_coalesce_integer_reply(struct msg *request)
 {
     struct msg *response = request->peer;
     rstatus_t status;
@@ -2773,7 +2777,8 @@ redis_post_coalesce(struct msg *r)
         return redis_post_coalesce_mget(r);
 
     case MSG_REQ_REDIS_DEL:
-        return redis_post_coalesce_del(r);
+    case MSG_REQ_REDIS_EXISTS:
+        return redis_post_coalesce_integer_reply(r);
 
     case MSG_REQ_REDIS_MSET:
         return redis_post_coalesce_mset(r);

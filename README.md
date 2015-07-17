@@ -292,6 +292,7 @@ https://launchpad.net/~twemproxy/+archive/ubuntu/daily
 ## Issues and Support
 
 Have a bug or a question? Please create an issue here on GitHub!
+如有问题请在以下github提交
 
 https://github.com/twitter/twemproxy/issues
 

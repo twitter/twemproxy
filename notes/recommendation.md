@@ -160,3 +160,9 @@ To illustrate this, consider a scenario where twemproxy is configured with `serv
 The implementation of delete command in [python-memcached](https://github.com/linsomniac/python-memcached) conflicts with the one in twemproxy. See [issue 283](https://github.com/twitter/twemproxy/pull/283) for details. The workaround for this issue is to call `delete_multi` in python-memcached as follows:
 
         mc.delete_multi([key1, key2, ... keyN], time=None)
+
+## tcpkeepalive option
+
+If you use "lvs + twemproxy" frame, it is always a good idea to enable tcpkeepalive option. Beacause if the twemproxy that under lvs don't enable tcpkeepalive option, it would probable had 'ESTABLISHED' tcp connections that In fact didn't exist.
+All this because the lvs "expire" mechanism.
+So, if you used lvs upon twemproxy, it is better to enable the twemproxy tcpkeepalive option.

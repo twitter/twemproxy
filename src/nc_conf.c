@@ -430,7 +430,7 @@ conf_rewrite(struct context *ctx)
     struct conf_server *cs;
     struct string true_str, false_str, bool_str;
     FILE *fh;
-    char tmp_conf_file[256];
+    char temp_conf_file[256];
 
     cf = ctx->cf;
 
@@ -442,11 +442,12 @@ conf_rewrite(struct context *ctx)
     log_debug(LOG_VVERB, "%"PRIu32" pools in configuration file '%s'", npool,
               cf->fname);
 
-    /* open tmp conf file to rewrite */
-    nc_snprintf(tmp_conf_file, 256, "%s.%d.tmp", cf->fname, (int) getpid());
-    fh = fopen(tmp_conf_file,"w");
+    /* open temp conf file to rewrite */
+    nc_snprintf(temp_conf_file, 256, "%s.%d.temp", cf->fname, (int)getpid());
+    fh = fopen(temp_conf_file,"w");
     if (fh == NULL) {
-        log_error("conf: failed to open tmp configuration file to rewrite");
+        log_error("conf: failed to open temp configuration '%s': %s",
+                  temp_conf_file, strerror(errno));
         return;
     }
 
@@ -531,9 +532,10 @@ conf_rewrite(struct context *ctx)
 
     fclose(fh);
 
-    if (rename(tmp_conf_file, cf->fname) == -1) {
-        log_error("Error moving temp conf file on the final destination: %s", strerror(errno));
-        unlink(tmp_conf_file);
+    if (rename(temp_conf_file, cf->fname) == -1) {
+        log_error("conf: failed to move temp configuration '%s' to '%s': %s",
+                  temp_conf_file, cf->fname, strerror(errno));
+        unlink(temp_conf_file);
     }
 }
 

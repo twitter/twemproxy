@@ -20,6 +20,7 @@ CFLAGS="-ggdb3 -O0" autoreconf -fvi && ./configure --enable-debug=log && make
 
 ln -s `pwd`/src/nutcracker  tests/_binaries/
 cp `which redis-server` tests/_binaries/
+cp `which redis-sentinel` tests/_binaries/
 cp `which redis-cli` tests/_binaries/
 cp `which memcached` tests/_binaries/
 

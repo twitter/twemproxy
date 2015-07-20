@@ -79,7 +79,7 @@ def json_encode(j):
 def json_decode(j):
     return json.loads(j)
 
-#commands dose not work on windows..
+#commands does not work on windows..
 def system(cmd, log_fun=logging.info):
     if log_fun: log_fun(cmd)
     r = commands.getoutput(cmd)

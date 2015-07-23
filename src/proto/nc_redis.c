@@ -1718,15 +1718,16 @@ error:
                 r->state);
 }
 
-static int update_and_check_done(struct msg *r) {
-    int ret = 0;
+static bool
+redis_update_and_check_done(struct msg *r) {
+    bool ret = false;
     while(r->rnarg == 0 && r->depth > 0) {
         r->depth--;
         r->rnarg = r->rnargs[r->depth]-1;
     }
 
     if (r->rnarg == 0 && r->depth == 0) {
-        ret = 1;
+        ret = true;
     }
 
     return ret;
@@ -2081,7 +2082,7 @@ redis_parse_rsp(struct msg *r)
             switch (ch) {
             case LF:
                 if (r->depth > 0) {
-                    if (update_and_check_done(r) == true) {
+                    if (redis_update_and_check_done(r) == true) {
                         goto done;
                     }
                 } else {
@@ -2131,7 +2132,7 @@ redis_parse_rsp(struct msg *r)
                 if (r->rnarg == 0) {
                     /* response is '*0\r\n' */
                     if (r->depth > 0) {
-                        if (update_and_check_done(r) == 1) {
+                        if (redis_update_and_check_done(r) == true) {
                             goto error;
                         }
                     } else {
@@ -2279,7 +2280,7 @@ redis_parse_rsp(struct msg *r)
             case LF:
                 if (r->rnarg == 0) {
                     if (r->depth > 0) {
-                        if (update_and_check_done(r) == 1) {
+                        if (redis_update_and_check_done(r) == true) {
                             goto done;
                         }
                     } else {

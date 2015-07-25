@@ -66,7 +66,7 @@ sentinel_connect(struct context *ctx, struct server *sentinel)
     }
 
     /* set keepalive opt on sentinel socket to detect socket dead */
-    status = nc_set_tcpkeepalive(conn->sd);
+    status = nc_set_tcpkeepalive(conn->sd, SENTINEL_KEEP_INTERVAL);
     if (status < 0) {
         log_error("set keepalive on s %d for sentienl server failed: %s",
                   conn->sd, strerror(errno));

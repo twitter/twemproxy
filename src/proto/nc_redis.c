@@ -1686,6 +1686,21 @@ error:
                 r->state);
 }
 
+static bool
+redis_update_and_check_done(struct msg *r) {
+    bool ret = false;
+    while (r->rnarg == 0 && r->depth > 0) {
+        r->depth--;
+        r->rnarg = r->rnargs[r->depth]-1;
+    }
+
+    if (r->rnarg == 0 && r->depth == 0) {
+        ret = true;
+    }
+
+    return ret;
+}
+
 /*
  * Reference: http://redis.io/topics/protocol
  *
@@ -2034,7 +2049,13 @@ redis_parse_rsp(struct msg *r)
         case SW_BULK_ARG_LF:
             switch (ch) {
             case LF:
-                goto done;
+                if (r->depth > 0) {
+                    if (redis_update_and_check_done(r) == true) {
+                        goto done;
+                    }
+                } else {
+                    goto done;
+                }
 
             default:
                 goto error;
@@ -2060,7 +2081,10 @@ redis_parse_rsp(struct msg *r)
                     goto error;
                 }
 
-                r->narg = r->rnarg;
+                if (r->depth == 0) {
+                    r->narg = r->rnarg;
+                }
+
                 r->narg_end = p;
                 r->token = NULL;
                 state = SW_MULTIBULK_NARG_LF;
@@ -2075,7 +2099,13 @@ redis_parse_rsp(struct msg *r)
             case LF:
                 if (r->rnarg == 0) {
                     /* response is '*0\r\n' */
-                    goto done;
+                    if (r->depth > 0) {
+                        if (redis_update_and_check_done(r) == true) {
+                            goto done;
+                        }
+                    } else {
+                        goto done;
+                    }
                 }
 
                 state = SW_MULTIBULK_ARGN_LEN;
@@ -2095,10 +2125,10 @@ redis_parse_rsp(struct msg *r)
                  * of a multi bulk reply can be of any kind, including a
                  * nested multi bulk reply.
                  *
-                 * Here, we only handle a multi bulk reply element that
+                 * Here, we can handle NC_MULTIBULK_DEPTH depth multi bulk reply element that
                  * are either integer reply or bulk reply.
                  *
-                 * there is a special case for sscan/hscan/zscan, these command
+                 * there is a special case for sscan/hscan/zscan and geo commands, these command
                  * replay a nested multi-bulk with a number and a multi bulk like this:
                  *
                  * - mulit-bulk
@@ -2108,13 +2138,39 @@ redis_parse_rsp(struct msg *r)
                  *       - val2
                  *       - val3
                  *
-                 * in this case, there is only one sub-multi-bulk,
-                 * and it's the last element of parent,
-                 * we can handle it like tail-recursive.
+                 * - mulit-bulk
+                 *    - multi-bulk
+                 *       - val1
+                 *       - val2
+                 *       - val3
+                 *    - mulit-bulk
+                 *       - val1
+                 *       - val2
+                 *       - val3
                  *
+                 * - mulit-bulk
+                 *    - multi-bulk
+                 *       - val1
+                 *       - multi-bulk
+                 *          - val2
+                 *          - val3
+                 *    - mulit-bulk
+                 *       - val1
+                 *       - multi-bulk
+                 *          - val2
+                 *          - val3
                  */
-                if (ch == '*') {    /* for sscan/hscan/zscan only */
+                if (ch == '*') {    /* for sscan/hscan/zscan and geo commands only */
                     p = p - 1;      /* go back by 1 byte */
+
+                    if (r->depth >= NC_MULTIBULK_DEPTH) {
+                        /* currently we can handle nested multibulk reply in NC_MULTIBULK_DEPTH depth */
+                        goto error;
+                    }
+
+                    r->rnargs[r->depth] = r->rnarg;
+                    r->depth++;
+
                     state = SW_MULTIBULK;
                     break;
                 }
@@ -2191,7 +2247,13 @@ redis_parse_rsp(struct msg *r)
             switch (ch) {
             case LF:
                 if (r->rnarg == 0) {
-                    goto done;
+                    if (r->depth > 0) {
+                        if (redis_update_and_check_done(r) == true) {
+                            goto done;
+                        }
+                    } else {
+                        goto done;
+                    }
                 }
 
                 state = SW_MULTIBULK_ARGN_LEN;

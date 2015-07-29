@@ -257,18 +257,20 @@ https://launchpad.net/~twemproxy/+archive/ubuntu/daily
 + [twemsentinel] (https://github.com/yak0/twemsentinel)
 
 ## Companies using Twemproxy in Production
-+ [Pinterest](http://pinterest.com/)
-+ [Tumblr](https://www.tumblr.com/)
 + [Twitter](https://twitter.com/)
++ [Wikimedia](http://www.wikimedia.org/)
++ [Pinterest](http://pinterest.com/)
++ [Snapchat](http://www.snapchat.com/)
++ [Flickr](https://www.flickr.com)
++ [Yahoo!](https://www.yahoo.com)
++ [Tumblr](https://www.tumblr.com/)
 + [Vine](http://vine.co/)
 + [Kiip](http://www.kiip.me/)
 + [Wuaki.tv](https://wuaki.tv/)
 + [Wanelo](http://wanelo.com/)
 + [Kontera](http://kontera.com/)
-+ [Wikimedia](http://www.wikimedia.org/)
 + [Bright](http://www.bright.com/)
 + [56.com](http://www.56.com/)
-+ [Snapchat](http://www.snapchat.com/)
 + [Digg](http://digg.com/)
 + [Gawkermedia](http://advertising.gawker.com/)
 + [3scale.net](http://3scale.net)
@@ -278,8 +280,6 @@ https://launchpad.net/~twemproxy/+archive/ubuntu/daily
 + [Hootsuite](http://hootsuite.com/)
 + [Trivago](http://www.trivago.com/)
 + [Machinezone](http://www.machinezone.com)
-+ [Flickr](https://www.flickr.com)
-+ [Yahoo!](https://www.yahoo.com)
 + [Path](https://path.com)
 + [AOL](http://engineering.aol.com/)
 + [Soysuper](https://soysuper.com/)
@@ -288,6 +288,7 @@ https://launchpad.net/~twemproxy/+archive/ubuntu/daily
 + [FanDuel](https://www.fanduel.com/)
 + [Bloomreach](http://bloomreach.com/)
 + [Hootsuite](https://hootsuite.com)
++ [Tradesy](https://www.tradesy.com/)
 
 ## Issues and Support
 

@@ -81,6 +81,7 @@
 int nc_set_blocking(int sd);
 int nc_set_nonblocking(int sd);
 int nc_set_reuseaddr(int sd);
+int nc_set_reuseport(int sd);
 int nc_set_tcpnodelay(int sd);
 int nc_set_linger(int sd, int timeout);
 int nc_set_sndbuf(int sd, int size);

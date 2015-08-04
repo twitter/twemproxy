@@ -55,6 +55,7 @@
 #define CONF_DEFAULT_SERVER_CONNECTIONS      1
 #define CONF_DEFAULT_KETAMA_PORT             11211
 #define CONF_DEFAULT_TCPKEEPALIVE            false
+#define CONF_DEFAULT_REUSEPORT		      false
 
 struct conf_listen {
     struct string   pname;   /* listen: as "hostname:port" */
@@ -95,6 +96,7 @@ struct conf_pool {
     int                server_failure_limit;  /* server_failure_limit: */
     struct array       server;                /* servers: conf_server[] */
     unsigned           valid:1;               /* valid? */
+    int                reuseport;             /* set SO_REUSEPORT to socket */
 };
 
 struct conf {

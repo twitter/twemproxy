@@ -265,6 +265,7 @@ https://launchpad.net/~twemproxy/+archive/ubuntu/daily
 + [Yahoo!](https://www.yahoo.com)
 + [Tumblr](https://www.tumblr.com/)
 + [Vine](http://vine.co/)
++ [Wayfair](http://www.wayfair.com/)
 + [Kiip](http://www.kiip.me/)
 + [Wuaki.tv](https://wuaki.tv/)
 + [Wanelo](http://wanelo.com/)

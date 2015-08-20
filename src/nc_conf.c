@@ -281,8 +281,10 @@ conf_pool_each_transform(void *elem, void *data)
     ASSERT(status == NC_OK);
 
     sp->tcpkeepalive = cp->tcpkeepalive ? 1 : 0;
-
     sp->redis = cp->redis ? 1 : 0;
+
+    status = string_duplicate_if_nonempty(&sp->redis_auth, &cp->redis_auth);
+    ASSERT(status == NC_OK);
     sp->timeout = cp->timeout;
     sp->backlog = cp->backlog;
     sp->redis_db = cp->redis_db;

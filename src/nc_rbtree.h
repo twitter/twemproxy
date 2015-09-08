@@ -44,4 +44,7 @@ struct rbnode *rbtree_min(struct rbtree *tree);
 void rbtree_insert(struct rbtree *tree, struct rbnode *node);
 void rbtree_delete(struct rbtree *tree, struct rbnode *node);
 
+#define rbtree_entry(ptr, type, member) \
+    ((type *)((char *)(ptr)-(unsigned long)(&((type *)0)->member)))
+
 #endif

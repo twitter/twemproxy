@@ -279,7 +279,7 @@ https://launchpad.net/~twemproxy/+archive/ubuntu/daily
 + [Ooyala](http://www.ooyala.com)
 + [Twitch](http://twitch.tv)
 + [Socrata](http://www.socrata.com/)
-+ [Hootsuite](http://hootsuite.com/)
++ [Hootsuite](https://hootsuite.com/) ([details](http://code.hootsuite.com/mysql-to-redis/))
 + [Trivago](http://www.trivago.com/)
 + [Machinezone](http://www.machinezone.com)
 + [Path](https://path.com)
@@ -289,7 +289,6 @@ https://launchpad.net/~twemproxy/+archive/ubuntu/daily
 + [Poshmark](https://poshmark.com/)
 + [FanDuel](https://www.fanduel.com/)
 + [Bloomreach](http://bloomreach.com/)
-+ [Hootsuite](https://hootsuite.com)
 + [Tradesy](https://www.tradesy.com/)
 
 ## Issues and Support

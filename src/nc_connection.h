@@ -33,6 +33,7 @@ typedef bool (*conn_active_t)(struct conn *);
 
 typedef void (*conn_ref_t)(struct conn *, void *);
 typedef void (*conn_unref_t)(struct conn *);
+typedef void (*conn_restore_t)(struct context *, struct conn *);
 
 typedef void (*conn_msgq_t)(struct context *, struct conn *, struct msg *);
 typedef void (*conn_post_connect_t)(struct context *ctx, struct conn *, struct server *server);
@@ -60,6 +61,7 @@ struct conn {
     conn_send_done_t    send_done;       /* write done handler */
     conn_close_t        close;           /* close handler */
     conn_active_t       active;          /* active? handler */
+    conn_restore_t      restore;         /* restore handler */
     conn_post_connect_t post_connect;    /* post connect handler */
     conn_swallow_msg_t  swallow_msg;     /* react on messages to be swallowed */
 
@@ -105,5 +107,6 @@ uint32_t conn_ncurr_conn(void);
 uint64_t conn_ntotal_conn(void);
 uint32_t conn_ncurr_cconn(void);
 bool conn_authenticated(struct conn *conn);
+rstatus_t event_add_out_with_conn(struct context *ctx, struct conn *conn, struct msg *msg);
 
 #endif

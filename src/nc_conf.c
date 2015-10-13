@@ -167,6 +167,7 @@ conf_server_each_transform(void *elem, void *data)
 
     s->next_retry = 0LL;
     s->failure_count = 0;
+    s->fail = FAIL_STATUS_NORMAL;
 
     log_debug(LOG_VERB, "transform to server %"PRIu32" '%.*s'",
               s->idx, s->pname.len, s->pname.data);
@@ -1134,6 +1135,14 @@ conf_pre_validate(struct conf *cf)
     cf->sound = 1;
 
     return NC_OK;
+}
+
+static int
+conf_server_pname_cmp(const void *t1, const void *t2)
+{
+    const struct conf_server *s1 = t1, *s2 = t2;
+
+    return string_compare(&s1->pname, &s2->pname);
 }
 
 static int

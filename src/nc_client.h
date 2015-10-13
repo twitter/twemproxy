@@ -24,5 +24,6 @@ bool client_active(struct conn *conn);
 void client_ref(struct conn *conn, void *owner);
 void client_unref(struct conn *conn);
 void client_close(struct context *ctx, struct conn *conn);
+void client_restore(struct context *ctx, struct conn *conn);
 
 #endif

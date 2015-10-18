@@ -213,6 +213,7 @@ redis_argn(struct msg *r)
     case MSG_REQ_REDIS_SORT:
 
     case MSG_REQ_REDIS_BITCOUNT:
+    case MSG_REQ_REDIS_BITPOS:
 
     case MSG_REQ_REDIS_SET:
     case MSG_REQ_REDIS_HDEL:
@@ -775,6 +776,11 @@ redis_parse_req(struct msg *r)
             case 6:
                 if (str6icmp(m, 'a', 'p', 'p', 'e', 'n', 'd')) {
                     r->type = MSG_REQ_REDIS_APPEND;
+                    break;
+                }
+
+                if (str6icmp(m, 'b', 'i', 't', 'p', 'o', 's')) {
+                    r->type = MSG_REQ_REDIS_BITPOS;
                     break;
                 }
 
@@ -2655,6 +2661,10 @@ redis_fragment_argx(struct msg *r, uint32_t ncontinuum, struct msg_tqh *frag_msg
 rstatus_t
 redis_fragment(struct msg *r, uint32_t ncontinuum, struct msg_tqh *frag_msgq)
 {
+    if (1 == array_n(r->keys)){
+        return NC_OK;
+    }
+
     switch (r->type) {
     case MSG_REQ_REDIS_MGET:
     case MSG_REQ_REDIS_DEL:

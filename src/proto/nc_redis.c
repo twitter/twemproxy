@@ -324,7 +324,7 @@ redis_argeval(struct msg *r)
  *
  */
 static bool
-redis_need_bcast(struct msg *r) 
+redis_need_broadcast(struct msg *r) 
 {
     switch (r->type) {
     case MSG_REQ_REDIS_SCRIPT:
@@ -2699,6 +2699,11 @@ redis_fragment(struct msg *r, uint32_t ncontinuum, struct msg_tqh *frag_msgq)
     default:
         return NC_OK;
     }
+}
+
+bool
+redis_broadcast(struct msg *r) {
+    return redis_need_broadcast(r);
 }
 
 rstatus_t

@@ -2930,7 +2930,7 @@ redis_swallow_msg(struct conn *conn, struct msg *pmsg, struct msg *msg)
         size_t copy_len;
 
         /*
-         * Get a substring from the message so that the inital - and the trailing
+         * Get a substring from the message so that the initial - and the trailing
          * \r\n is removed.
          */
         conn_server = (struct server*)conn->owner;

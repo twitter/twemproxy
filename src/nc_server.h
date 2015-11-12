@@ -121,6 +121,7 @@ struct server_pool {
     unsigned           preconnect:1;         /* preconnect? */
     unsigned           redis:1;              /* redis? */
     unsigned           tcpkeepalive:1;       /* tcpkeepalive? */
+    unsigned           redis_ignore_select:1;/* redis ignore select? */
 };
 
 void server_ref(struct conn *conn, void *owner);

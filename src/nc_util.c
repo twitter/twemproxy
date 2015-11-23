@@ -75,6 +75,27 @@ nc_set_reuseaddr(int sd)
     return setsockopt(sd, SOL_SOCKET, SO_REUSEADDR, &reuse, len);
 }
 
+
+/*
+(c) Copyright IBM Corp. 2015
+*/
+int
+nc_set_reuseport(int sd)
+{
+#ifdef SO_REUSEPORT
+    int reuse;
+    socklen_t len;
+
+    reuse = 1;
+    len = sizeof(reuse);
+
+    return setsockopt(sd, SOL_SOCKET, SO_REUSEPORT, &reuse, len);
+#else
+    errno = ENOPROTOOPT;
+    return -1;
+#endif
+
+}
 /*
  * Disable Nagle algorithm on TCP socket.
  *

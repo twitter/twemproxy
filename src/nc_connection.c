@@ -156,7 +156,9 @@ _conn_get(void)
     conn->eof = 0;
     conn->done = 0;
     conn->redis = 0;
+    conn->reuse_port = 0;
     conn->authenticated = 0;
+
 
     ntotal_conn++;
     ncurr_conn++;
@@ -256,6 +258,7 @@ conn_get_proxy(void *owner)
     }
 
     conn->redis = pool->redis;
+    conn->reuse_port = pool->reuse_port;
 
     conn->proxy = 1;
 

@@ -259,7 +259,7 @@ https://launchpad.net/~twemproxy/+archive/ubuntu/daily
 
 ## Companies using Twemproxy in Production
 + [Twitter](https://twitter.com/)
-+ [Wikimedia](http://www.wikimedia.org/)
++ [Wikimedia](https://www.wikimedia.org/)
 + [Pinterest](http://pinterest.com/)
 + [Snapchat](http://www.snapchat.com/)
 + [Flickr](https://www.flickr.com)

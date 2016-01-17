@@ -1,3 +1,4 @@
+sudo: false
 language: c
 script: bash ./travis.sh
 

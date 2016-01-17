@@ -1,4 +1,5 @@
 sudo: required
+dist: precise
 language: c
 script: bash ./travis.sh
 

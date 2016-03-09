@@ -1546,13 +1546,6 @@ memcache_swallow_msg(struct conn *conn, struct msg *pmsg, struct msg *msg)
 }
 
 rstatus_t
-memcache_add_auth(struct context *ctx, struct conn *c_conn, struct conn *s_conn)
-{
-    NOT_REACHED();
-    return NC_OK;
-}
-
-rstatus_t
 memcache_reply(struct msg *r)
 {
     NOT_REACHED();

@@ -21,7 +21,6 @@
 #include <nc_core.h>
 
 typedef void (*msg_parse_t)(struct msg *);
-typedef rstatus_t (*msg_add_auth_t)(struct context *ctx, struct conn *c_conn, struct conn *s_conn);
 typedef rstatus_t (*msg_fragment_t)(struct msg *, uint32_t, struct msg_tqh *);
 typedef void (*msg_coalesce_t)(struct msg *r);
 typedef rstatus_t (*msg_reply_t)(struct msg *r);
@@ -223,7 +222,6 @@ struct msg {
 
     msg_fragment_t       fragment;        /* message fragment */
     msg_reply_t          reply;           /* generate message reply (example: ping) */
-    msg_add_auth_t       add_auth;        /* add auth message when we forward msg */
     msg_failure_t        failure;         /* transient failure response? */
 
     msg_coalesce_t       pre_coalesce;    /* message pre-coalesce */

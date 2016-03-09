@@ -593,15 +593,6 @@ req_forward(struct context *ctx, struct conn *c_conn, struct msg *msg)
         }
     }
 
-    if (!conn_authenticated(s_conn)) {
-        status = msg->add_auth(ctx, c_conn, s_conn);
-        if (status != NC_OK) {
-            req_forward_error(ctx, c_conn, msg);
-            s_conn->err = errno;
-            return;
-        }
-    }
-
     s_conn->enqueue_inq(ctx, s_conn, msg);
 
     req_forward_stats(ctx, s_conn->owner, msg);

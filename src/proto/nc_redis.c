@@ -2293,6 +2293,7 @@ redis_copy_bulk(struct msg *dst, struct msg *src)
     struct mbuf *mbuf, *nbuf;
     uint8_t *p;
     uint32_t len = 0;
+    uint32_t mlen = 0;
     uint32_t bytes = 0;
     rstatus_t status;
 
@@ -2328,13 +2329,16 @@ redis_copy_bulk(struct msg *dst, struct msg *src)
 
     /* copy len bytes to dst */
     for (; mbuf;) {
-        if (mbuf_length(mbuf) <= len) {     /* steal this buf from src to dst */
+        mlen = mbuf_length(mbuf);
+        if (mlen <= len) {      /* steal this buf from src to dst */
             nbuf = STAILQ_NEXT(mbuf, next);
             mbuf_remove(&src->mhdr, mbuf);
             if (dst != NULL) {
                 mbuf_insert(&dst->mhdr, mbuf);
+            } else {
+                mbuf_put(mbuf);
             }
-            len -= mbuf_length(mbuf);
+            len -= mlen;
             mbuf = nbuf;
         } else {                             /* split it */
             if (dst != NULL) {

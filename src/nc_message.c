@@ -650,6 +650,11 @@ msg_parse(struct context *ctx, struct conn *conn, struct msg *msg)
         status = NC_OK;
         break;
 
+    case MSG_PARSE_ERROR:
+		status = NC_ERROR;
+		conn->recv_done(ctx, conn, msg, NULL);;
+		break;
+
     default:
         status = NC_ERROR;
         conn->err = errno;

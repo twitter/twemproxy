@@ -37,6 +37,10 @@ hash_one_at_a_time(const char *key, size_t key_length)
     const char *ptr = key;
     uint32_t value = 0;
 
+    if (key == NULL) {
+        return NULL;
+    }
+
     while (key_length--) {
         uint32_t val = (uint32_t) *ptr++;
         value += val;

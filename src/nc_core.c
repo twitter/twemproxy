@@ -334,7 +334,8 @@ core_core(void *arg, uint32_t events)
     /* read takes precedence over write */
     if (events & EVENT_READ) {
         status = core_recv(ctx, conn);
-        if (status != NC_OK || conn->done || conn->err) {
+
+        if (conn->done) {
             core_close(ctx, conn);
             return NC_ERROR;
         }

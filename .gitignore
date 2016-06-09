@@ -30,6 +30,7 @@
 *.~
 *.project
 *.cproject
+.settings/
 
 # Core and executable
 core*

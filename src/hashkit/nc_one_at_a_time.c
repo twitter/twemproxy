@@ -38,8 +38,10 @@ hash_one_at_a_time(const char *key, size_t key_length)
     uint32_t value = 0;
 
     if (key == NULL) {
-        return NULL;
+        return 0;
     }
+
+    //log_error("key is %s", key);
 
     while (key_length--) {
         uint32_t val = (uint32_t) *ptr++;

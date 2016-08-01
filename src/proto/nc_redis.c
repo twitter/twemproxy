@@ -2333,6 +2333,7 @@ redis_copy_bulk(struct msg *dst, struct msg *src)
             mbuf_remove(&src->mhdr, mbuf);
             if (dst != NULL) {
                 mbuf_insert(&dst->mhdr, mbuf);
+                dst->mlen += mbuf_length(mbuf);
             }
             len -= mbuf_length(mbuf);
             mbuf = nbuf;
@@ -2348,9 +2349,6 @@ redis_copy_bulk(struct msg *dst, struct msg *src)
         }
     }
 
-    if (dst != NULL) {
-        dst->mlen += bytes;
-    }
     src->mlen -= bytes;
     log_debug(LOG_VVERB, "redis_copy_bulk copy bytes: %d", bytes);
     return NC_OK;

@@ -250,7 +250,7 @@ https://launchpad.net/~twemproxy/+archive/ubuntu/daily
 + [puppet module](https://github.com/wuakitv/puppet-twemproxy)
 + [nutcracker-web](https://github.com/kontera-technologies/nutcracker-web)
 + [redis-twemproxy agent](https://github.com/Stono/redis-twemproxy-agent)
-+ [sensu-metrics](https://github.com/sensu/sensu-community-plugins/blob/master/plugins/twemproxy/twemproxy-metrics.rb)
++ [sensu-metrics](https://github.com/sensu-plugins/sensu-plugins-twemproxy/blob/master/bin/metrics-twemproxy.rb)
 + [redis-mgr](https://github.com/idning/redis-mgr)
 + [smitty for twemproxy failover](https://github.com/areina/smitty)
 + [Beholder, a Python agent for twemproxy failover](https://github.com/Serekh/beholder)

@@ -167,6 +167,12 @@ typedef enum msg_parse_result {
     ACTION( REQ_REDIS_QUIT)                                                                         \
     ACTION( REQ_REDIS_AUTH)                                                                         \
     ACTION( REQ_REDIS_SELECT)                  /* only during init */                               \
+    ACTION( REQ_REDIS_GEOADD )                 /* geospatial data */                                \
+    ACTION( REQ_REDIS_GEODIST )                                                                     \
+    ACTION( REQ_REDIS_GEOHASH )                                                                     \
+    ACTION( REQ_REDIS_GEOPOS )                                                                      \
+    ACTION( REQ_REDIS_GEORADIUS )                                                                   \
+    ACTION( REQ_REDIS_GEORADIUSBYMEMBER )                                                           \
     ACTION( RSP_REDIS_STATUS )                 /* redis response */                                 \
     ACTION( RSP_REDIS_ERROR )                                                                       \
     ACTION( RSP_REDIS_ERROR_ERR )                                                                   \

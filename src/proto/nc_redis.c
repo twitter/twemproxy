@@ -317,6 +317,24 @@ redis_argeval(struct msg *r)
 }
 
 /*
+ * Return true, if the redis command is a vector command accepting one or
+ * more triple (e.g geopatial data: lan long name), otherwise return false.
+ */
+static bool 
+redis_argxtriple(struct msg *r)
+{
+    switch (r->type) {
+        case MSG_REQ_REDIS_GEOADD :
+            return true;
+            
+        default :
+            break;
+    }
+    
+    return false;
+}
+
+/*
  * Return true, if the redis response is an error response i.e. a simple
  * string whose first character is '-', otherwise return false.
  */
@@ -878,6 +896,16 @@ redis_parse_req(struct msg *r)
                     r->type = MSG_REQ_REDIS_ZSCORE;
                     break;
                 }
+                
+                if (str6icmp(m, 'g', 'e', 'o', 'a', 'd', 'd')) {
+                    r->type = MSG_REQ_REDIS_GEOADD;
+                    break;
+                }
+                
+                if (str6icmp(m, 'g', 'e', 'o', 'p', 'o', 's')) {
+                    r->type = MSG_REQ_REDIS_GEOPOS;
+                    break;
+                }
 
                 break;
 
@@ -934,6 +962,16 @@ redis_parse_req(struct msg *r)
 
                 if (str7icmp(m, 'p', 'f', 'm', 'e', 'r', 'g', 'e')) {
                     r->type = MSG_REQ_REDIS_PFMERGE;
+                    break;
+                }
+                
+                if (str7icmp(m, 'g', 'e', 'o', 'd', 'i', 's', 't')) {
+                    r->type = MSG_REQ_REDIS_GEODIST;
+                    break;
+                }
+                
+                if (str7icmp(m, 'g', 'e', 'o', 'h', 'a', 's', 'h')) {
+                    r->type = MSG_REQ_REDIS_GEOHASH;
                     break;
                 }
 
@@ -995,6 +1033,11 @@ redis_parse_req(struct msg *r)
 
                 if (str9icmp(m, 'z', 'l', 'e', 'x', 'c', 'o', 'u', 'n', 't')) {
                     r->type = MSG_REQ_REDIS_ZLEXCOUNT;
+                    break;
+                }
+                
+                if (str9icmp(m, 'g', 'e', 'o', 'r', 'a', 'd', 'i', 'u', 's')) {
+                    r->type = MSG_REQ_REDIS_GEORADIUS;
                     break;
                 }
 
@@ -1089,6 +1132,11 @@ redis_parse_req(struct msg *r)
                 }
 
                 break;
+            case 17 :
+                if (str17icmp(m, 'g', 'e', 'o', 'r', 'a', 'd', 'i', 'u', 's', 'b', 'y', 'm', 'e', 'm', 'b', 'e', 'r')) {
+                    r->type = MSG_REQ_REDIS_GEORADIUSBYMEMBER;
+                    break;
+                }
 
             default:
                 break;
@@ -1242,6 +1290,11 @@ redis_parse_req(struct msg *r)
                         goto done;
                     }
                     state = SW_ARGN_LEN;
+                } else if (redis_argxtriple(r)) {
+                    if (r->rnarg == 0 || r->rnarg % 3 != 0) {
+                        goto error;
+                    }
+                    state = SW_ARG1_LEN;
                 } else {
                     goto error;
                 }
@@ -1341,6 +1394,11 @@ redis_parse_req(struct msg *r)
                         goto done;
                     }
                     state = SW_KEY_LEN;
+                } else if (redis_argxtriple(r)) {
+                    if (r->rnarg % 3 != 2) {
+                        goto error;
+                    }
+                    state = SW_ARG2_LEN;
                 } else {
                     goto error;
                 }
@@ -1467,6 +1525,11 @@ redis_parse_req(struct msg *r)
                         goto error;
                     }
                     state = SW_KEY_LEN;
+                } else if (redis_argxtriple(r)) {
+                    if (r->rnarg % 3 != 1) {
+                        goto error;
+                    }
+                    state = SW_ARG3_LEN;
                 } else {
                     goto error;
                 }
@@ -1545,6 +1608,14 @@ redis_parse_req(struct msg *r)
                         goto done;
                     }
                     state = SW_ARGN_LEN;
+                } else if (redis_argxtriple(r)) {
+                    if (r->rnarg == 0) {
+                        goto done;
+                    }
+                    if (r->rnarg % 3 != 0) {
+                        goto error;
+                    }
+                    state = SW_ARG1_LEN;
                 } else {
                     goto error;
                 }

@@ -186,6 +186,24 @@ redis_arg2(struct msg *r)
 }
 
 /*
+ * Return true, if the redis command accepts either 2 or 3 arguments,
+ * otherwise return false
+ */
+static bool
+redis_arg2or3(struct msg *r)
+{
+    switch (r->type) {
+    case MSG_REQ_REDIS_GEODIST:
+        return true;
+
+    default:
+        break;
+    }
+
+    return false;
+}
+
+/*
  * Return true, if the redis command accepts exactly 3 arguments, otherwise
  * return false
  */
@@ -1266,6 +1284,12 @@ redis_parse_req(struct msg *r)
                         goto error;
                     }
                     state = SW_ARG1_LEN;
+                } else if (redis_arg2or3(r)) {
+                    if (r->rnarg != 2 &&
+                        r->rnarg != 3) {
+                        goto error;
+                    }
+                    state = SW_ARG1_LEN;
                 } else if (redis_arg3(r)) {
                     if (r->rnarg != 3) {
                         goto error;
@@ -1292,7 +1316,8 @@ redis_parse_req(struct msg *r)
                     }
                     state = SW_ARGN_LEN;
                 } else if (redis_argxtriple(r)) {
-                    if (r->rnarg == 0 || r->rnarg % 3 != 0) {
+                    if (r->rnarg == 0 ||
+                        r->rnarg % 3 != 0) {
                         goto error;
                     }
                     state = SW_ARG1_LEN;
@@ -1372,6 +1397,12 @@ redis_parse_req(struct msg *r)
                     goto done;
                 } else if (redis_arg2(r)) {
                     if (r->rnarg != 1) {
+                        goto error;
+                    }
+                    state = SW_ARG2_LEN;
+                } else if (redis_arg2or3(r)) {
+                    if (r->rnarg != 1 &&
+                        r->rnarg != 2) {
                         goto error;
                     }
                     state = SW_ARG2_LEN;
@@ -1511,6 +1542,16 @@ redis_parse_req(struct msg *r)
                         goto error;
                     }
                     goto done;
+                } else if (redis_arg2or3(r)) {
+                    if (r->rnarg == 0) {
+                        goto done;
+                    }
+                    if (r->rnarg != 1) {
+                        goto error;
+                    }
+
+                    /* third arg is optional */
+                    state = SW_ARG3_LEN;
                 } else if (redis_arg3(r)) {
                     if (r->rnarg != 1) {
                         goto error;
@@ -1599,7 +1640,12 @@ redis_parse_req(struct msg *r)
         case SW_ARG3_LF:
             switch (ch) {
             case LF:
-                if (redis_arg3(r)) {
+                if (redis_arg2or3(r)) {
+                    if (r->rnarg != 0) {
+                        goto error;
+                    }
+                    goto done;
+                } else if (redis_arg3(r)) {
                     if (r->rnarg != 0) {
                         goto error;
                     }

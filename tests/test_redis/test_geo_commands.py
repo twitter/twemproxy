@@ -32,4 +32,26 @@ def test_geodist():
     assert(r.geodist('Sicily', 'Palermo' , 'Catania', 'km') == 166.2742)
     
     assert(r.geodist('Sicily', 'Palermo' , 'Catania', 'mi') == 103.3182)
+
+def test_georadius():
+    r = getconn()
     
+    r.geoadd('Sicily', 
+        13.361389, 38.115556, 'Palermo', 
+        15.087269,  37.502669 , 'Catania')
+    
+    res = r.georadius('Sicily', 15, 37, 200, 'km', 'WITHDIST')
+    #assert(res == ['Agrigento', 'Palermo'])
+
+def test_georadiusbymember():
+    r = getconn()
+    
+    r.geoadd('Sicily', 
+        '13.583333', '37.316667', 'Agrigento')
+    
+    r.geoadd('Sicily', 
+        13.361389, 38.115556, 'Palermo', 
+        15.087269,  37.502669 , 'Catania')
+    
+    res = r.georadiusbymember('Sicily', 'Agrigento', 100, 'km')
+    assert(res == ['Agrigento', 'Palermo'])

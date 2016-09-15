@@ -343,7 +343,7 @@ static bool
 redis_argxtriple(struct msg *r)
 {
     switch (r->type) {
-        case MSG_REQ_REDIS_GEOADD :
+        case MSG_REQ_REDIS_GEOADD:
             return true;
             
         default :
@@ -352,6 +352,26 @@ redis_argxtriple(struct msg *r)
     
     return false;
 }
+
+/*
+ * Return true, if redis command is either georadius or 
+ * georadiusbymember, otherwise return false.
+ */
+static bool
+redis_arggeoradius(struct msg *r)
+{
+    switch (r->type) {
+        case MSG_REQ_REDIS_GEORADIUS:
+        case MSG_REQ_REDIS_GEORADIUSBYMEMBER:
+            return true;
+            
+        default :
+            break;
+    }
+    
+    return false;
+}
+
 
 /*
  * Return true, if the redis response is an error response i.e. a simple
@@ -1321,6 +1341,11 @@ redis_parse_req(struct msg *r)
                         goto error;
                     }
                     state = SW_ARG1_LEN;
+                } else if (redis_arggeoradius(r)) {
+                    if (r->rnarg < 3) {
+                        goto error;
+                    }
+                    state = SW_ARG1_LEN;
                 } else {
                     goto error;
                 }
@@ -1428,6 +1453,11 @@ redis_parse_req(struct msg *r)
                     state = SW_KEY_LEN;
                 } else if (redis_argxtriple(r)) {
                     if (r->rnarg % 3 != 2) {
+                        goto error;
+                    }
+                    state = SW_ARG2_LEN;
+                } else if (redis_arggeoradius(r)) {
+                    if (r->rnarg < 2) {
                         goto error;
                     }
                     state = SW_ARG2_LEN;
@@ -1572,6 +1602,11 @@ redis_parse_req(struct msg *r)
                         goto error;
                     }
                     state = SW_ARG3_LEN;
+                } else if (redis_arggeoradius(r)) {
+                    if (r->rnarg < 1) {
+                        goto error;
+                    }
+                    state = SW_ARG3_LEN;
                 } else {
                     goto error;
                 }
@@ -1663,6 +1698,16 @@ redis_parse_req(struct msg *r)
                         goto error;
                     }
                     state = SW_ARG1_LEN;
+                } else if (redis_arggeoradius(r)) {
+                    /* still one more mandatory arg for georadius*/
+                    if (r->rnarg == 0 && 
+                        r->type == MSG_REQ_REDIS_GEORADIUS) {
+                        goto error;
+                    }
+                    else if (r->rnarg == 0) {
+                        goto done;
+                    }
+                    state = SW_ARGN_LEN;
                 } else {
                     goto error;
                 }
@@ -1731,7 +1776,8 @@ redis_parse_req(struct msg *r)
         case SW_ARGN_LF:
             switch (ch) {
             case LF:
-                if (redis_argn(r) || redis_argeval(r)) {
+                if (redis_argn(r) || redis_argeval(r) ||
+                    redis_arggeoradius(r)) {
                     if (r->rnarg == 0) {
                         goto done;
                     }

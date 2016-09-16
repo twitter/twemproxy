@@ -205,6 +205,13 @@ struct keypos {
     uint8_t             *end;             /* key end pos */
 };
 
+SLIST_HEAD(arg_stack, arg);
+struct arg{
+    uint32_t    n;
+    uint32_t    rn;
+    SLIST_ENTRY(arg) args;
+};
+
 struct msg {
     TAILQ_ENTRY(msg)     c_tqe;           /* link in client q */
     TAILQ_ENTRY(msg)     s_tqe;           /* link in server q */
@@ -246,6 +253,7 @@ struct msg {
     uint8_t              *narg_end;       /* narg end (redis) */
     uint32_t             narg;            /* # arguments (redis) */
     uint32_t             rnarg;           /* running # arg used by parsing fsa (redis) */
+    struct arg_stack     argstk_head;
     uint32_t             rlen;            /* running length in parsing fsa (redis) */
     uint32_t             integer;         /* integer reply value (redis) */
 

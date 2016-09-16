@@ -255,6 +255,7 @@ done:
     msg->narg_end = NULL;
     msg->narg = 0;
     msg->rnarg = 0;
+    SLIST_INIT(&msg->argstk_head);
     msg->rlen = 0;
     msg->integer = 0;
 
@@ -360,7 +361,13 @@ static void
 msg_free(struct msg *msg)
 {
     ASSERT(STAILQ_EMPTY(&msg->mhdr));
-
+    
+    while (!SLIST_EMPTY(&msg->argstk_head)) {
+        struct arg *argp = SLIST_FIRST(&msg->argstk_head);
+        SLIST_REMOVE_HEAD(&msg->argstk_head, args);
+        free(argp);
+    }
+    
     log_debug(LOG_VVERB, "free msg %p id %"PRIu64"", msg, msg->id);
     nc_free(msg);
 }

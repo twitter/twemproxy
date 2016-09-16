@@ -1909,15 +1909,8 @@ redis_parse_rsp(struct msg *r)
         SW_SENTINEL
     } state;
     
-    SLIST_HEAD(arg_stack, arg) argstk_head =
-        SLIST_HEAD_INITIALIZER(argstk_head);
-    struct arg{
-        uint32_t    n;
-        uint32_t    rn;
-        SLIST_ENTRY(arg) args;
-    } *argp;
-    SLIST_INIT(&argstk_head);
-    
+    struct arg *argp;
+        
     state = r->state;
     b = STAILQ_LAST(&r->mhdr, mbuf, next);
 
@@ -2108,14 +2101,12 @@ redis_parse_rsp(struct msg *r)
 
         case SW_SIMPLE:
             if (ch == CR) {
-              if (SLIST_EMPTY(&argstk_head)) {
+              if (SLIST_EMPTY(&r->argstk_head)) {
                   goto error;
               }
               
               state = SW_MULTIBULK_ARGN_LF;
-              
-              SLIST_FIRST(&argstk_head)->rn--;
-              r->rnarg--;
+              SLIST_FIRST(&r->argstk_head)->rn--;
             }
             break;
 
@@ -2134,11 +2125,11 @@ redis_parse_rsp(struct msg *r)
         case SW_RUNTO_CRLF:
             switch (ch) {
             case CR:
-                if (SLIST_EMPTY(&argstk_head)) {
+                if (SLIST_EMPTY(&r->argstk_head)) {
                     state = SW_ALMOST_DONE;
                 }
                 else {
-                    SLIST_FIRST(&argstk_head)->rn--;
+                    SLIST_FIRST(&r->argstk_head)->rn--;
                     r->token = NULL;
                     state = SW_MULTIBULK_ARGN_LF;
                 }
@@ -2238,32 +2229,33 @@ redis_parse_rsp(struct msg *r)
                 r->token = p;
                 /* rsp_start <- p */
                 r->narg_start = p;
-                r->rnarg = 0;
                 
                 argp = malloc(sizeof(struct arg));
                 argp->rn = 0;
-                SLIST_INSERT_HEAD(&argstk_head, argp, args);
+                argp->n = 0;
+                SLIST_INSERT_HEAD(&r->argstk_head, argp, args);
             } else if (ch == '-') {
-                if (SLIST_EMPTY(&argstk_head)) {
+                if (SLIST_EMPTY(&r->argstk_head)) {
                     goto error;
                 }
                 /* NULL array, so delete argn */
-                argp = SLIST_FIRST(&argstk_head);
-                SLIST_REMOVE_HEAD(&argstk_head, args);
+                argp = SLIST_FIRST(&r->argstk_head);
+                SLIST_REMOVE_HEAD(&r->argstk_head, args);
                 free(argp);
                 argp = NULL;
                 
                 state = SW_RUNTO_CRLF;
             } else if (isdigit(ch)) {
-                r->rnarg = r->rnarg * 10 + (uint32_t)(ch - '0');
-                SLIST_FIRST(&argstk_head)->rn = r->rnarg;
+                SLIST_FIRST(&r->argstk_head)->rn = 
+                        SLIST_FIRST(&r->argstk_head)->rn * 10 + 
+                            (uint32_t)(ch - '0');
             } else if (ch == CR) {
                 if ((p - r->token) <= 1) {
                     goto error;
                 }
 
-                r->narg = r->rnarg;
-                SLIST_FIRST(&argstk_head)->n = r->rnarg;
+                SLIST_FIRST(&r->argstk_head)->n = 
+                        SLIST_FIRST(&r->argstk_head)->rn;
                 r->narg_end = p;
                 r->token = NULL;
                 state = SW_MULTIBULK_NARG_LF;
@@ -2276,21 +2268,21 @@ redis_parse_rsp(struct msg *r)
         case SW_MULTIBULK_NARG_LF:
             switch (ch) {
             case LF:
-                if (SLIST_EMPTY(&argstk_head)) {
+                if (SLIST_EMPTY(&r->argstk_head)) {
                     goto error;
                 }
                 /* response is '*0\r\n' */
-                argp = SLIST_FIRST(&argstk_head);
+                argp = SLIST_FIRST(&r->argstk_head);
                 if (argp->rn == 0) {
-                    SLIST_REMOVE_HEAD(&argstk_head, args);
+                    SLIST_REMOVE_HEAD(&r->argstk_head, args);
                     free(argp);
                     argp = NULL;
 
-                    if (SLIST_EMPTY(&argstk_head)) {
+                    if (SLIST_EMPTY(&r->argstk_head)) {
                         goto done;
                     }
                     else { //decrement prev, since we already finished one
-                        SLIST_FIRST(&argstk_head)->rn--;
+                        SLIST_FIRST(&r->argstk_head)->rn--;
                         p = p - 1;
                         state = SW_MULTIBULK_ARGN_LF;
                         break;
@@ -2316,23 +2308,9 @@ redis_parse_rsp(struct msg *r)
                  * of a multi bulk reply can be of any kind, including a
                  * nested multi bulk reply.
                  *
-                 * Here, we only handle a multi bulk reply element that
-                 * are either integer reply or bulk reply.
-                 *
-                 * there is a special case for sscan/hscan/zscan, these command
-                 * replay a nested multi-bulk with a number and a multi bulk like this:
-                 *
-                 * - mulit-bulk
-                 *    - cursor
-                 *    - mulit-bulk
-                 *       - val1
-                 *       - val2
-                 *       - val3
-                 *
-                 * in this case, there is only one sub-multi-bulk,
-                 * and it's the last element of parent,
-                 * we can handle it like tail-recursive.
-                 *
+                 * We use stack data struct r->argstk_head to impelement nested
+                 * multi bulk reply.
+                 * 
                  */
                 if (ch == '*') {    /* for sscan/hscan/zscan only */
                     p = p - 1;      /* go back by 1 byte */
@@ -2358,8 +2336,8 @@ redis_parse_rsp(struct msg *r)
             } else if (ch == '-') {
                 ;
             } else if (ch == CR) {
-                if ((p - r->token) <= 1 || SLIST_EMPTY(&argstk_head) || 
-                        SLIST_FIRST(&argstk_head)->rn == 0) {
+                if ((p - r->token) <= 1 || SLIST_EMPTY(&r->argstk_head) || 
+                        SLIST_FIRST(&r->argstk_head)->rn == 0) {
                     goto error;
                 }
 
@@ -2369,8 +2347,7 @@ redis_parse_rsp(struct msg *r)
                 } else {
                     state = SW_MULTIBULK_ARGN_LEN_LF;
                 }
-                r->rnarg--;
-                SLIST_FIRST(&argstk_head)->rn--;
+                SLIST_FIRST(&r->argstk_head)->rn--;
                 r->token = NULL;
             } else {
                 goto error;
@@ -2413,21 +2390,21 @@ redis_parse_rsp(struct msg *r)
         case SW_MULTIBULK_ARGN_LF:
             switch (ch) {
             case LF:
-                if (SLIST_EMPTY(&argstk_head)) {
+                if (SLIST_EMPTY(&r->argstk_head)) {
                     goto error;
                 }
                 
-                argp = SLIST_FIRST(&argstk_head);
+                argp = SLIST_FIRST(&r->argstk_head);
                 if (argp->rn == 0) {
-                    SLIST_REMOVE_HEAD(&argstk_head, args);
+                    SLIST_REMOVE_HEAD(&r->argstk_head, args);
                     free(argp);
                     argp = NULL;
 
-                    if (SLIST_EMPTY(&argstk_head)) {
+                    if (SLIST_EMPTY(&r->argstk_head)) {
                         goto done;
                     }
                     else { //decrement prev, since we already finished one
-                        SLIST_FIRST(&argstk_head)->rn--;
+                        SLIST_FIRST(&r->argstk_head)->rn--;
                         p = p - 1;
                         state = SW_MULTIBULK_ARGN_LF;
                         break;
@@ -2464,12 +2441,6 @@ redis_parse_rsp(struct msg *r)
         r->result = MSG_PARSE_AGAIN;
     }
     
-    while (!SLIST_EMPTY(&argstk_head)) {
-        argp = SLIST_FIRST(&argstk_head);
-        SLIST_REMOVE_HEAD(&argstk_head, args);
-        free(argp);
-    }
-
     log_hexdump(LOG_VERB, b->pos, mbuf_length(b), "parsed rsp %"PRIu64" res %d "
                 "type %d state %d rpos %d of %d", r->id, r->result, r->type,
                 r->state, r->pos - b->pos, b->last - b->pos);
@@ -2483,12 +2454,6 @@ done:
     r->token = NULL;
     r->result = MSG_PARSE_OK;
 
-    while (!SLIST_EMPTY(&argstk_head)) {
-        argp = SLIST_FIRST(&argstk_head);
-        SLIST_REMOVE_HEAD(&argstk_head, args);
-        free(argp);
-    }
-    
     log_hexdump(LOG_VERB, b->pos, mbuf_length(b), "parsed rsp %"PRIu64" res %d "
                 "type %d state %d rpos %d of %d", r->id, r->result, r->type,
                 r->state, r->pos - b->pos, b->last - b->pos);
@@ -2498,12 +2463,6 @@ error:
     r->result = MSG_PARSE_ERROR;
     r->state = state;
     errno = EINVAL;
-
-    while (!SLIST_EMPTY(&argstk_head)) {
-        argp = SLIST_FIRST(&argstk_head);
-        SLIST_REMOVE_HEAD(&argstk_head, args);
-        free(argp);
-    }
 
     log_hexdump(LOG_INFO, b->pos, mbuf_length(b), "parsed bad rsp %"PRIu64" "
                 "res %d type %d state %d", r->id, r->result, r->type,

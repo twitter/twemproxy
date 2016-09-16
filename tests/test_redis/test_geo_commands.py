@@ -33,6 +33,19 @@ def test_geodist():
     
     assert(r.geodist('Sicily', 'Palermo' , 'Catania', 'mi') == 103.3182)
 
+def test_geopos():
+    r = getconn()
+    
+    r.geoadd('Sicily', 
+        13.361389, 38.115556, 'Palermo', 
+        15.087269,  37.502669 , 'Catania')
+        
+    res = r.geopos('Sicily', 
+        'Palermo', 'Catania')
+        
+    assert(res == [(13.361389338970184, 38.1155563954963), 
+        (15.087267458438873, 37.50266842333162)])
+
 def test_georadius():
     r = getconn()
     
@@ -41,7 +54,7 @@ def test_georadius():
         15.087269,  37.502669 , 'Catania')
     
     res = r.georadius('Sicily', 15, 37, 200, 'km', 'WITHDIST')
-    #assert(res == ['Agrigento', 'Palermo'])
+    assert(res == [['Palermo', 190.4424], ['Catania', 56.4413]])
 
 def test_georadiusbymember():
     r = getconn()

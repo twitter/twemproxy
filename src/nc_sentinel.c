@@ -1,10 +1,17 @@
 #include <nc_core.h>
-#include <nc_conf.h>
 #include <nc_sentinel.h>
+#include <nc_conf.h>
+
+#define SENTINEL_KEEP_INTERVAL 30
+
+#define SENTINEL_INFO     "*2\r\n$4\r\ninfo\r\n$8\r\nsentinel\r\n"
+#define SENTINEL_SUB      "*3\r\n$9\r\nsubscribe\r\n$14\r\n+switch-master\r\n$19\r\n+redirect-to-master\r\n"
+#define SENTINEL_SWITCH   "+switch-master"
+#define SENTINEL_REDIRECT "+redirect-to-master"
 
 static char *sentinel_reqs[] = {
-    INFO_SENTINEL,
-    SUB_SWITCH_REDIRECT
+    SENTINEL_INFO,
+    SENTINEL_SUB
 };
 
 struct conn *
@@ -428,7 +435,7 @@ sentinel_recv_done(struct context *ctx, struct conn *conn, struct msg *msg,
         break;
 
     case CONN_ACK_INFO:
-        string_set_text(&sub_channel, SENTINEL_SWITCH_CHANNEL);
+        string_set_text(&sub_channel, SENTINEL_SWITCH);
         status = sentinel_proc_acksub(ctx, msg, &sub_channel);
         if (status == NC_OK) {
             conn->status = CONN_ACK_SWITCH_SUB;
@@ -436,7 +443,7 @@ sentinel_recv_done(struct context *ctx, struct conn *conn, struct msg *msg,
         break;
 
     case CONN_ACK_SWITCH_SUB:
-        string_set_text(&sub_channel, SENTINEL_REDIRECT_CHANNEL);
+        string_set_text(&sub_channel, SENTINEL_REDIRECT);
         status = sentinel_proc_acksub(ctx, msg, &sub_channel);
         if (status == NC_OK) {
             conn->status = CONN_ACK_REDIRECT_SUB;

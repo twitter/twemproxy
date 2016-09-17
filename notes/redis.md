@@ -460,4 +460,28 @@
     + *MUST* set all redis with a same passwd, and all twemproxy with the same passwd
     + Length of password should less than 256 
 
+## redis-sentinel feature
+
++ You can configure sentinel for a pool with 'sentinels' to let twemproxy works with sentinel:
+
+        sigma:
+          listen: 127.0.0.1:22125
+          hash: fnv1a_64
+          distribution: ketama
+          auto_eject_hosts: false
+          redis: true
+          server_retry_timeout: 2000
+          server_failure_limit: 1
+          servers:
+            - 127.0.0.1:6379:1 server1
+            - 127.0.0.1:6380:1 server2
+          sentinels:
+            - 127.0.0.1:26379:1
+            - 127.0.0.1:26380:1
+            - 127.0.0.1:26381:1
+
++ notice:
+    + You should configure all the sentinels you used. Twemproxy will connect to the alive sentinels when some are down
+    + Weight of sentinel is not used. Twemproxy keep it because of server load code reuse
+
 

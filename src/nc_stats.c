@@ -516,7 +516,7 @@ stats_add_header(struct stats *st)
         return status;
     }
 
-    status = stats_add_num(st, &st->ntotal_conn_str, conn_ntotal_conn());
+    status = stats_add_num(st, &st->ntotal_conn_str, (int64_t)conn_ntotal_conn());
     if (status != NC_OK) {
         return status;
     }
@@ -1142,6 +1142,11 @@ _stats_server_incr(struct context *ctx, struct server *server,
 {
     struct stats_metric *stm;
 
+    /* proxy don't stats sentinel server */
+    if (server->sentinel) {
+        return;
+    }
+
     stm = stats_server_to_metric(ctx, server, fidx);
 
     ASSERT(stm->type == STATS_COUNTER || stm->type == STATS_GAUGE);
@@ -1156,6 +1161,11 @@ _stats_server_decr(struct context *ctx, struct server *server,
                    stats_server_field_t fidx)
 {
     struct stats_metric *stm;
+
+    /* proxy don't stats sentinel server */
+    if (server->sentinel) {
+        return;
+    }
 
     stm = stats_server_to_metric(ctx, server, fidx);
 
@@ -1172,6 +1182,11 @@ _stats_server_incr_by(struct context *ctx, struct server *server,
 {
     struct stats_metric *stm;
 
+    /* proxy don't stats sentinel server */
+    if (server->sentinel) {
+        return;
+    }
+
     stm = stats_server_to_metric(ctx, server, fidx);
 
     ASSERT(stm->type == STATS_COUNTER || stm->type == STATS_GAUGE);
@@ -1187,6 +1202,11 @@ _stats_server_decr_by(struct context *ctx, struct server *server,
 {
     struct stats_metric *stm;
 
+    /* proxy don't stats sentinel server */
+    if (server->sentinel) {
+        return;
+    }
+
     stm = stats_server_to_metric(ctx, server, fidx);
 
     ASSERT(stm->type == STATS_GAUGE);
@@ -1201,6 +1221,11 @@ _stats_server_set_ts(struct context *ctx, struct server *server,
                      stats_server_field_t fidx, int64_t val)
 {
     struct stats_metric *stm;
+
+    /* proxy don't stats sentinel server */
+    if (server->sentinel) {
+        return;
+    }
 
     stm = stats_server_to_metric(ctx, server, fidx);
 

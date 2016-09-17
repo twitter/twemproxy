@@ -20,6 +20,14 @@
 
 #include <nc_core.h>
 
+typedef enum conn_status {
+    CONN_DISCONNECTED,
+    CONN_SEND_REQ,
+    CONN_ACK_INFO,
+    CONN_ACK_SWITCH_SUB,
+    CONN_ACK_REDIRECT_SUB,
+} conn_status_t;
+
 typedef rstatus_t (*conn_recv_t)(struct context *, struct conn*);
 typedef struct msg* (*conn_recv_next_t)(struct context *, struct conn *, bool);
 typedef void (*conn_recv_done_t)(struct context *, struct conn *, struct msg *, struct msg *);
@@ -89,6 +97,8 @@ struct conn {
     unsigned            done:1;          /* done? aka close? */
     unsigned            redis:1;         /* redis? */
     unsigned            authenticated:1; /* authenticated? */
+
+    conn_status_t       status;          /* conn status, just used for sentinel at present */
 };
 
 TAILQ_HEAD(conn_tqh, conn);

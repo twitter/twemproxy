@@ -113,8 +113,8 @@ core_ctx_create(struct instance *nci)
         return NULL;
     }
 
-    /* preconnect? servers in server pool */
-    status = server_pool_preconnect(ctx);
+    /* connect sentinel always, connect servers if preconnect is true */
+    status = server_pool_connect(ctx);
     if (status != NC_OK) {
         server_pool_disconnect(ctx);
         event_base_destroy(ctx->evb);

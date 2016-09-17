@@ -193,6 +193,49 @@ class RedisServer(Base):
         logging.info('%s %s' % (self, cmd))
         return self._run(cmd)
 
+class RedisSentinel(RedisServer):
+    def __init__(self, host, port, path, cluster_name, server_name, masters, quorum, down_time, auth = None):
+        RedisServer.__init__(self, host, port, path, cluster_name, server_name, auth)
+
+        self.masters = masters
+        self.quorum = quorum
+        self.down_time = down_time
+
+        self.args['startcmd']     = TT('bin/redis-sentinel conf/sentinel.conf', self.args)
+        self.args['runcmd']       = TT('redis-sentinel \*:$port', self.args)
+        self.args['conf']         = TT('$path/conf/sentinel.conf', self.args)
+        self.args['pidfile']      = TT('$path/log/sentinel.pid', self.args)
+        self.args['logfile']      = TT('$path/log/sentinel.log', self.args)
+
+    def _gen_conf_section(self):
+        template = '''
+sentinel monitor $server_name $host $port %d
+sentinel down-after-milliseconds $server_name %d
+sentinel parallel-syncs $server_name 1
+sentinel failover-timeout $server_name 180000
+''' % (self.quorum, self.down_time)
+        cfg = '\n'.join([TT(template, master.args) for master in self.masters])
+        return cfg
+
+    def _gen_conf(self):
+        content = file(os.path.join(WORKDIR, 'conf/sentinel.conf')).read()
+        content = TT(content, self.args)
+        if self.args['auth']:
+            content += '\r\nrequirepass %s' % self.args['auth']
+        return content + self._gen_conf_section()
+
+    def _pre_deploy(self):
+        self.args['BINS'] = conf.BINARYS['REDIS_SERVER_BINS']
+        self._run(TT('cp $BINS $path/bin/', self.args))
+
+        fout = open(TT('$path/conf/sentinel.conf', self.args), 'w+')
+        fout.write(self._gen_conf())
+        fout.close()
+
+    def failover(self, server_name):
+        cmd = 'SENTINEL FAILOVER %s' % server_name
+        return self.rediscmd(cmd)
+
 class Memcached(Base):
     def __init__(self, host, port, path, cluster_name, server_name):
         Base.__init__(self, 'memcached', host, port, path)
@@ -214,10 +257,11 @@ class Memcached(Base):
 
 class NutCracker(Base):
     def __init__(self, host, port, path, cluster_name, masters, mbuf=512,
-            verbose=5, is_redis=True, redis_auth=None):
+            verbose=5, is_redis=True, redis_auth=None, sentinels=None):
         Base.__init__(self, 'nutcracker', host, port, path)
 
         self.masters = masters
+        self.sentinels = sentinels
 
         self.args['mbuf']        = mbuf
         self.args['verbose']     = verbose
@@ -239,9 +283,9 @@ class NutCracker(Base):
     def _alive(self):
         return self._info_dict()
 
-    def _gen_conf_section(self):
+    def _gen_conf_section(self, servers):
         template = '    - $host:$port:1 $server_name'
-        cfg = '\n'.join([TT(template, master.args) for master in self.masters])
+        cfg = '\n'.join([TT(template, server.args) for server in servers])
         return cfg
 
     def _gen_conf(self):
@@ -265,7 +309,13 @@ $cluster_name:
             content = content.replace('redis: $is_redis',
                     'redis: $is_redis\r\n  redis_auth: $redis_auth')
         content = TT(content, self.args)
-        return content + self._gen_conf_section()
+        content += self._gen_conf_section(self.masters)
+        if self.args['is_redis'] and self.sentinels:
+            content += '''
+  sentinels:
+'''
+            content += self._gen_conf_section(self.sentinels)
+        return content
 
     def _pre_deploy(self):
         self.args['BINS'] = conf.BINARYS['NUTCRACKER_BINS']
@@ -290,8 +340,10 @@ $cluster_name:
                           [Exception: %s]' % (e, ))
             return None
 
-    def reconfig(self, masters):
+    def reconfig(self, masters, sentinels=None):
         self.masters = masters
+        if sentinels:
+            self.sentinels = sentinels
         self.stop()
         self.deploy()
         self.start()

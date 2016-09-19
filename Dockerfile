@@ -1,22 +1,19 @@
 FROM ubuntu:16.04
 MAINTAINER Devin Ekins <devops@keen.io>
 
-WORKDIR /home/ubuntu/twemproxy
-
 # Setup the dependencies
 RUN apt-get update -y
 RUN apt-get install -y apt-utils
 RUN apt-get install -y libtool make automake
 
+# Copy local repo into the container
+ADD . /twemproxy
+WORKDIR /twemproxy
+
 # Install Twemproxy
 RUN autoreconf -fvi && \
     ./configure --enable-debug=full && \
     make
-
-# Copy the configuration files for all twemproxy environments.
-COPY twemproxy_dev_conf.yaml .
-COPY twemproxy_stage_conf.yaml .
-COPY twemproxy_prod_conf.yaml .
 
 # Expose Twemproxy Ports
 EXPOSE 22122 22222

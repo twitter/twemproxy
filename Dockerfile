@@ -1,14 +1,15 @@
 FROM ubuntu:16.04
 MAINTAINER Devin Ekins <devops@keen.io>
 
+WORKDIR /home/ubuntu/twemproxy
+
 # Setup the dependencies
 RUN apt-get update -y
 RUN apt-get install -y apt-utils
 RUN apt-get install -y libtool make automake
 
 # Install Twemproxy
-RUN cd /home/ubuntu/twemproxy && \
-    autoreconf -fvi && \
+RUN autoreconf -fvi && \
     ./configure --enable-debug=full && \
     make
 

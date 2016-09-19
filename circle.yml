@@ -1,0 +1,15 @@
+machine:
+  services:
+    - docker
+
+database:
+  override:
+    - docker login -e $DOCKER_EMAIL -u $DOCKER_USER -p $DOCER_PASS
+
+deployment:
+  package:
+    branch: /.*/
+    commands:
+      - docker build -t keen/twemproxy:$CIRCLE_BUILD_NUM .
+      - docker tag -f keen/twemproxy:$CIRCLE_BUILD_NUM keen/twemproxy:$CIRCLE_BRANCH
+      - docker push keen/twemproxy

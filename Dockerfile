@@ -6,10 +6,7 @@ RUN apt-get update -y && \
     apt-get install -y libtool make automake curl
 
 # Install Twemproxy
-RUN curl -L https://github.com/twitter/twemproxy/archive/v0.4.1.tar.gz -O && \
-    tar -xzf v0.4.1.tar.gz && \
-    cd twemproxy-0.4.1 && \
-    autoreconf -fvi && \
+RUN autoreconf -fvi && \
     ./configure --enable-debug=full && \
     make
 

@@ -7,7 +7,8 @@ RUN apt-get install -y apt-utils
 RUN apt-get install -y libtool make automake
 
 # Install Twemproxy
-RUN autoreconf -fvi && \
+RUN cd /home/ubuntu/twemproxy && \
+    autoreconf -fvi && \
     ./configure --enable-debug=full && \
     make
 

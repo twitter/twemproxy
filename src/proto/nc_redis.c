@@ -2232,7 +2232,7 @@ redis_parse_rsp(struct msg *r)
                 
                 argp = malloc(sizeof(struct arg));
                 argp->rn = 0;
-                argp->n = 0;
+                r->narg = 0;
                 SLIST_INSERT_HEAD(&r->argstk_head, argp, args);
             } else if (ch == '-') {
                 if (SLIST_EMPTY(&r->argstk_head)) {
@@ -2254,8 +2254,7 @@ redis_parse_rsp(struct msg *r)
                     goto error;
                 }
 
-                SLIST_FIRST(&r->argstk_head)->n = 
-                        SLIST_FIRST(&r->argstk_head)->rn;
+                r->narg = SLIST_FIRST(&r->argstk_head)->rn;
                 r->narg_end = p;
                 r->token = NULL;
                 state = SW_MULTIBULK_NARG_LF;

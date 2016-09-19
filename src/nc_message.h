@@ -207,7 +207,6 @@ struct keypos {
 
 SLIST_HEAD(arg_stack, arg);
 struct arg{
-    uint32_t    n;
     uint32_t    rn;
     SLIST_ENTRY(arg) args;
 };

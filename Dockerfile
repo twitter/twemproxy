@@ -2,10 +2,9 @@ FROM ubuntu:16.04
 MAINTAINER Devin Ekins <devops@keen.io>
 
 # Setup the dependencies
+RUN apt-get update -y
 RUN apt-get install -y apt-utils
-
-RUN apt-get update -y && \
-    apt-get install -y libtool make automake
+RUN apt-get install -y libtool make automake
 
 # Install Twemproxy
 RUN autoreconf -fvi && \

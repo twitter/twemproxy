@@ -1,6 +1,0 @@
-.git/
-.gitignore
-man/
-notes/
-tests/
-.travis*

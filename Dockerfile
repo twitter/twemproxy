@@ -3,7 +3,7 @@ MAINTAINER Devin Ekins <devops@keen.io>
 
 # Setup the dependencies
 RUN apt-get update -y && \
-    apt-get install -y libtool make automake curl
+    apt-get install -y apt-utils libtool make automake
 
 # Install Twemproxy
 RUN autoreconf -fvi && \

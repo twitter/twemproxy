@@ -11,12 +11,12 @@ if [ -n "$TRAVIS" ]; then
     sudo pip install redis
     sudo pip install nose
 
-    sudo pip install git+https://github.com/andymccurdy/redis-py.git@2.10.3
+    sudo pip install git+https://github.com/andymccurdy/redis-py.git@master
     sudo pip install git+https://github.com/idning/python-memcached.git#egg=memcache
-fi 
+fi
 
 #build twemproxy
-CFLAGS="-ggdb3 -O0" autoreconf -fvi && ./configure --enable-debug=log && make 
+CFLAGS="-ggdb3 -O0" autoreconf -fvi && ./configure --enable-debug=log && make
 
 ln -s `pwd`/src/nutcracker  tests/_binaries/
 cp `which redis-server` tests/_binaries/
@@ -25,4 +25,3 @@ cp `which memcached` tests/_binaries/
 
 #run test
 cd tests/ && nosetests --nologcapture -x -v
-

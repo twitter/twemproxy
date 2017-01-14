@@ -435,7 +435,7 @@ memcache_parse_req(struct msg *r)
 
         case SW_SPACES_BEFORE_EXPIRY:
             if (ch != ' ') {
-                if (!isdigit(ch)) {
+                if (!(isdigit(ch) || ch == '-')) {
                     goto error;
                 }
                 /* expiry_start <- p; expiry <- ch - '0' */

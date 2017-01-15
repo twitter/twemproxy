@@ -182,6 +182,8 @@ typedef enum stats_server_field {
 
 #define stats_pool_decr_by(_ctx, _pool, _name, _val)
 
+#define stats_pool_set_ts(_ctx, _pool, _name, _val)
+
 #define stats_server_incr(_ctx, _server, _name)
 
 #define stats_server_decr(_ctx, _server, _name)
@@ -189,6 +191,8 @@ typedef enum stats_server_field {
 #define stats_server_incr_by(_ctx, _server, _name, _val)
 
 #define stats_server_decr_by(_ctx, _server, _name, _val)
+
+#define stats_server_set_ts(_ctx, _server, _name, val)
 
 #endif
 

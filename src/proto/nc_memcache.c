@@ -141,6 +141,8 @@ memcache_parse_req(struct msg *r)
     struct mbuf *b;
     uint8_t *p, *m;
     uint8_t ch;
+    uint8_t *last_num;
+    int last_num_size;
     enum {
         SW_START,
         SW_REQ_TYPE,
@@ -161,11 +163,15 @@ memcache_parse_req(struct msg *r)
         SW_NUM,
         SW_RUNTO_CRLF,
         SW_CRLF,
+        SW_RUNTO_DELETE_CRLF,
         SW_NOREPLY,
         SW_AFTER_NOREPLY,
         SW_ALMOST_DONE,
         SW_SENTINEL
     } state;
+
+    last_num = NULL;
+    last_num_size = 0;
 
     state = r->state;
     b = STAILQ_LAST(&r->mhdr, mbuf, next);
@@ -372,7 +378,7 @@ memcache_parse_req(struct msg *r)
                 } else if (memcache_arithmetic(r) || memcache_touch(r) ) {
                     state = SW_SPACES_BEFORE_NUM;
                 } else if (memcache_delete(r)) {
-                    state = SW_RUNTO_CRLF;
+                    state = SW_RUNTO_DELETE_CRLF;
                 } else if (memcache_retrieval(r)) {
                     state = SW_SPACES_BEFORE_KEYS;
                 } else {
@@ -563,6 +569,7 @@ memcache_parse_req(struct msg *r)
                 }
                 /* num_start <- p; num <- ch - '0'  */
                 r->token = p;
+                last_num = p;
                 state = SW_NUM;
             }
 
@@ -573,11 +580,38 @@ memcache_parse_req(struct msg *r)
                 /* num <- num * 10 + (ch - '0') */
                 ;
             } else if (ch == ' ' || ch == CR) {
+                last_num_size = (int)(p - r->token);
                 r->token = NULL;
                 /* num_end <- p - 1 */
                 p = p - 1; /* go back by 1 byte */
                 state = SW_RUNTO_CRLF;
             } else {
+                goto error;
+            }
+
+            break;
+
+        case SW_RUNTO_DELETE_CRLF:
+            if (isdigit(ch)) {
+                state = SW_SPACES_BEFORE_NUM;
+                p = p - 1;
+                break;
+            }
+
+            switch (ch) {
+            case ' ':
+                break;
+
+            case CR:
+                state = SW_ALMOST_DONE;
+                break;
+
+            case 'n':
+                r->token = p;
+                state = SW_NOREPLY;
+                break;
+
+            default:
                 goto error;
             }
 
@@ -626,6 +660,8 @@ memcache_parse_req(struct msg *r)
                     r->noreply = 1;
                     state = SW_AFTER_NOREPLY;
                     p = p - 1; /* go back by 1 byte */
+                    last_num = NULL;
+                    last_num_size = 0;
                 } else {
                     goto error;
                 }
@@ -668,6 +704,12 @@ memcache_parse_req(struct msg *r)
             break;
 
         case SW_ALMOST_DONE:
+            if (memcache_delete(r) && last_num != NULL) {
+                if (last_num_size != 1 || last_num[0] != '0') {
+                    goto error;
+                }
+            }
+
             switch (ch) {
             case LF:
                 /* req_end <- p */

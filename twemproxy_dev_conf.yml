@@ -1,0 +1,15 @@
+---
+# twemproxy_dev_conf.yaml
+
+resilient_caching_proxy:
+  listen: 127.0.0.1:22122
+  hash: fnv1a_64               # slightly informed choice
+  distribution: ketama         # algorithm found here: https://github.com/RJ/ketama
+  auto_eject_hosts: true       # hosts that fail to serve traffic are temporarily ejected
+  redis: true                  # use redis, not memcached
+  server_retry_timeout: 30000  # 30 seconds to allow a server to rejoin after failing
+  timeout: 400                 # 0.4 seconds for request to timeout
+  server_failure_limit: 3      # 3 consecutive failures triggers an ejection
+  servers:
+    - 127.0.0.1:6380:1 server1
+    - 127.0.0.1:6379:1 server2

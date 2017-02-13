@@ -98,6 +98,7 @@ proxy_reuse(struct conn *p)
     switch (p->family) {
     case AF_INET:
     case AF_INET6:
+        nc_set_reuseport(p->sd);
         status = nc_set_reuseaddr(p->sd);
         break;
 

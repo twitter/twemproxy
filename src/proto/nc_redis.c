@@ -216,6 +216,8 @@ redis_argn(struct msg *r)
     case MSG_REQ_REDIS_BITCOUNT:
     case MSG_REQ_REDIS_BITPOS:
 
+    case MSG_REQ_REDIS_SORT:
+
     case MSG_REQ_REDIS_SET:
     case MSG_REQ_REDIS_HDEL:
     case MSG_REQ_REDIS_HMGET:

@@ -2550,7 +2550,7 @@ redis_fragment_argx(struct msg *r, uint32_t ncontinuum, struct msg_tqh *frag_msg
 
     ASSERT(array_n(r->keys) == (r->narg - 1) / key_step);
 
-    sub_msgs = nc_zalloc(ncontinuum * sizeof(*sub_msgs));
+    sub_msgs = get_sub_msgs(ncontinuum);
     if (sub_msgs == NULL) {
         return NC_ENOMEM;
     }
@@ -2558,7 +2558,6 @@ redis_fragment_argx(struct msg *r, uint32_t ncontinuum, struct msg_tqh *frag_msg
     ASSERT(r->frag_seq == NULL);
     r->frag_seq = nc_alloc(array_n(r->keys) * sizeof(*r->frag_seq));
     if (r->frag_seq == NULL) {
-        nc_free(sub_msgs);
         return NC_ENOMEM;
     }
 
@@ -2590,7 +2589,6 @@ redis_fragment_argx(struct msg *r, uint32_t ncontinuum, struct msg_tqh *frag_msg
         if (sub_msgs[idx] == NULL) {
             sub_msgs[idx] = msg_get(r->owner, r->request, r->redis);
             if (sub_msgs[idx] == NULL) {
-                nc_free(sub_msgs);
                 return NC_ENOMEM;
             }
         }
@@ -2599,7 +2597,6 @@ redis_fragment_argx(struct msg *r, uint32_t ncontinuum, struct msg_tqh *frag_msg
         sub_msg->narg++;
         status = redis_append_key(sub_msg, kpos->start, kpos->end - kpos->start);
         if (status != NC_OK) {
-            nc_free(sub_msgs);
             return status;
         }
 
@@ -2608,13 +2605,11 @@ redis_fragment_argx(struct msg *r, uint32_t ncontinuum, struct msg_tqh *frag_msg
         } else {                                        /* mset */
             status = redis_copy_bulk(NULL, r);          /* eat key */
             if (status != NC_OK) {
-                nc_free(sub_msgs);
                 return status;
             }
 
             status = redis_copy_bulk(sub_msg, r);
             if (status != NC_OK) {
-                nc_free(sub_msgs);
                 return status;
             }
 
@@ -2641,7 +2636,6 @@ redis_fragment_argx(struct msg *r, uint32_t ncontinuum, struct msg_tqh *frag_msg
             NOT_REACHED();
         }
         if (status != NC_OK) {
-            nc_free(sub_msgs);
             return status;
         }
 
@@ -2653,7 +2647,6 @@ redis_fragment_argx(struct msg *r, uint32_t ncontinuum, struct msg_tqh *frag_msg
         r->nfrag++;
     }
 
-    nc_free(sub_msgs);
     return NC_OK;
 }
 

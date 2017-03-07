@@ -160,4 +160,5 @@ rstatus_t redis_reply(struct msg *r);
 void redis_post_connect(struct context *ctx, struct conn *conn, struct server *server);
 void redis_swallow_msg(struct conn *conn, struct msg *pmsg, struct msg *msg);
 
+struct msg **get_sub_msgs(uint32_t ncontinuum);
 #endif

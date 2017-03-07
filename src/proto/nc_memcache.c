@@ -1245,7 +1245,7 @@ memcache_fragment_retrieval(struct msg *r, uint32_t ncontinuum,
     uint32_t i;
     rstatus_t status;
 
-    sub_msgs = nc_zalloc(ncontinuum * sizeof(*sub_msgs));
+    sub_msgs = get_sub_msgs(ncontinuum);
     if (sub_msgs == NULL) {
         return NC_ENOMEM;
     }
@@ -1253,7 +1253,6 @@ memcache_fragment_retrieval(struct msg *r, uint32_t ncontinuum,
     ASSERT(r->frag_seq == NULL);
     r->frag_seq = nc_alloc(array_n(r->keys) * sizeof(*r->frag_seq));
     if (r->frag_seq == NULL) {
-        nc_free(sub_msgs);
         return NC_ENOMEM;
     }
 
@@ -1283,7 +1282,6 @@ memcache_fragment_retrieval(struct msg *r, uint32_t ncontinuum,
         if (sub_msgs[idx] == NULL) {
             sub_msgs[idx] = msg_get(r->owner, r->request, r->redis);
             if (sub_msgs[idx] == NULL) {
-                nc_free(sub_msgs);
                 return NC_ENOMEM;
             }
         }
@@ -1292,7 +1290,6 @@ memcache_fragment_retrieval(struct msg *r, uint32_t ncontinuum,
         sub_msg->narg++;
         status = memcache_append_key(sub_msg, kpos->start, kpos->end - kpos->start);
         if (status != NC_OK) {
-            nc_free(sub_msgs);
             return status;
         }
     }
@@ -1310,14 +1307,12 @@ memcache_fragment_retrieval(struct msg *r, uint32_t ncontinuum,
             status = msg_prepend(sub_msg, (uint8_t *)"gets ", 5);
         }
         if (status != NC_OK) {
-            nc_free(sub_msgs);
             return status;
         }
 
         /* append \r\n */
         status = msg_append(sub_msg, (uint8_t *)CRLF, CRLF_LEN);
         if (status != NC_OK) {
-            nc_free(sub_msgs);
             return status;
         }
 
@@ -1329,7 +1324,6 @@ memcache_fragment_retrieval(struct msg *r, uint32_t ncontinuum,
         r->nfrag++;
     }
 
-    nc_free(sub_msgs);
     return NC_OK;
 }
 

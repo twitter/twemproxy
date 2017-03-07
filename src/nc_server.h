@@ -142,5 +142,6 @@ rstatus_t server_pool_preconnect(struct context *ctx);
 void server_pool_disconnect(struct context *ctx);
 rstatus_t server_pool_init(struct array *server_pool, struct array *conf_pool, struct context *ctx);
 void server_pool_deinit(struct array *server_pool);
+struct server *server_pool_server(struct server_pool *pool, uint8_t *key, uint32_t keylen);
 
 #endif

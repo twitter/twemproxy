@@ -294,6 +294,9 @@ https://launchpad.net/~twemproxy/+archive/ubuntu/daily
 + [Uber](http://uber.com) ([details](http://highscalability.com/blog/2015/9/14/how-uber-scales-their-real-time-market-platform.html))
 + [Greta](https://greta.io/)
 
+## Repositories
+ - [Debian](https://packagecloud.io/rhoml/twemproxy)
+
 ## Issues and Support
 
 Have a bug or a question? Please create an issue here on GitHub!

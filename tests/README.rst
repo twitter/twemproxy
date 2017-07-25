@@ -10,10 +10,8 @@ usage
 1. install dependency::
 
     pip install nose
-    pip install git+https://github.com/andymccurdy/redis-py.git@2.10.3
+    pip install git+https://github.com/andymccurdy/redis-py.git@2.10.5
     pip install git+https://github.com/idning/python-memcached.git#egg=memcache
-
-Note : if you want to test geo command you have to use the latest redis-py(>2.10.5)
 
 2. copy binarys to _binaries/::
 

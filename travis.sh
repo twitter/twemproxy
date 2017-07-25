@@ -11,7 +11,7 @@ if [ -n "$TRAVIS" ]; then
     sudo pip install redis
     sudo pip install nose
 
-    sudo pip install git+https://github.com/andymccurdy/redis-py.git@master
+    sudo pip install git+https://github.com/andymccurdy/redis-py.git@2.10.5
     sudo pip install git+https://github.com/idning/python-memcached.git#egg=memcache
 fi
 

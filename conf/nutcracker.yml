@@ -4,6 +4,10 @@ alpha:
   distribution: ketama
   auto_eject_hosts: true
   redis: true
+  command:
+   - redis_module_get
+   - redis_module_mget 1
+   - redis_module_mset 2
   server_retry_timeout: 2000
   server_failure_limit: 1
   servers:

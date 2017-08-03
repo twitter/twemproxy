@@ -35,6 +35,7 @@
 #define CONF_DEFAULT_ARGS       3
 #define CONF_DEFAULT_POOL       8
 #define CONF_DEFAULT_SERVERS    8
+#define CONF_DEFAULT_COMMANDS   1
 
 #define CONF_UNSET_NUM  -1
 #define CONF_UNSET_PTR  NULL
@@ -75,6 +76,12 @@ struct conf_server {
     unsigned        valid:1;    /* valid? */
 };
 
+struct conf_command {
+    struct string               command;    /* customized command */
+    struct msg_type_descriptor  descriptor; /* request type descriptor for the command */
+    unsigned                    valid:1;    /* valid? */
+};
+
 struct conf_pool {
     struct string      name;                  /* pool name (root node) */
     struct conf_listen listen;                /* listen: */
@@ -94,6 +101,7 @@ struct conf_pool {
     int                server_retry_timeout;  /* server_retry_timeout: in msec */
     int                server_failure_limit;  /* server_failure_limit: */
     struct array       server;                /* servers: conf_server[] */
+    struct array       command;               /* extra commands */
     unsigned           valid:1;               /* valid? */
 };
 
@@ -126,6 +134,7 @@ struct command {
 char *conf_set_string(struct conf *cf, struct command *cmd, void *conf);
 char *conf_set_listen(struct conf *cf, struct command *cmd, void *conf);
 char *conf_add_server(struct conf *cf, struct command *cmd, void *conf);
+char *conf_add_command(struct conf *cf, struct command *cmd, void *conf);
 char *conf_set_num(struct conf *cf, struct command *cmd, void *conf);
 char *conf_set_bool(struct conf *cf, struct command *cmd, void *conf);
 char *conf_set_hash(struct conf *cf, struct command *cmd, void *conf);

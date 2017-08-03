@@ -106,6 +106,7 @@ struct event_base;
 #include <netinet/in.h>
 
 #include <nc_array.h>
+#include <nc_hash.h>
 #include <nc_string.h>
 #include <nc_queue.h>
 #include <nc_rbtree.h>

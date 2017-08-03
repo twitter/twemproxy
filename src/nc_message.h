@@ -20,7 +20,7 @@
 
 #include <nc_core.h>
 
-typedef void (*msg_parse_t)(struct msg *);
+typedef void (*msg_parse_t)(struct server_pool*, struct msg *);
 typedef rstatus_t (*msg_add_auth_t)(struct context *ctx, struct conn *c_conn, struct conn *s_conn);
 typedef rstatus_t (*msg_fragment_t)(struct msg *, uint32_t, struct msg_tqh *);
 typedef void (*msg_coalesce_t)(struct msg *r);
@@ -185,6 +185,7 @@ typedef enum msg_parse_result {
     ACTION( RSP_REDIS_INTEGER )                                                                     \
     ACTION( RSP_REDIS_BULK )                                                                        \
     ACTION( RSP_REDIS_MULTIBULK )                                                                   \
+    ACTION( REQ_CUSTOMIZED_COMMAND )                                                                \
     ACTION( SENTINEL )                                                                              \
 
 
@@ -197,6 +198,15 @@ typedef enum msg_type {
 struct keypos {
     uint8_t             *start;           /* key start pos */
     uint8_t             *end;             /* key end pos */
+};
+
+typedef enum msg_flag {
+    MSG_FLAG_NOREPLY =   1 << 0,          /* message does not expect reply */
+} msg_flag_t;
+
+struct msg_type_descriptor {
+    int32_t              key_step;        /* step between keys */
+    int32_t              flags;           /* flags of the type */
 };
 
 struct msg {
@@ -230,8 +240,11 @@ struct msg {
     msg_coalesce_t       post_coalesce;   /* message post-coalesce */
 
     msg_type_t           type;            /* message type */
+    uint8_t              *type_start;     /* start of message type */
+    uint8_t              *type_end;       /* end of message type */
 
     struct array         *keys;           /* array of keypos, for req */
+    int32_t              key_step;        /* step between keys */
 
     uint32_t             vlen;            /* value length (memcache) */
     uint8_t              *end;            /* end marker (memcache) */

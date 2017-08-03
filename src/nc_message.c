@@ -235,12 +235,15 @@ done:
     msg->post_coalesce = NULL;
 
     msg->type = MSG_UNKNOWN;
+    msg->type_start = NULL;
+    msg->type_end = NULL;
 
     msg->keys = array_create(1, sizeof(struct keypos));
     if (msg->keys == NULL) {
         nc_free(msg);
         return NULL;
     }
+    msg->key_step = 0;
 
     msg->vlen = 0;
     msg->end = NULL;
@@ -628,6 +631,7 @@ static rstatus_t
 msg_parse(struct context *ctx, struct conn *conn, struct msg *msg)
 {
     rstatus_t status;
+    struct server_pool *pool;
 
     if (msg_empty(msg)) {
         /* no data to parse */
@@ -635,7 +639,13 @@ msg_parse(struct context *ctx, struct conn *conn, struct msg *msg)
         return NC_OK;
     }
 
-    msg->parser(msg);
+    if (conn->proxy || conn->client) {
+        pool = conn->owner;
+    } else {
+        struct server *server = conn->owner;
+        pool = server->owner;
+    }
+    msg->parser(pool, msg);
 
     switch (msg->result) {
     case MSG_PARSE_OK:

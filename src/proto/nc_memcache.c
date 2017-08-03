@@ -136,7 +136,7 @@ memcache_touch(struct msg *r)
 }
 
 void
-memcache_parse_req(struct msg *r)
+memcache_parse_req(struct server_pool *sp, struct msg *r)
 {
     struct mbuf *b;
     uint8_t *p, *m;
@@ -749,7 +749,7 @@ error:
 }
 
 void
-memcache_parse_rsp(struct msg *r)
+memcache_parse_rsp(struct server_pool *sp, struct msg *r)
 {
     struct mbuf *b;
     uint8_t *p, *m;

@@ -41,6 +41,17 @@ static struct string dist_strings[] = {
 };
 #undef DEFINE_ACTION
 
+typedef struct msg_flag_descriptor {
+    struct string name;
+    int32_t flag;
+} msg_flag_descriptor_t;
+
+static struct msg_flag_descriptor msg_flags[] = {
+    { string("noreply"), MSG_FLAG_NOREPLY },
+    { null_string, 0 },
+};
+
+
 static struct command conf_commands[] = {
     { string("listen"),
       conf_set_listen,
@@ -85,6 +96,10 @@ static struct command conf_commands[] = {
     { string("redis_db"),
       conf_set_num,
       offsetof(struct conf_pool, redis_db) },
+
+    { string("command"),
+      conf_add_command,
+      offsetof(struct conf_pool, command) },
 
     { string("preconnect"),
       conf_set_bool,
@@ -137,6 +152,23 @@ conf_server_deinit(struct conf_server *cs)
     string_deinit(&cs->addrstr);
     cs->valid = 0;
     log_debug(LOG_VVERB, "deinit conf server %p", cs);
+}
+
+static void
+conf_command_init(struct conf_command *cc)
+{
+    string_init(&cc->command);
+    memset(&cc->descriptor, 0, sizeof(cc->descriptor));
+
+    log_debug(LOG_VVERB, "init conf command %p", cc);
+}
+
+static void
+conf_command_deinit(struct conf_command *cc)
+{
+    string_deinit(&cc->command);
+
+    log_debug(LOG_VVERB, "deinit conf command %p", cc);
 }
 
 rstatus_t
@@ -222,6 +254,12 @@ conf_pool_init(struct conf_pool *cp, struct string *name)
         return status;
     }
 
+    status = array_init(&cp->command, CONF_DEFAULT_COMMANDS,
+                        sizeof(struct conf_command));
+    if (status != NC_OK) {
+        return status;
+    }
+
     log_debug(LOG_VVERB, "init conf pool %p, '%.*s'", cp, name->len, name->data);
 
     return NC_OK;
@@ -242,9 +280,24 @@ conf_pool_deinit(struct conf_pool *cp)
     while (array_n(&cp->server) != 0) {
         conf_server_deinit(array_pop(&cp->server));
     }
+
+    while (array_n(&cp->command) != 0) {
+        conf_command_deinit(array_pop(&cp->command));
+    }
     array_deinit(&cp->server);
+    array_deinit(&cp->command);
 
     log_debug(LOG_VVERB, "deinit conf pool %p", cp);
+}
+
+static rstatus_t
+conf_command_each_transform(void *elem, void *data)
+{
+    struct conf_command *cc = elem;
+    struct hash *command = data;
+    ASSERT(cc->valid);
+    hash_set(command, cc->command.data, cc->command.len, &cc->descriptor, sizeof(cc->descriptor));
+    return NC_OK;
 }
 
 rstatus_t
@@ -268,6 +321,8 @@ conf_pool_each_transform(void *elem, void *data)
     TAILQ_INIT(&sp->c_conn_q);
 
     array_null(&sp->server);
+    hash_init(&sp->command, array_n(&cp->command) * 3, true);
+    array_each(&cp->command, conf_command_each_transform, &sp->command);
     sp->ncontinuum = 0;
     sp->nserver_continuum = 0;
     sp->continuum = NULL;
@@ -973,9 +1028,9 @@ static rstatus_t
 conf_validate_structure(struct conf *cf)
 {
     rstatus_t status;
-    int type, depth;
+    int type, depth, seq;
     uint32_t i, count[CONF_MAX_DEPTH + 1];
-    bool done, error, seq;
+    bool done, error;
 
     status = conf_yaml_init(cf);
     if (status != NC_OK) {
@@ -984,7 +1039,7 @@ conf_validate_structure(struct conf *cf)
 
     done = false;
     error = false;
-    seq = false;
+    seq = 0;
     depth = 0;
     for (i = 0; i < CONF_MAX_DEPTH + 1; i++) {
         count[i] = 0;
@@ -997,7 +1052,11 @@ conf_validate_structure(struct conf *cf)
      * keyx:
      *   key1: value1
      *   key2: value2
-     *   seq:
+     *   seq1:
+     *     - elem1
+     *     - elem2
+     *     - elem3
+     *   seq2:
      *     - elem1
      *     - elem2
      *     - elem3
@@ -1006,7 +1065,11 @@ conf_validate_structure(struct conf *cf)
      * keyy:
      *   key1: value1
      *   key2: value2
-     *   seq:
+     *   seq1:
+     *     - elem1
+     *     - elem2
+     *     - elem3
+     *   seq2:
      *     - elem1
      *     - elem2
      *     - elem3
@@ -1049,8 +1112,8 @@ conf_validate_structure(struct conf *cf)
 
         case YAML_MAPPING_END_EVENT:
             if (depth == CONF_MAX_DEPTH) {
-                if (seq) {
-                    seq = false;
+                if (seq > 0) {
+                    seq = 0;
                 } else {
                     error = true;
                     log_error("conf: '%s' missing sequence directive at depth "
@@ -1062,9 +1125,9 @@ conf_validate_structure(struct conf *cf)
             break;
 
         case YAML_SEQUENCE_START_EVENT:
-            if (seq) {
+            if (++seq > 2) {
                 error = true;
-                log_error("conf: '%s' has more than one sequence directive",
+                log_error("conf: '%s' has more than two sequence directives",
                           cf->fname);
             } else if (depth != CONF_MAX_DEPTH) {
                 error = true;
@@ -1075,7 +1138,6 @@ conf_validate_structure(struct conf *cf)
                 log_error("conf: '%s' has invalid \"key:value\" at depth %d",
                           cf->fname, depth);
             }
-            seq = true;
             break;
 
         case YAML_SEQUENCE_END_EVENT:
@@ -1664,6 +1726,106 @@ conf_add_server(struct conf *cf, struct command *cmd, void *conf)
      * the server gets re-added to the pool after an auto ejection
      */
 
+    field->valid = 1;
+
+    return CONF_OK;
+}
+
+static int32_t conf_command_flag_parse(const uint8_t *flag, uint32_t flaglen)
+{
+    struct msg_flag_descriptor *descriptor;
+
+    for (descriptor = msg_flags; descriptor->name.len != 0; descriptor++) {
+        if (flaglen == descriptor->name.len && strncasecmp((const char *)flag, (const char *)descriptor->name.data, flaglen) == 0) {
+            return descriptor->flag;
+        }
+    }
+    return 0;
+}
+
+static int32_t conf_command_flags_parse(const uint8_t *flags, uint32_t flagslen)
+{
+    int32_t result = 0;
+    uint32_t flaglen;
+    uint8_t *q;
+    const uint8_t *end = flags + flagslen - 1;
+    while (true) {
+        q = nc_strchr(flags, end, '|');
+        if (q == NULL) {
+            flaglen = (uint32_t)(end - flags + 1);
+        } else {
+            flaglen = (uint32_t)(q - flags);
+        }
+        result |= conf_command_flag_parse(flags, flaglen);
+        if (q == NULL) {
+            break;
+        } else {
+            flags = q + 1;
+        }
+    }
+    return result;
+}
+
+char *
+conf_add_command(struct conf *cf, struct command *cmd, void *conf)
+{
+    rstatus_t status;
+    struct array *a;
+    struct string *value;
+    struct conf_command *field;
+    uint8_t *q, *start, *end;
+    uint8_t *command, *step, *flags;
+    uint32_t commandlen, flagslen;
+
+    q = conf;
+    a = (struct array *)(q + cmd->offset);
+
+    field = array_push(a);
+    if (field == NULL) {
+        return CONF_ERROR;
+    }
+
+    conf_command_init(field);
+
+    value = array_top(&cf->arg);
+
+    /* parse "command [key_step] [flag1|flag2]" */
+    start = value->data;
+    end = value->data + value->len - 1;
+    command = start;
+    commandlen = value->len;
+    step = NULL;
+    flags = NULL;
+
+    q = nc_strchr(start, end, ' ');
+    if (q != NULL) {
+        /* parse key offset */
+        commandlen = (uint32_t)(q - start);
+        step = q + 1;
+        q = nc_strchr(step, end, ' ');
+        if (q != NULL) {
+            flags = q + 1;
+            flagslen = (uint32_t)(end - flags + 1);
+        }
+    }
+
+    status = string_copy(&field->command, command, commandlen);
+    if (status != NC_OK) {
+        return CONF_ERROR;
+    }
+
+    if (step != NULL) {
+        field->descriptor.key_step = (int32_t)strtol((char *)step, NULL, 10);
+        if (field->descriptor.key_step < 0 || field->descriptor.key_step > 2) {
+            log_error("conf: Invalid key step %d for command '%s', key step must be within the range 0 to 2",
+                      field->descriptor.key_step, field->command.data);
+            return CONF_ERROR;
+        }
+    }
+
+    if (flags != NULL) {
+        field->descriptor.flags = conf_command_flags_parse(flags, flagslen);
+    }
     field->valid = 1;
 
     return CONF_OK;

@@ -35,6 +35,18 @@
 
 static rstatus_t redis_handle_auth_req(struct msg *request, struct msg *response);
 
+static bool lookup_module_command(struct server_pool *sp, const uint8_t *cmd, uint32_t len, struct msg *r)
+{
+    struct msg_type_descriptor *descriptor;
+    if (hash_find(&sp->command, cmd, len, (const void **) &descriptor, NULL) != NC_OK) {
+        return false;
+    }
+    r->type = MSG_REQ_CUSTOMIZED_COMMAND;
+    r->key_step = descriptor->key_step;
+    /* redis protocol doesn't support noreply which is the only valid flag right now */
+    return true;
+}
+
 /*
  * Return true, if the redis command take no key, otherwise
  * return false
@@ -250,43 +262,8 @@ redis_argn(struct msg *r)
     case MSG_REQ_REDIS_ZUNIONSTORE:
     case MSG_REQ_REDIS_ZSCAN:
         return true;
-
-    default:
-        break;
-    }
-
-    return false;
-}
-
-/*
- * Return true, if the redis command is a vector command accepting one or
- * more keys, otherwise return false
- */
-static bool
-redis_argx(struct msg *r)
-{
-    switch (r->type) {
-    case MSG_REQ_REDIS_MGET:
-    case MSG_REQ_REDIS_DEL:
-        return true;
-
-    default:
-        break;
-    }
-
-    return false;
-}
-
-/*
- * Return true, if the redis command is a vector command accepting one or
- * more key-value pairs, otherwise return false
- */
-static bool
-redis_argkvx(struct msg *r)
-{
-    switch (r->type) {
-    case MSG_REQ_REDIS_MSET:
-        return true;
+    case MSG_REQ_CUSTOMIZED_COMMAND:
+        return r->key_step == 0;
 
     default:
         break;
@@ -372,7 +349,7 @@ redis_error(struct msg *r)
  * Nutcracker only supports the Redis unified protocol for requests.
  */
 void
-redis_parse_req(struct msg *r)
+redis_parse_req(struct server_pool *sp, struct msg *r)
 {
     struct mbuf *b;
     uint8_t *p, *m;
@@ -469,6 +446,7 @@ redis_parse_req(struct msg *r)
                 if (ch != '$') {
                     goto error;
                 }
+                r->type_start = p;
                 r->token = p;
                 r->rlen = 0;
             } else if (isdigit(ch)) {
@@ -540,6 +518,7 @@ redis_parse_req(struct msg *r)
 
                 if (str3icmp(m, 'd', 'e', 'l')) {
                     r->type = MSG_REQ_REDIS_DEL;
+                    r->key_step = 1;
                     break;
                 }
 
@@ -633,10 +612,12 @@ redis_parse_req(struct msg *r)
 
                 if (str4icmp(m, 'm', 'g', 'e', 't')) {
                     r->type = MSG_REQ_REDIS_MGET;
+                    r->key_step = 1;
                     break;
                 }
                 if (str4icmp(m, 'm', 's', 'e', 't')) {
                     r->type = MSG_REQ_REDIS_MSET;
+                    r->key_step = 2;
                     break;
                 }
 
@@ -1095,8 +1076,10 @@ redis_parse_req(struct msg *r)
             }
 
             if (r->type == MSG_UNKNOWN) {
-                log_error("parsed unsupported command '%.*s'", p - m, m);
-                goto error;
+                if (!lookup_module_command(sp, m, p - m, r)) {
+                    log_error("parsed unsupported command '%.*s'", p - m, m);
+                    goto error;
+                }
             }
 
             log_debug(LOG_VERB, "parsed command '%.*s'", p - m, m);
@@ -1107,6 +1090,7 @@ redis_parse_req(struct msg *r)
         case SW_REQ_TYPE_LF:
             switch (ch) {
             case LF:
+                r->type_end = p + 1;
                 if (redis_argz(r)) {
                     goto done;
                 } else if (r->narg == 1) {
@@ -1227,16 +1211,18 @@ redis_parse_req(struct msg *r)
                         goto done;
                     }
                     state = SW_ARG1_LEN;
-                } else if (redis_argx(r)) {
-                    if (r->rnarg == 0) {
-                        goto done;
+                } else if (r->key_step > 0) {
+                    if (r->key_step == 1) {
+                        if (r->rnarg == 0) {
+                            goto done;
+                        }
+                        state = SW_KEY_LEN;
+                    } else if (r->key_step == 2) {
+                        if (r->narg % 2 == 0) {
+                            goto error;
+                        }
+                        state = SW_ARG1_LEN;
                     }
-                    state = SW_KEY_LEN;
-                } else if (redis_argkvx(r)) {
-                    if (r->narg % 2 == 0) {
-                        goto error;
-                    }
-                    state = SW_ARG1_LEN;
                 } else if (redis_argeval(r)) {
                     if (r->rnarg == 0) {
                         goto done;
@@ -1336,7 +1322,7 @@ redis_parse_req(struct msg *r)
                         goto error;
                     }
                     state = SW_ARG2_LEN;
-                } else if (redis_argkvx(r)) {
+                } else if (r->key_step == 2) {
                     if (r->rnarg == 0) {
                         goto done;
                     }
@@ -1715,7 +1701,7 @@ error:
  *     will follow. The first byte of a multi bulk reply is always *.
  */
 void
-redis_parse_rsp(struct msg *r)
+redis_parse_rsp(struct server_pool *sp, struct msg *r)
 {
     struct mbuf *b;
     uint8_t *p, *m;
@@ -2628,18 +2614,8 @@ redis_fragment_argx(struct msg *r, uint32_t ncontinuum, struct msg_tqh *frag_msg
             continue;
         }
 
-        if (r->type == MSG_REQ_REDIS_MGET) {
-            status = msg_prepend_format(sub_msg, "*%d\r\n$4\r\nmget\r\n",
-                                        sub_msg->narg + 1);
-        } else if (r->type == MSG_REQ_REDIS_DEL) {
-            status = msg_prepend_format(sub_msg, "*%d\r\n$3\r\ndel\r\n",
-                                        sub_msg->narg + 1);
-        } else if (r->type == MSG_REQ_REDIS_MSET) {
-            status = msg_prepend_format(sub_msg, "*%d\r\n$4\r\nmset\r\n",
-                                        sub_msg->narg + 1);
-        } else {
-            NOT_REACHED();
-        }
+        status = msg_prepend_format(sub_msg, "*%d\r\n%.*s", sub_msg->narg + 1,
+            r->type_end - r->type_start, r->type_start);
         if (status != NC_OK) {
             nc_free(sub_msgs);
             return status;
@@ -2664,17 +2640,7 @@ redis_fragment(struct msg *r, uint32_t ncontinuum, struct msg_tqh *frag_msgq)
         return NC_OK;
     }
 
-    switch (r->type) {
-    case MSG_REQ_REDIS_MGET:
-    case MSG_REQ_REDIS_DEL:
-        return redis_fragment_argx(r, ncontinuum, frag_msgq, 1);
-
-    case MSG_REQ_REDIS_MSET:
-        return redis_fragment_argx(r, ncontinuum, frag_msgq, 2);
-
-    default:
-        return NC_OK;
-    }
+    return r->key_step == 0 ? NC_OK : redis_fragment_argx(r, ncontinuum, frag_msgq, r->key_step);
 }
 
 rstatus_t

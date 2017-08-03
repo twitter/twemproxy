@@ -916,6 +916,7 @@ server_pool_deinit(struct array *server_pool)
         }
 
         server_deinit(&sp->server);
+        hash_deinit(&sp->command);
 
         log_debug(LOG_DEBUG, "deinit pool %"PRIu32" '%.*s'", sp->idx,
                   sp->name.len, sp->name.data);

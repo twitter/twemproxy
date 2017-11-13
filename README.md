@@ -83,23 +83,23 @@ Twemproxy can be configured through a YAML file specified by the -c or --conf-fi
 + **listen**: The listening address and port (name:port or ip:port) or an absolute path to sock file (e.g. /var/run/nutcracker.sock) for this server pool.
 + **client_connections**: The maximum number of connections allowed from redis clients. Unlimited by default, though OS-imposed limitations will still apply.
 + **hash**: The name of the hash function. Possible values are:
- + one_at_a_time
- + md5
- + crc16
- + crc32 (crc32 implementation compatible with [libmemcached](http://libmemcached.org/))
- + crc32a (correct crc32 implementation as per the spec)
- + fnv1_64
- + fnv1a_64
- + fnv1_32
- + fnv1a_32
- + hsieh
- + murmur
- + jenkins
+  + one_at_a_time
+  + md5
+  + crc16
+  + crc32 (crc32 implementation compatible with [libmemcached](http://libmemcached.org/))
+  + crc32a (correct crc32 implementation as per the spec)
+  + fnv1_64
+  + fnv1a_64
+  + fnv1_32
+  + fnv1a_32
+  + hsieh
+  + murmur
+  + jenkins
 + **hash_tag**: A two character string that specifies the part of the key used for hashing. Eg "{}" or "$$". [Hash tag](notes/recommendation.md#hash-tags) enable mapping different keys to the same server as long as the part of the key within the tag is the same.
 + **distribution**: The key distribution mode. Possible values are:
- + ketama
- + modula
- + random
+  + ketama
+  + modula
+  + random
 + **timeout**: The timeout value in msec that we wait for to establish a connection to the server or receive a response from a server. By default, we wait indefinitely.
 + **backlog**: The TCP backlog argument. Defaults to 512.
 + **preconnect**: A boolean value that controls if twemproxy should preconnect to all the servers in this pool on process start. Defaults to false.

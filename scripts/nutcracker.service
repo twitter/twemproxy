@@ -7,3 +7,6 @@ User=nobody
 Environment="OPTIONS=-c /etc/nutcracker/nutcracker.yml"
 EnvironmentFile=-/etc/sysconfig/nutcracker
 ExecStart=/usr/sbin/nutcracker $OPTIONS
+
+[Install]
+WantedBy=multi-user.target

@@ -85,7 +85,6 @@ redis_arg0(struct msg *r)
 
     case MSG_REQ_REDIS_SCARD:
     case MSG_REQ_REDIS_SMEMBERS:
-    case MSG_REQ_REDIS_SPOP:
 
     case MSG_REQ_REDIS_ZCARD:
     case MSG_REQ_REDIS_PFCOUNT:
@@ -268,6 +267,7 @@ redis_argx(struct msg *r)
     switch (r->type) {
     case MSG_REQ_REDIS_MGET:
     case MSG_REQ_REDIS_DEL:
+    case MSG_REQ_REDIS_SPOP:
         return true;
 
     default:

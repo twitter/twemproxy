@@ -128,6 +128,8 @@ redis_arg1(struct msg *r)
     case MSG_REQ_REDIS_RPOPLPUSH:
     case MSG_REQ_REDIS_RPUSHX:
 
+    case MSG_REQ_REDIS_PUBLISH:
+
     case MSG_REQ_REDIS_SISMEMBER:
 
     case MSG_REQ_REDIS_ZRANK:
@@ -934,6 +936,11 @@ redis_parse_req(struct msg *r)
 
                 if (str7icmp(m, 'p', 'f', 'm', 'e', 'r', 'g', 'e')) {
                     r->type = MSG_REQ_REDIS_PFMERGE;
+                    break;
+                }
+
+                if (str7icmp(m, 'p', 'u', 'b', 'l', 'i', 's', 'h')) {
+                    r->type = MSG_REQ_REDIS_PUBLISH;
                     break;
                 }
 

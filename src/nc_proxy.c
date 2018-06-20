@@ -134,6 +134,9 @@ proxy_listen(struct context *ctx, struct conn *p)
         return NC_ERROR;
     }
 
+    if (pool->reuseport)
+        nc_set_reuseport(p->sd);
+    
     status = proxy_reuse(p);
     if (status < 0) {
         log_error("reuse of addr '%.*s' for listening on p %d failed: %s",

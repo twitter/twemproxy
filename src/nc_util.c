@@ -22,6 +22,9 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <netdb.h>
+#ifdef __linux
+#include <linux/version.h>
+#endif
 
 #include <sys/time.h>
 #include <sys/types.h>
@@ -72,6 +75,24 @@ nc_set_reuseaddr(int sd)
     reuse = 1;
     len = sizeof(reuse);
 
+    return setsockopt(sd, SOL_SOCKET, SO_REUSEADDR, &reuse, len);
+}
+
+int
+nc_set_reuseport(int sd)
+{
+    int reuse;
+    socklen_t len;
+
+    reuse = 1;
+    len = sizeof(reuse);
+#ifdef __linux
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,9,0)
+    return setsockopt(sd, SOL_SOCKET, SO_REUSEPORT, &reuse, len);
+#endif
+#elif defined __FreeBSD__ || defined __APPLE__
+    return setsockopt(sd, SOL_SOCKET, SO_REUSEPORT, &reuse, len);
+#endif
     return setsockopt(sd, SOL_SOCKET, SO_REUSEADDR, &reuse, len);
 }
 

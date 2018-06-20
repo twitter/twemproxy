@@ -121,6 +121,7 @@ struct server_pool {
     unsigned           preconnect:1;         /* preconnect? */
     unsigned           redis:1;              /* redis? */
     unsigned           tcpkeepalive:1;       /* tcpkeepalive? */
+    unsigned           reuseport:1;          /* set SO_REUSEPORT to socket */
 };
 
 void server_ref(struct conn *conn, void *owner);

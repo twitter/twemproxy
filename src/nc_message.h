@@ -20,6 +20,8 @@
 
 #include <nc_core.h>
 
+#define MAXDEPTH 3
+
 typedef void (*msg_parse_t)(struct msg *);
 typedef rstatus_t (*msg_add_auth_t)(struct context *ctx, struct conn *c_conn, struct conn *s_conn);
 typedef rstatus_t (*msg_fragment_t)(struct msg *, uint32_t, struct msg_tqh *);
@@ -160,7 +162,13 @@ typedef enum msg_parse_result {
     ACTION( REQ_REDIS_ZREVRANK )                                                                    \
     ACTION( REQ_REDIS_ZSCORE )                                                                      \
     ACTION( REQ_REDIS_ZUNIONSTORE )                                                                 \
-    ACTION( REQ_REDIS_ZSCAN)                                                                        \
+    ACTION( REQ_REDIS_ZSCAN )                                                                       \
+    ACTION( REQ_REDIS_GEOADD ) 									    \
+    ACTION( REQ_REDIS_GEOPOS )									    \
+    ACTION( REQ_REDIS_GEOHASH )									    \
+    ACTION( REQ_REDIS_GEODIST )									    \
+    ACTION( REQ_REDIS_GEORADIUS )                                                                   \
+    ACTION( REQ_REDIS_GEORADIUSBYMEMBER )                                                           \
     ACTION( REQ_REDIS_EVAL )                   /* redis requests - eval */                          \
     ACTION( REQ_REDIS_EVALSHA )                                                                     \
     ACTION( REQ_REDIS_PING )                   /* redis requests - ping/quit */                     \
@@ -240,6 +248,8 @@ struct msg {
     uint8_t              *narg_end;       /* narg end (redis) */
     uint32_t             narg;            /* # arguments (redis) */
     uint32_t             rnarg;           /* running # arg used by parsing fsa (redis) */
+    uint32_t             stack[MAXDEPTH]; /* stack to save rnarg of nesting multibulks */
+    uint8_t              nested_depth;    /* the depth of the current nested multibulk */
     uint32_t             rlen;            /* running length in parsing fsa (redis) */
     uint32_t             integer;         /* integer reply value (redis) */
 

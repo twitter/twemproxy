@@ -255,6 +255,8 @@ done:
     msg->narg_end = NULL;
     msg->narg = 0;
     msg->rnarg = 0;
+    memset(msg->stack, 0, sizeof(msg->stack));
+    msg->nested_depth = 0;
     msg->rlen = 0;
     msg->integer = 0;
 

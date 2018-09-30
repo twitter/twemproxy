@@ -249,6 +249,13 @@ redis_argn(struct msg *r)
     case MSG_REQ_REDIS_ZREVRANGEBYSCORE:
     case MSG_REQ_REDIS_ZUNIONSTORE:
     case MSG_REQ_REDIS_ZSCAN:
+
+    case MSG_REQ_REDIS_GEOADD:
+    case MSG_REQ_REDIS_GEOPOS:
+    case MSG_REQ_REDIS_GEOHASH:
+    case MSG_REQ_REDIS_GEODIST:
+    case MSG_REQ_REDIS_GEORADIUS:
+    case MSG_REQ_REDIS_GEORADIUSBYMEMBER:
         return true;
 
     default:
@@ -879,6 +886,16 @@ redis_parse_req(struct msg *r)
                     break;
                 }
 
+                if (str6icmp(m, 'g', 'e', 'o', 'a', 'd', 'd')) {
+                    r->type = MSG_REQ_REDIS_GEOADD;
+                    break;
+                }
+
+                if (str6icmp(m, 'g', 'e', 'o', 'p', 'o', 's')) {
+                    r->type = MSG_REQ_REDIS_GEOPOS;
+                    break;
+                }
+
                 break;
 
             case 7:
@@ -934,6 +951,16 @@ redis_parse_req(struct msg *r)
 
                 if (str7icmp(m, 'p', 'f', 'm', 'e', 'r', 'g', 'e')) {
                     r->type = MSG_REQ_REDIS_PFMERGE;
+                    break;
+                }
+
+                if (str7icmp(m, 'g', 'e', 'o', 'h', 'a', 's', 'h')) {
+                    r->type = MSG_REQ_REDIS_GEOHASH;
+                    break;
+                }
+
+                if (str7icmp(m, 'g', 'e', 'o', 'd', 'i', 's', 't')) {
+                    r->type = MSG_REQ_REDIS_GEODIST;
                     break;
                 }
 
@@ -995,6 +1022,11 @@ redis_parse_req(struct msg *r)
 
                 if (str9icmp(m, 'z', 'l', 'e', 'x', 'c', 'o', 'u', 'n', 't')) {
                     r->type = MSG_REQ_REDIS_ZLEXCOUNT;
+                    break;
+                }
+
+                if (str9icmp(m, 'g', 'e', 'o', 'r', 'a', 'd', 'i', 'u', 's')) {
+                    r->type = MSG_REQ_REDIS_GEORADIUS;
                     break;
                 }
 
@@ -1085,6 +1117,14 @@ redis_parse_req(struct msg *r)
 
                 if (str16icmp(m, 'z', 'r', 'e', 'v', 'r', 'a', 'n', 'g', 'e', 'b', 'y', 's', 'c', 'o', 'r', 'e')) {
                     r->type = MSG_REQ_REDIS_ZREVRANGEBYSCORE;
+                    break;
+                }
+
+                break;
+
+            case 17:
+                if (str17icmp(m, 'g', 'e', 'o', 'r', 'a', 'd', 'i', 'u', 's', 'b', 'y', 'm', 'e', 'm', 'b', 'e', 'r')) {
+                    r->type = MSG_REQ_REDIS_GEORADIUSBYMEMBER;
                     break;
                 }
 
@@ -1720,6 +1760,7 @@ redis_parse_rsp(struct msg *r)
     struct mbuf *b;
     uint8_t *p, *m;
     uint8_t ch;
+    int depth;
 
     enum {
         SW_START,
@@ -1933,8 +1974,9 @@ redis_parse_rsp(struct msg *r)
 
         case SW_SIMPLE:
             if (ch == CR) {
-              state = SW_MULTIBULK_ARGN_LF;
               r->rnarg--;
+	      r->stack[r->nested_depth-1]--;
+              state = SW_MULTIBULK_ARGN_LF;
             }
             break;
 
@@ -2051,8 +2093,13 @@ redis_parse_rsp(struct msg *r)
                 /* rsp_start <- p */
                 r->narg_start = p;
                 r->rnarg = 0;
+                r->nested_depth++;
             } else if (ch == '-') {
-                state = SW_RUNTO_CRLF;
+                p = p-1;
+                r->token = NULL;
+                r->rnarg = 1;
+                r->stack[r->nested_depth-1] = r->rnarg;
+                state = SW_MULTIBULK_ARGN_LEN;
             } else if (isdigit(ch)) {
                 r->rnarg = r->rnarg * 10 + (uint32_t)(ch - '0');
             } else if (ch == CR) {
@@ -2060,9 +2107,17 @@ redis_parse_rsp(struct msg *r)
                     goto error;
                 }
 
+                /* Save num of bulks of the current multibulk */
+                if (r->nested_depth > MAXDEPTH) {
+                    log_debug(LOG_ERR, "only support %d levels of multibulk", MAXDEPTH);
+                    goto error;
+                }
+
                 r->narg = r->rnarg;
                 r->narg_end = p;
                 r->token = NULL;
+
+                r->stack[r->nested_depth-1] = r->narg;
                 state = SW_MULTIBULK_NARG_LF;
             } else {
                 goto error;
@@ -2075,7 +2130,17 @@ redis_parse_rsp(struct msg *r)
             case LF:
                 if (r->rnarg == 0) {
                     /* response is '*0\r\n' */
-                    goto done;
+                    if (r->nested_depth == 1) {
+                        goto done;
+                    } else {
+                        log_debug(LOG_VVVERB,
+                            "multibulk support@end of a nested empty bulk %d %d %s",
+                            r->nested_depth, r->stack[r->nested_depth-1], p);
+
+                        p = p - 1;
+                        state = SW_MULTIBULK_ARGN_LF;
+                        break;
+                    }
                 }
 
                 state = SW_MULTIBULK_ARGN_LEN;
@@ -2149,6 +2214,7 @@ redis_parse_rsp(struct msg *r)
                 }
                 r->rnarg--;
                 r->token = NULL;
+                r->stack[r->nested_depth-1]--;
             } else {
                 goto error;
             }
@@ -2190,7 +2256,23 @@ redis_parse_rsp(struct msg *r)
         case SW_MULTIBULK_ARGN_LF:
             switch (ch) {
             case LF:
-                if (r->rnarg == 0) {
+                log_debug(LOG_VVVERB,
+                    "multibulk support@the end of the bulk: %d %d %s",
+                    r->nested_depth, r->stack[r->nested_depth-1], p);
+
+                depth = r->nested_depth;
+                while (depth > 1 && r->stack[depth-1] == 0) {
+                    depth--;
+                    r->stack[depth-1]--;
+                    r->nested_depth = depth;
+                    r->rnarg = r->stack[depth-1];
+
+                    log_debug(LOG_VVVERB,
+                        "multibulk support@the end of a nested multibulk: %d %d %s",
+                        r->nested_depth, r->stack[r->nested_depth-1], p);
+                }
+
+                if (r->stack[0] == 0) {
                     goto done;
                 }
 

@@ -20,7 +20,7 @@
 
 #include <nc_core.h>
 
-#define MAXDEPTH 3
+#define MAXDEPTH 4
 
 typedef void (*msg_parse_t)(struct msg *);
 typedef rstatus_t (*msg_add_auth_t)(struct context *ctx, struct conn *c_conn, struct conn *s_conn);

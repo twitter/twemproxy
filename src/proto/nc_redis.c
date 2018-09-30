@@ -1974,9 +1974,9 @@ redis_parse_rsp(struct msg *r)
 
         case SW_SIMPLE:
             if (ch == CR) {
-              r->rnarg--;
-	      r->stack[r->nested_depth-1]--;
-              state = SW_MULTIBULK_ARGN_LF;
+                r->rnarg--;
+                r->stack[r->nested_depth-1]--;
+                state = SW_MULTIBULK_ARGN_LF;
             }
             break;
 
@@ -2094,6 +2094,11 @@ redis_parse_rsp(struct msg *r)
                 r->narg_start = p;
                 r->rnarg = 0;
                 r->nested_depth++;
+
+                if (r->nested_depth > MAXDEPTH) {
+                    log_debug(LOG_ERR, "only support %d levels of multibulk", MAXDEPTH);
+                    goto error;
+                }
             } else if (ch == '-') {
                 p = p-1;
                 r->token = NULL;
@@ -2104,12 +2109,6 @@ redis_parse_rsp(struct msg *r)
                 r->rnarg = r->rnarg * 10 + (uint32_t)(ch - '0');
             } else if (ch == CR) {
                 if ((p - r->token) <= 1) {
-                    goto error;
-                }
-
-                /* Save num of bulks of the current multibulk */
-                if (r->nested_depth > MAXDEPTH) {
-                    log_debug(LOG_ERR, "only support %d levels of multibulk", MAXDEPTH);
                     goto error;
                 }
 

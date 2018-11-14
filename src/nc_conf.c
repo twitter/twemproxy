@@ -41,6 +41,12 @@ static struct string dist_strings[] = {
 };
 #undef DEFINE_ACTION
 
+static struct string default_service_types[] = {
+        string("redis"),
+        string("memcache"),
+        string("mysql"),
+        string("postgresql")
+};
 static struct command conf_commands[] = {
     { string("listen"),
       conf_set_listen,
@@ -53,6 +59,10 @@ static struct command conf_commands[] = {
     { string("hash_tag"),
       conf_set_hashtag,
       offsetof(struct conf_pool, hash_tag) },
+
+    { string("service_type"),
+      conf_set_service_type,
+      offsetof(struct conf_pool, service_type) },
 
     { string("distribution"),
       conf_set_distribution,
@@ -520,13 +530,11 @@ conf_handler(struct conf *cf, void *data)
         if (string_compare(key, &cmd->name) != 0) {
             continue;
         }
-
         rv = cmd->set(cf, cmd, data);
         if (rv != CONF_OK) {
             log_error("conf: directive \"%.*s\" %s", key->len, key->data, rv);
             return NC_ERROR;
         }
-
         return NC_OK;
     }
 
@@ -1800,6 +1808,40 @@ conf_set_hashtag(struct conf *cf, struct command *cmd, void *conf)
 
     if (value->len != 2) {
         return "is not a valid hash tag string with two characters";
+    }
+
+    status = string_duplicate(field, value);
+    if (status != NC_OK) {
+        return CONF_ERROR;
+    }
+
+    return CONF_OK;
+}
+char *
+conf_set_service_type(struct conf *cf, struct command *cmd, void *conf)
+{
+    rstatus_t status;
+    uint8_t *p;
+    struct string *field, *value;
+
+    p = conf;
+    field = (struct string *)(p + cmd->offset);
+
+    if (field->data != CONF_UNSET_PTR) {
+        return "is a duplicate";
+    }
+
+    value = array_top(&cf->arg);
+    int len = sizeof(default_service_types)/sizeof(struct string);
+    int index = 0;
+    for(int i=0;i<len;i++) {
+        if(string_compare(value,&default_service_types[i]) ==0) {
+            index++;
+            break;
+        }
+    }
+    if (index == 0) {
+        return "is not a valid service type";
     }
 
     status = string_duplicate(field, value);

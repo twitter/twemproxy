@@ -284,6 +284,8 @@ conf_pool_each_transform(void *elem, void *data)
     sp->nlive_server = 0;
     sp->next_rebuild = 0LL;
 
+    string_duplicate(&sp->type,&cp->service_type);
+
     sp->name = cp->name;
     sp->addrstr = cp->listen.pname;
     sp->port = (uint16_t)cp->listen.port;
@@ -535,6 +537,7 @@ conf_handler(struct conf *cf, void *data)
             log_error("conf: directive \"%.*s\" %s", key->len, key->data, rv);
             return NC_ERROR;
         }
+        //fprintf(stdout,"name =%s,value=%s\n",(char *)cmd->name.data,(char *)key->data);
         return NC_OK;
     }
 
@@ -1389,7 +1392,7 @@ conf_create(char *filename)
     if (status != NC_OK) {
         goto error;
     }
-
+    log_level_set(LOG_DEBUG);
     conf_dump(cf);
 
     fclose(cf->fh);

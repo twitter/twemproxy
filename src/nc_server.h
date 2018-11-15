@@ -87,7 +87,7 @@ struct server {
 struct server_pool {
     uint32_t           idx;                  /* pool index */
     struct context     *ctx;                 /* owner context */
-
+    struct string       *type;               /* service type;such as mysql/redis/memcache/postgresql */
     struct conn        *p_conn;              /* proxy connection (listener) */
     uint32_t           nc_conn_q;            /* # client connection */
     struct conn_tqh    c_conn_q;             /* client connection q */

@@ -28,12 +28,8 @@
 #define KETAMA_MAX_HOSTLEN          86
 
 static uint32_t
-ketama_hash(const char *key, size_t key_length, uint32_t alignment)
+ketama_hash(const unsigned char *results, uint32_t alignment)
 {
-    unsigned char results[16];
-
-    md5_signature((unsigned char*)key, key_length, results);
-
     return ((uint32_t) (results[3 + alignment * 4] & 0xFF) << 24)
         | ((uint32_t) (results[2 + alignment * 4] & 0xFF) << 16)
         | ((uint32_t) (results[1 + alignment * 4] & 0xFF) << 8)
@@ -172,6 +168,7 @@ ketama_update(struct server_pool *pool)
              pointer_index++) {
 
             char host[KETAMA_MAX_HOSTLEN]= "";
+            unsigned char results[16];
             size_t hostlen;
             uint32_t x;
 
@@ -179,8 +176,10 @@ ketama_update(struct server_pool *pool)
                                server->name.len, server->name.data,
                                pointer_index - 1);
 
+            md5_signature((unsigned char *)host, hostlen, results);
+
             for (x = 0; x < pointer_per_hash; x++) {
-                value = ketama_hash(host, hostlen, x);
+                value = ketama_hash(results, x);
                 pool->continuum[continuum_index].index = server_index;
                 pool->continuum[continuum_index++].value = value;
             }

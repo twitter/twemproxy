@@ -83,23 +83,23 @@ Twemproxy can be configured through a YAML file specified by the -c or --conf-fi
 + **listen**: The listening address and port (name:port or ip:port) or an absolute path to sock file (e.g. /var/run/nutcracker.sock) for this server pool.
 + **client_connections**: The maximum number of connections allowed from redis clients. Unlimited by default, though OS-imposed limitations will still apply.
 + **hash**: The name of the hash function. Possible values are:
- + one_at_a_time
- + md5
- + crc16
- + crc32 (crc32 implementation compatible with [libmemcached](http://libmemcached.org/))
- + crc32a (correct crc32 implementation as per the spec)
- + fnv1_64
- + fnv1a_64
- + fnv1_32
- + fnv1a_32
- + hsieh
- + murmur
- + jenkins
+  + one_at_a_time
+  + md5
+  + crc16
+  + crc32 (crc32 implementation compatible with [libmemcached](http://libmemcached.org/))
+  + crc32a (correct crc32 implementation as per the spec)
+  + fnv1_64
+  + fnv1a_64
+  + fnv1_32
+  + fnv1a_32
+  + hsieh
+  + murmur
+  + jenkins
 + **hash_tag**: A two character string that specifies the part of the key used for hashing. Eg "{}" or "$$". [Hash tag](notes/recommendation.md#hash-tags) enable mapping different keys to the same server as long as the part of the key within the tag is the same.
 + **distribution**: The key distribution mode. Possible values are:
- + ketama
- + modula
- + random
+  + ketama
+  + modula
+  + random
 + **timeout**: The timeout value in msec that we wait for to establish a connection to the server or receive a response from a server. By default, we wait indefinitely.
 + **backlog**: The TCP backlog argument. Defaults to 512.
 + **preconnect**: A boolean value that controls if twemproxy should preconnect to all the servers in this pool on process start. Defaults to false.
@@ -183,13 +183,13 @@ For example, the configuration file in [conf/nutcracker.yml](conf/nutcracker.yml
        - 127.0.0.1:11214:100000
        - 127.0.0.1:11215:1
 
-Finally, to make writing a syntactically correct configuration file easier, twemproxy provides a command-line argument -t or --test-conf that can be used to test the YAML configuration file for any syntax error.
+Finally, to make writing a syntactically correct configuration file easier, twemproxy provides a command-line argument `-t` or `--test-conf` that can be used to test the YAML configuration file for any syntax error.
 
 ## Observability
 
 Observability in twemproxy is through logs and stats.
 
-Twemproxy exposes stats at the granularity of server pool and servers per pool through the stats monitoring port. The stats are essentially JSON formatted key-value pairs, with the keys corresponding to counter names. By default stats are exposed on port 22222 and aggregated every 30 seconds. Both these values can be configured on program start using the -c or --conf-file and -i or --stats-interval command-line arguments respectively. You can print the description of all stats exported by  using the -D or --describe-stats command-line argument.
+Twemproxy exposes stats at the granularity of server pool and servers per pool through the stats monitoring port. The stats are essentially JSON formatted key-value pairs, with the keys corresponding to counter names. By default stats are exposed on port 22222 and aggregated every 30 seconds. Both these values can be configured on program start using the `-c` or `--conf-file` and `-i` or `--stats-interval` command-line arguments respectively. You can print the description of all stats exported by  using the `-D` or `--describe-stats` command-line argument.
 
     $ nutcracker --describe-stats
 
@@ -215,13 +215,13 @@ Twemproxy exposes stats at the granularity of server pool and servers per pool t
       out_queue           "# requests in outgoing queue"
       out_queue_bytes     "current request bytes in outgoing queue"
 
-Logging in twemproxy is only available when twemproxy is built with logging enabled. By default logs are written to stderr. Twemproxy can also be configured to write logs to a specific file through the -o or --output command-line argument. On a running twemproxy, we can turn log levels up and down by sending it SIGTTIN and SIGTTOU signals respectively and reopen log files by sending it SIGHUP signal.
+Logging in twemproxy is only available when twemproxy is built with logging enabled. By default logs are written to stderr. Twemproxy can also be configured to write logs to a specific file through the `-o` or `--output` command-line argument. On a running twemproxy, we can turn log levels up and down by sending it SIGTTIN and SIGTTOU signals respectively and reopen log files by sending it SIGHUP signal.
 
 ## Pipelining
 
 Twemproxy enables proxying multiple client connections onto one or few server connections. This architectural setup makes it ideal for pipelining requests and responses and hence saving on the round trip time.
 
-For example, if twemproxy is proxying three client connections onto a single server and we get requests - 'get key\r\n', 'set key 0 0 3\r\nval\r\n' and 'delete key\r\n' on these three connections respectively, twemproxy would try to batch these requests and send them as a single message onto the server connection as 'get key\r\nset key 0 0 3\r\nval\r\ndelete key\r\n'.
+For example, if twemproxy is proxying three client connections onto a single server and we get requests - `get key\r\n`, `set key 0 0 3\r\nval\r\n` and `delete key\r\n` on these three connections respectively, twemproxy would try to batch these requests and send them as a single message onto the server connection as `get key\r\nset key 0 0 3\r\nval\r\ndelete key\r\n`.
 
 Pipelining is the reason why twemproxy ends up doing better in terms of throughput even though it introduces an extra hop between the client and server.
 

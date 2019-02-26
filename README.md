@@ -255,7 +255,7 @@ https://launchpad.net/~twemproxy/+archive/ubuntu/daily
 + [smitty for twemproxy failover](https://github.com/areina/smitty)
 + [Beholder, a Python agent for twemproxy failover](https://github.com/Serekh/beholder)
 + [chef cookbook](https://supermarket.getchef.com/cookbooks/twemproxy)
-+ [twemsentinel] (https://github.com/yak0/twemsentinel)
++ [twemsentinel](https://github.com/yak0/twemsentinel)
 
 ## Companies using Twemproxy in Production
 + [Twitter](https://twitter.com/)

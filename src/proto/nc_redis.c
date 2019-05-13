@@ -85,7 +85,6 @@ redis_arg0(struct msg *r)
 
     case MSG_REQ_REDIS_SCARD:
     case MSG_REQ_REDIS_SMEMBERS:
-    case MSG_REQ_REDIS_SPOP:
 
     case MSG_REQ_REDIS_ZCARD:
     case MSG_REQ_REDIS_PFCOUNT:
@@ -235,6 +234,7 @@ redis_argn(struct msg *r)
     case MSG_REQ_REDIS_SUNIONSTORE:
     case MSG_REQ_REDIS_SRANDMEMBER:
     case MSG_REQ_REDIS_SSCAN:
+    case MSG_REQ_REDIS_SPOP:
 
     case MSG_REQ_REDIS_PFADD:
     case MSG_REQ_REDIS_PFMERGE:

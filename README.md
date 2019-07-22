@@ -181,7 +181,7 @@ For example, the configuration file in [conf/nutcracker.yml](conf/nutcracker.yml
        - 127.0.0.1:11214:100000
        - 127.0.0.1:11215:1
 
-If there is a need to use key-value distribution as per phpredis [redisArray](https://github.com/phpredis/phpredis/blob/master/arrays.markdown) use hashing function 'rcrc32' and distribution mode 'redisarray'.
+
 Finally, to make writing a syntactically correct configuration file easier, twemproxy provides a command-line argument -t or --test-conf that can be used to test the YAML configuration file for any syntax error.
 
 ## Observability

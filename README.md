@@ -181,7 +181,6 @@ For example, the configuration file in [conf/nutcracker.yml](conf/nutcracker.yml
        - 127.0.0.1:11214:100000
        - 127.0.0.1:11215:1
 
-
 Finally, to make writing a syntactically correct configuration file easier, twemproxy provides a command-line argument -t or --test-conf that can be used to test the YAML configuration file for any syntax error.
 
 ## Observability

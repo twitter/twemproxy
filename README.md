@@ -184,7 +184,7 @@ For example, the configuration file in [conf/nutcracker.yml](conf/nutcracker.yml
 
 If there is a need to use key-value distribution as per phpredis [redisArray](https://github.com/phpredis/phpredis/blob/master/arrays.markdown) use hashing function 'rcrc32' and distribution mode 'redisarray'.
 
-Finally, to make a writing syntactically correct configuration file easier, nutcracker provides a command-line argument -t or --test-conf that can be used to test the YAML configuration file for any syntax error.
+Finally, to make writing a syntactically correct configuration file easier, nutcracker provides a command-line argument -t or --test-conf that can be used to test the YAML configuration file for any syntax error.
 
 ## Observability
 

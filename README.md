@@ -94,7 +94,7 @@ nutcracker can be configured through a YAML file specified by the -c or --conf-f
  + murmur
  + jenkins
  + rcrc32 (implementation compatible with phpredis [redisArray](https://github.com/phpredis/phpredis/blob/master/arrays.markdown) )
-+ **hash_tag**: A two character string that specifies the part of the key used for hashing. Eg "{}" or "$$". [Hash tag](notes/recommendation.md#hash-tags)  enable mapping different keys to the same server as long as the part of the key within the tag is the same.
++ **hash_tag**: A two character string that specifies the part of the key used for hashing. Eg "{}" or "$$". [Hash tag](notes/recommendation.md#hash-tags) enable mapping different keys to the same server as long as the part of the key within the tag is the same.
 + **distribution**: The key distribution mode. Possible values are:
  + ketama
  + modula
@@ -184,7 +184,7 @@ For example, the configuration file in [conf/nutcracker.yml](conf/nutcracker.yml
 
 If there is a need to use key-value distribution as per phpredis [redisArray](https://github.com/phpredis/phpredis/blob/master/arrays.markdown) use hashing function 'rcrc32' and distribution mode 'redisarray'.
 
-Finally, to make writing syntactically correct configuration file easier, nutcracker provides a command-line argument -t or --test-conf that can be used to test the YAML configuration file for any syntax error.
+Finally, to make a writing syntactically correct configuration file easier, nutcracker provides a command-line argument -t or --test-conf that can be used to test the YAML configuration file for any syntax error.
 
 ## Observability
 

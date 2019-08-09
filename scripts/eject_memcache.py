@@ -65,8 +65,7 @@ def twemproxy_socket(host, port, timeout=3):
 def memcache_host():
     h = socket.gethostname()
     try:
-        hsfx = ".int.pkgms.net"
-        name = '.'.join(h.split('.')[0:1]) + hsfx
+        name = '.'.join(h.split('.')[0:1])
         return name
     except ImportError, e:
         msg= "cannot to take memcache hostname!"
@@ -77,7 +76,7 @@ def memcache_host():
 # flushing local memcache
 def mc_clean():
     try:
-        mc = memcache.Client(["{{ grains['ip4_interfaces']['eth0'][0] }}:11211"], debug=1)
+        mc = memcache.Client(["localhost:11211"], debug=1)
         return mc.flush_all()
     except Exception as m:
         log.Exception(m)

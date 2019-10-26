@@ -16,7 +16,7 @@
  */
 
 #include <stdlib.h>
-
+#include <stdio.h>
 #include <nc_core.h>
 
 struct array *

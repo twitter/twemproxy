@@ -241,6 +241,7 @@ struct msg {
     uint32_t             narg;            /* # arguments (redis) */
     uint32_t             rnarg;           /* running # arg used by parsing fsa (redis) */
     uint32_t             rlen;            /* running length in parsing fsa (redis) */
+    uint32_t             curr_narg;       /* current parse args */
     uint32_t             integer;         /* integer reply value (redis) */
 
     struct msg           *frag_owner;     /* owner of fragment message */

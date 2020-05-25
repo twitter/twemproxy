@@ -1934,7 +1934,6 @@ redis_parse_rsp(struct msg *r)
         case SW_SIMPLE:
             if (ch == CR) {
               state = SW_MULTIBULK_ARGN_LF;
-              r->rnarg--;
             }
             break;
 
@@ -2060,7 +2059,12 @@ redis_parse_rsp(struct msg *r)
                     goto error;
                 }
 
-                r->narg = r->rnarg;
+                if (r->narg == 0) {
+                    r->narg = r->rnarg;
+                } else {
+                    r->narg += (r->rnarg-1);
+                }
+
                 r->narg_end = p;
                 r->token = NULL;
                 state = SW_MULTIBULK_NARG_LF;
@@ -2147,7 +2151,6 @@ redis_parse_rsp(struct msg *r)
                 } else {
                     state = SW_MULTIBULK_ARGN_LEN_LF;
                 }
-                r->rnarg--;
                 r->token = NULL;
             } else {
                 goto error;
@@ -2190,9 +2193,11 @@ redis_parse_rsp(struct msg *r)
         case SW_MULTIBULK_ARGN_LF:
             switch (ch) {
             case LF:
-                if (r->rnarg == 0) {
+                r->curr_narg++;
+                if (r->narg == r->curr_narg) {
                     goto done;
                 }
+
 
                 state = SW_MULTIBULK_ARGN_LEN;
                 break;

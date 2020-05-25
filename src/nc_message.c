@@ -256,6 +256,7 @@ done:
     msg->narg = 0;
     msg->rnarg = 0;
     msg->rlen = 0;
+    msg->curr_narg = 0;
     msg->integer = 0;
 
     msg->err = 0;

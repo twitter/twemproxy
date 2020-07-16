@@ -268,6 +268,7 @@ redis_argx(struct msg *r)
     switch (r->type) {
     case MSG_REQ_REDIS_MGET:
     case MSG_REQ_REDIS_DEL:
+    case MSG_REQ_REDIS_UNLINK:
         return true;
 
     default:
@@ -774,6 +775,11 @@ redis_parse_req(struct msg *r)
                 break;
 
             case 6:
+                if (str6icmp(m, 'u', 'n', 'l', 'i', 'n', 'k')) {
+                    r->type = MSG_REQ_REDIS_UNLINK;
+                    break;
+                }
+
                 if (str6icmp(m, 'a', 'p', 'p', 'e', 'n', 'd')) {
                     r->type = MSG_REQ_REDIS_APPEND;
                     break;
@@ -2380,9 +2386,6 @@ redis_pre_coalesce(struct msg *r)
 
     switch (r->type) {
     case MSG_RSP_REDIS_INTEGER:
-        /* only redis 'del' fragmented request sends back integer reply */
-        ASSERT(pr->type == MSG_REQ_REDIS_DEL);
-
         mbuf = STAILQ_FIRST(&r->mhdr);
         /*
          * Our response parser guarantees that the integer reply will be
@@ -2634,6 +2637,9 @@ redis_fragment_argx(struct msg *r, uint32_t ncontinuum, struct msg_tqh *frag_msg
         } else if (r->type == MSG_REQ_REDIS_DEL) {
             status = msg_prepend_format(sub_msg, "*%d\r\n$3\r\ndel\r\n",
                                         sub_msg->narg + 1);
+        } else if (r->type == MSG_REQ_REDIS_UNLINK) {
+            status = msg_prepend_format(sub_msg, "*%d\r\n$3\r\nunlink\r\n",
+                                        sub_msg->narg + 1);
         } else if (r->type == MSG_REQ_REDIS_MSET) {
             status = msg_prepend_format(sub_msg, "*%d\r\n$4\r\nmset\r\n",
                                         sub_msg->narg + 1);
@@ -2667,6 +2673,7 @@ redis_fragment(struct msg *r, uint32_t ncontinuum, struct msg_tqh *frag_msgq)
     switch (r->type) {
     case MSG_REQ_REDIS_MGET:
     case MSG_REQ_REDIS_DEL:
+    case MSG_REQ_REDIS_UNLINK:
         return redis_fragment_argx(r, ncontinuum, frag_msgq, 1);
 
     case MSG_REQ_REDIS_MSET:
@@ -2719,6 +2726,19 @@ redis_post_coalesce_mset(struct msg *request)
 
 void
 redis_post_coalesce_del(struct msg *request)
+{
+    struct msg *response = request->peer;
+    rstatus_t status;
+
+    status = msg_prepend_format(response, ":%d\r\n", request->integer);
+    if (status != NC_OK) {
+        response->error = 1;
+        response->err = errno;
+    }
+}
+
+void
+redis_post_coalesce_unlink(struct msg *request)
 {
     struct msg *response = request->peer;
     rstatus_t status;
@@ -2786,6 +2806,9 @@ redis_post_coalesce(struct msg *r)
 
     case MSG_REQ_REDIS_DEL:
         return redis_post_coalesce_del(r);
+
+    case MSG_REQ_REDIS_UNLINK:
+        return redis_post_coalesce_unlink(r);
 
     case MSG_REQ_REDIS_MSET:
         return redis_post_coalesce_mset(r);

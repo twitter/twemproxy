@@ -18,6 +18,13 @@ printf '*3\r\n$3\r\nset\r\n$3\r\nfoo\r\n$3\r\noof\r\n' | socat ${debug} ${timeou
 printf '*3\r\n$3\r\nset\r\n$3\r\nbar\r\n$3\r\nrab\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
 printf '*4\r\n$3\r\ndel\r\n$3\r\nfoo\r\n$3\r\nbar\r\n$6\r\nfoobar\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
 
+printf '\nunlink\n'
+printf '*2\r\n$3\r\nunlink\r\n$3\r\nfoo\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*3\r\n$3\r\nunlink\r\n$3\r\nfoo\r\n$3\r\nbar\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*3\r\n$3\r\nset\r\n$3\r\nfoo\r\n$3\r\noof\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*3\r\n$3\r\nset\r\n$3\r\nbar\r\n$3\r\nrab\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+printf '*4\r\n$3\r\nunlink\r\n$3\r\nfoo\r\n$3\r\nbar\r\n$6\r\nfoobar\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
+
 printf '\ndump\n'
 printf '*2\r\n$4\r\ndump\r\n$3\r\nfoo\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close
 printf '*3\r\n$3\r\nset\r\n$3\r\nfoo\r\n$3\r\noof\r\n' | socat ${debug} ${timeout} - TCP:localhost:${port},shut-close

@@ -62,6 +62,7 @@ typedef enum msg_parse_result {
     ACTION( RSP_MC_CLIENT_ERROR )                                                                   \
     ACTION( RSP_MC_SERVER_ERROR )                                                                   \
     ACTION( REQ_REDIS_DEL )                    /* redis commands - keys */                          \
+    ACTION( REQ_REDIS_UNLINK )                                                                      \
     ACTION( REQ_REDIS_EXISTS )                                                                      \
     ACTION( REQ_REDIS_EXPIRE )                                                                      \
     ACTION( REQ_REDIS_EXPIREAT )                                                                    \

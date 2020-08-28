@@ -338,6 +338,7 @@ msg_get_error(bool redis, err_t err)
 
     msg->state = 0;
     msg->type = MSG_RSP_MC_SERVER_ERROR;
+    msg->err  = err;
 
     mbuf = mbuf_get();
     if (mbuf == NULL) {
@@ -748,13 +749,15 @@ msg_send_chain(struct context *ctx, struct conn *conn, struct msg *msg)
     size_t nsend, nsent;                 /* bytes to send; bytes sent */
     size_t limit;                        /* bytes to send limit */
     ssize_t n;                           /* bytes sent by sendv */
-
+    err_t conn_err;
+    struct server_pool *pool;
     TAILQ_INIT(&send_msgq);
 
     array_set(&sendv, iov, sizeof(iov[0]), NC_IOV_MAX);
 
     /* preprocess - build iovec */
-
+    conn_err = 0;
+    pool = NULL;
     nsend = 0;
     /*
      * readv() and writev() returns EINVAL if the sum of the iov_len values
@@ -805,7 +808,58 @@ msg_send_chain(struct context *ctx, struct conn *conn, struct msg *msg)
      */
     conn->smsg = NULL;
     if (!TAILQ_EMPTY(&send_msgq) && nsend != 0) {
-        n = conn_sendv(conn, &sendv, nsend);
+        /*
+         * Finish connection if send_msgq has a connection error
+         * on client connection.
+         */
+        if (conn->client) {
+            for (msg = TAILQ_FIRST(&send_msgq); msg != NULL && conn_err == 0; msg = nmsg) {
+                nmsg = TAILQ_NEXT(msg, m_tqe);
+                log_debug(LOG_DEBUG,
+                    "conn client %d, proxy %d. msg request %d, type %d, errno %d",
+                    conn->client, conn->proxy, msg->request, msg->type, msg->err);
+                switch(msg->err) {
+                    case EPIPE:
+                    case ECONNRESET:
+                    case ECONNABORTED:
+                    case ENOTCONN:
+                    case ENETDOWN:
+                    case ENETUNREACH:
+                    case EHOSTDOWN:
+                    case EHOSTUNREACH:
+                        conn_err = msg->err;
+                        break;
+                    case ETIMEDOUT:
+                        pool = conn->owner;
+                        if (pool->abort_on_timeout) {
+                            conn_err = msg->err;
+                        }
+                        break;
+                    case ECONNREFUSED:
+                        pool = conn->owner;
+                        if (pool->abort_on_refused) {
+                            conn_err = msg->err;
+                        }
+                        break;
+                    case EINVAL:
+                        pool = conn->owner;
+                        if (pool->abort_on_invalid) {
+                            conn_err = msg->err;
+                        }
+                        break;
+                    default:
+                        break;
+                }
+            }
+        }
+        if (conn_err == 0) {
+            n = conn_sendv(conn, &sendv, nsend);
+        } else {
+            conn->send_ready = 0;
+            conn->err = conn_err;
+            log_error("finish connection on sd %d reason: %s (errno %d)", conn->sd, strerror(conn_err), conn_err);
+            n = NC_ERROR;
+        }
     } else {
         n = 0;
     }

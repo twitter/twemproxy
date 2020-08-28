@@ -528,6 +528,23 @@ req_forward_error(struct context *ctx, struct conn *conn, struct msg *msg)
     msg->done = 1;
     msg->error = 1;
     msg->err = errno;
+    switch(msg->err) {
+        case EPIPE:
+        case ECONNRESET:
+        case ECONNABORTED:
+        case ENOTCONN:
+        case ENETDOWN:
+        case ENETUNREACH:
+        case EHOSTDOWN:
+        case EHOSTUNREACH:
+        case ETIMEDOUT:
+        case ECONNREFUSED:
+        case EINVAL:
+            conn->err = msg->err;
+            break;
+        default:
+            break;
+    }
 
     /* noreply request don't expect any response */
     if (msg->noreply) {

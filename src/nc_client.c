@@ -124,6 +124,10 @@ client_close(struct context *ctx, struct conn *conn)
 {
     rstatus_t status;
     struct msg *msg, *nmsg; /* current and next message */
+    struct server_pool *pool;
+    int ret;
+    pool = conn->owner;
+    ret = 0;
 
     ASSERT(conn->client && !conn->proxy);
 
@@ -179,6 +183,38 @@ client_close(struct context *ctx, struct conn *conn)
 
     conn->unref(conn);
 
+    switch(conn->err) {
+        case EPIPE:
+        case ECONNRESET:
+        case ECONNABORTED:
+        case ENOTCONN:
+        case ENETDOWN:
+        case ENETUNREACH:
+        case EHOSTDOWN:
+        case EHOSTUNREACH:
+            ret = nc_set_linger(conn->sd, 0);
+            break;
+        case ETIMEDOUT:
+            if (pool->abort_on_timeout) {
+                ret = nc_set_linger(conn->sd, 0);
+            }
+            break;
+        case ECONNREFUSED:
+            if (pool->abort_on_refused) {
+                ret = nc_set_linger(conn->sd, 0);
+            }
+            break;
+        case EINVAL:
+            if (pool->abort_on_invalid) {
+                ret = nc_set_linger(conn->sd, 0);
+            }
+            break;
+        default:
+            break;
+    }
+    if (ret < 0) {
+        log_error("setsockopt to c %d failed, reason: %s", conn->sd, strerror(errno));
+    }
     status = close(conn->sd);
     if (status < 0) {
         log_error("close c %d failed, ignored: %s", conn->sd, strerror(errno));

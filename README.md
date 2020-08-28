@@ -101,6 +101,9 @@ Twemproxy can be configured through a YAML file specified by the -c or --conf-fi
  + modula
  + random
 + **timeout**: The timeout value in msec that we wait for to establish a connection to the server or receive a response from a server. By default, we wait indefinitely.
++ **abort_on_timeout**: A boolean value that controls if twemproxy abort a connection on timeout(ETIMEDOUT). Defaults to false.  
++ **abort_on_refused**: A boolean value that controls if twemproxy abort a connection on connection refused(ECONNREFUSED). Defaults to false.
++ **abort_on_invalid**: A boolean value that controls if twemproxy abort a connection on invalid argument(EINVAL). Defaults to false.
 + **backlog**: The TCP backlog argument. Defaults to 512.
 + **preconnect**: A boolean value that controls if twemproxy should preconnect to all the servers in this pool on process start. Defaults to false.
 + **redis**: A boolean value that controls if a server pool speaks redis or memcached protocol. Defaults to false.

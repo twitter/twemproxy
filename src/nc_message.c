@@ -805,7 +805,24 @@ msg_send_chain(struct context *ctx, struct conn *conn, struct msg *msg)
      */
     conn->smsg = NULL;
     if (!TAILQ_EMPTY(&send_msgq) && nsend != 0) {
-        n = conn_sendv(conn, &sendv, nsend);
+        /*
+         * Finish connection if the last msg is for response and is type of an error,
+         * and the last error is Host is down.
+         */
+        struct msg *last_msg = TAILQ_FIRST(&send_msgq);
+        if (
+            !last_msg->request &&
+            last_msg->type == MSG_RSP_MC_SERVER_ERROR &&
+            errno == EHOSTDOWN
+        ) {
+            conn->send_ready = 0;
+            conn->err = EHOSTDOWN;
+            log_error("finish connection on sd %d reason: %s", conn->sd, strerror(errno));
+            n = NC_ERROR;
+        } else {
+            n = conn_sendv(conn, &sendv, nsend);
+        }
+        last_msg = NULL;
     } else {
         n = 0;
     }

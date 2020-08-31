@@ -806,23 +806,27 @@ msg_send_chain(struct context *ctx, struct conn *conn, struct msg *msg)
     conn->smsg = NULL;
     if (!TAILQ_EMPTY(&send_msgq) && nsend != 0) {
         /*
-         * Finish connection if the last msg is for response and is type of an error,
-         * and the last error is Host is down.
+         * Finish connection if send_msgq has a server error.
          */
-        struct msg *last_msg = TAILQ_FIRST(&send_msgq);
-        if (
-            !last_msg->request &&
-            last_msg->type == MSG_RSP_MC_SERVER_ERROR &&
-            errno == EHOSTDOWN
-        ) {
-            conn->send_ready = 0;
-            conn->err = EHOSTDOWN;
-            log_error("finish connection on sd %d reason: %s", conn->sd, strerror(errno));
-            n = NC_ERROR;
-        } else {
-            n = conn_sendv(conn, &sendv, nsend);
+        bool server_err = false;
+        for (msg = TAILQ_FIRST(&send_msgq); msg != NULL; msg = nmsg) {
+            nmsg = TAILQ_NEXT(msg, m_tqe);
+            log_debug(LOG_DEBUG,
+                "conn client %d, proxy %d. msg request %d, type %d, errno %d",
+                conn->client, conn->proxy, msg->request, msg->type, errno);
+            if (msg->type == MSG_RSP_MC_SERVER_ERROR) {
+                server_err = true;
+                break;
+            }
         }
-        last_msg = NULL;
+        if (!server_err) {
+            n = conn_sendv(conn, &sendv, nsend);
+        } else {
+            conn->send_ready = 0;
+            conn->err = errno;
+            log_error("finish connection on sd %d reason: %s (errno %d)", conn->sd, strerror(errno), errno);
+            n = NC_ERROR;
+        }
     } else {
         n = 0;
     }

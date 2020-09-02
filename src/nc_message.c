@@ -807,11 +807,12 @@ msg_send_chain(struct context *ctx, struct conn *conn, struct msg *msg)
     conn->smsg = NULL;
     if (!TAILQ_EMPTY(&send_msgq) && nsend != 0) {
         /*
-         * Finish connection if send_msgq has a connection error.
+         * Finish connection if send_msgq has a connection error
+         * on client connection.
          */
-        bool conn_err = false;
+        err_t conn_err = 0;
         if (conn->client) {
-            for (msg = TAILQ_FIRST(&send_msgq); msg != NULL && !conn_err; msg = nmsg) {
+            for (msg = TAILQ_FIRST(&send_msgq); msg != NULL && conn_err == 0; msg = nmsg) {
                 nmsg = TAILQ_NEXT(msg, m_tqe);
                 log_debug(LOG_DEBUG,
                     "conn client %d, proxy %d. msg request %d, type %d, errno %d",
@@ -827,19 +828,19 @@ msg_send_chain(struct context *ctx, struct conn *conn, struct msg *msg)
                     case ENETUNREACH:
                     case EHOSTDOWN:
                     case EHOSTUNREACH:
-                        conn_err = true;
+                        conn_err = msg->err;
                         break;
                     default:
                         break;
                 }
             }
         }
-        if (!conn_err) {
+        if (conn_err == 0) {
             n = conn_sendv(conn, &sendv, nsend);
         } else {
             conn->send_ready = 0;
-            conn->err = msg->err;
-            log_error("finish connection on sd %d reason: %s (errno %d)", conn->sd, strerror(msg->err), msg->err);
+            conn->err = conn_err;
+            log_error("finish connection on sd %d reason: %s (errno %d)", conn->sd, strerror(conn_err), conn_err);
             n = NC_ERROR;
         }
     } else {

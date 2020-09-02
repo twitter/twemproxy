@@ -22,15 +22,16 @@
 #include <nc_signal.h>
 
 static struct signal signals[] = {
-    { SIGUSR1, "SIGUSR1", 0,                 signal_handler },
-    { SIGUSR2, "SIGUSR2", 0,                 signal_handler },
-    { SIGTTIN, "SIGTTIN", 0,                 signal_handler },
-    { SIGTTOU, "SIGTTOU", 0,                 signal_handler },
-    { SIGHUP,  "SIGHUP",  0,                 signal_handler },
-    { SIGINT,  "SIGINT",  0,                 signal_handler },
-    { SIGSEGV, "SIGSEGV", (int)SA_RESETHAND, signal_handler },
-    { SIGPIPE, "SIGPIPE", 0,                 SIG_IGN },
-    { 0,        NULL,     0,                 NULL }
+    { SIGUSR1, "SIGUSR1",  0,                 signal_handler },
+    { SIGUSR2, "SIGUSR2",  0,                 signal_handler },
+    { SIGTTIN, "SIGTTIN",  0,                 signal_handler },
+    { SIGTTOU, "SIGTTOU",  0,                 signal_handler },
+    { SIGHUP,  "SIGHUP",   0,                 signal_handler },
+    { SIGINT,  "SIGINT",   0,                 signal_handler },
+    { SIGTERM, "SIGTERM",  0,                 signal_handler },
+    { SIGSEGV, "SIGSEGV",  (int)SA_RESETHAND, signal_handler },
+    { SIGPIPE, "SIGPIPE",  0,                 SIG_IGN },
+    { 0,        NULL,      0,                 NULL }
 };
 
 rstatus_t
@@ -105,6 +106,7 @@ signal_handler(int signo)
         break;
 
     case SIGINT:
+    case SIGTERM:
         done = true;
         actionstr = ", exiting";
         break;
@@ -126,6 +128,6 @@ signal_handler(int signo)
     }
 
     if (done) {
-        exit(1);
+        exit(0);
     }
 }

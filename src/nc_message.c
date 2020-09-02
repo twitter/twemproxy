@@ -338,6 +338,7 @@ msg_get_error(bool redis, err_t err)
 
     msg->state = 0;
     msg->type = MSG_RSP_MC_SERVER_ERROR;
+    msg->err  = err;
 
     mbuf = mbuf_get();
     if (mbuf == NULL) {
@@ -809,22 +810,36 @@ msg_send_chain(struct context *ctx, struct conn *conn, struct msg *msg)
          * Finish connection if send_msgq has a server error.
          */
         bool server_err = false;
-        for (msg = TAILQ_FIRST(&send_msgq); msg != NULL; msg = nmsg) {
-            nmsg = TAILQ_NEXT(msg, m_tqe);
-            log_debug(LOG_DEBUG,
-                "conn client %d, proxy %d. msg request %d, type %d, errno %d",
-                conn->client, conn->proxy, msg->request, msg->type, errno);
-            if (msg->type == MSG_RSP_MC_SERVER_ERROR) {
-                server_err = true;
-                break;
+        if (conn->client) {
+            for (msg = TAILQ_FIRST(&send_msgq); msg != NULL && !server_err; msg = nmsg) {
+                nmsg = TAILQ_NEXT(msg, m_tqe);
+                log_debug(LOG_DEBUG,
+                    "conn client %d, proxy %d. msg request %d, type %d, errno %d",
+                    conn->client, conn->proxy, msg->request, msg->type, msg->err);
+                switch(msg->err) {
+                    case EPIPE:
+                    case ETIMEDOUT:
+                    case ECONNRESET:
+                    case ECONNABORTED:
+                    case ECONNREFUSED:
+                    case ENOTCONN:
+                    case ENETDOWN:
+                    case ENETUNREACH:
+                    case EHOSTDOWN:
+                    case EHOSTUNREACH:
+                        server_err = true;
+                        break;
+                    default:
+                        break;
+                }
             }
         }
         if (!server_err) {
             n = conn_sendv(conn, &sendv, nsend);
         } else {
             conn->send_ready = 0;
-            conn->err = errno;
-            log_error("finish connection on sd %d reason: %s (errno %d)", conn->sd, strerror(errno), errno);
+            conn->err = msg->err;
+            log_error("finish connection on sd %d reason: %s (errno %d)", conn->sd, strerror(msg->err), msg->err);
             n = NC_ERROR;
         }
     } else {

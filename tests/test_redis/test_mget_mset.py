@@ -110,22 +110,22 @@ def test_mget_on_backend_down():
 
     all_redis[0].stop()
 
-    assert_fail('Connection refused|reset by peer|Broken pipe', r.mget, 'key-1')
-    assert_fail('Connection refused|reset by peer|Broken pipe', r.get, 'key-1')
+    assert_fail('Connection refused|closed by server|reset by peer|Broken pipe', r.mget, 'key-1')
+    assert_fail('Connection refused|closed by server|reset by peer|Broken pipe', r.get, 'key-1')
     assert_equal(None, r.get('key-2'))
 
     keys = ['key-1', 'key-2', 'kkk-3']
-    assert_fail('Connection refused|reset by peer|Broken pipe', r.mget, *keys)
+    assert_fail('Connection refused|closed by server|reset by peer|Broken pipe', r.mget, *keys)
 
     #all backend down
     all_redis[1].stop()
     r = redis.Redis(nc.host(), nc.port())
 
-    assert_fail('Connection refused|reset by peer|Broken pipe', r.mget, 'key-1')
-    assert_fail('Connection refused|reset by peer|Broken pipe', r.mget, 'key-2')
+    assert_fail('Connection refused|closed by server|reset by peer|Broken pipe', r.mget, 'key-1')
+    assert_fail('Connection refused|closed by server|reset by peer|Broken pipe', r.mget, 'key-2')
 
     keys = ['key-1', 'key-2', 'kkk-3']
-    assert_fail('Connection refused|reset by peer|Broken pipe', r.mget, *keys)
+    assert_fail('Connection refused|closed by server|reset by peer|Broken pipe', r.mget, *keys)
 
     for r in all_redis:
         r.start()
@@ -134,10 +134,10 @@ def test_mset_on_backend_down():
     all_redis[0].stop()
     r = redis.Redis(nc.host(),nc.port())
 
-    assert_fail('Connection refused|Broken pipe',r.mset,default_kv)
+    assert_fail('Connection refused|closed by server|Broken pipe',r.mset,default_kv)
 
     all_redis[1].stop()
-    assert_fail('Connection refused|Broken pipe',r.mset,default_kv)
+    assert_fail('Connection refused|closed by server|Broken pipe',r.mset,default_kv)
 
     for r in all_redis:
         r.start()
@@ -209,21 +209,21 @@ def test_multi_delete_on_backend_down():
     all_redis[0].stop()
     r = redis.Redis(nc.host(), nc.port())
 
-    assert_fail('Connection refused|reset by peer|Broken pipe', r.delete, 'key-1')
+    assert_fail('Connection refused|closed by server|reset by peer|Broken pipe', r.delete, 'key-1')
     assert_equal(None, r.get('key-2'))
 
     keys = ['key-1', 'key-2', 'kkk-3']
-    assert_fail('Connection refused|reset by peer|Broken pipe', r.delete, *keys)
+    assert_fail('Connection refused|closed by server|reset by peer|Broken pipe', r.delete, *keys)
 
     #all backend down
     all_redis[1].stop()
     r = redis.Redis(nc.host(), nc.port())
 
-    assert_fail('Connection refused|reset by peer|Broken pipe', r.delete, 'key-1')
-    assert_fail('Connection refused|reset by peer|Broken pipe', r.delete, 'key-2')
+    assert_fail('Connection refused|closed by server|reset by peer|Broken pipe', r.delete, 'key-1')
+    assert_fail('Connection refused|closed by server|reset by peer|Broken pipe', r.delete, 'key-2')
 
     keys = ['key-1', 'key-2', 'kkk-3']
-    assert_fail('Connection refused|reset by peer|Broken pipe', r.delete, *keys)
+    assert_fail('Connection refused|closed by server|reset by peer|Broken pipe', r.delete, *keys)
 
     for r in all_redis:
         r.start()

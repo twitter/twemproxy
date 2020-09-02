@@ -807,11 +807,11 @@ msg_send_chain(struct context *ctx, struct conn *conn, struct msg *msg)
     conn->smsg = NULL;
     if (!TAILQ_EMPTY(&send_msgq) && nsend != 0) {
         /*
-         * Finish connection if send_msgq has a server error.
+         * Finish connection if send_msgq has a connection error.
          */
-        bool server_err = false;
+        bool conn_err = false;
         if (conn->client) {
-            for (msg = TAILQ_FIRST(&send_msgq); msg != NULL && !server_err; msg = nmsg) {
+            for (msg = TAILQ_FIRST(&send_msgq); msg != NULL && !conn_err; msg = nmsg) {
                 nmsg = TAILQ_NEXT(msg, m_tqe);
                 log_debug(LOG_DEBUG,
                     "conn client %d, proxy %d. msg request %d, type %d, errno %d",
@@ -827,14 +827,14 @@ msg_send_chain(struct context *ctx, struct conn *conn, struct msg *msg)
                     case ENETUNREACH:
                     case EHOSTDOWN:
                     case EHOSTUNREACH:
-                        server_err = true;
+                        conn_err = true;
                         break;
                     default:
                         break;
                 }
             }
         }
-        if (!server_err) {
+        if (!conn_err) {
             n = conn_sendv(conn, &sendv, nsend);
         } else {
             conn->send_ready = 0;

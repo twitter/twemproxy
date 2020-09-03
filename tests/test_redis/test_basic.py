@@ -50,7 +50,7 @@ def test_slow_req():
     pipe.get('key-2')
     pipe.get('key-3')
 
-    assert_fail('timed out|closed by server', pipe.execute)
+    assert_fail('timed out', pipe.execute)
 
 def test_signal():
     #init

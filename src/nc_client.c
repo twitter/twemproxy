@@ -124,6 +124,7 @@ client_close(struct context *ctx, struct conn *conn)
 {
     rstatus_t status;
     struct msg *msg, *nmsg; /* current and next message */
+    struct linger l;
 
     ASSERT(conn->client && !conn->proxy);
 
@@ -179,6 +180,24 @@ client_close(struct context *ctx, struct conn *conn)
 
     conn->unref(conn);
 
+    switch(conn->err) {
+        case EPIPE:
+        case ETIMEDOUT:
+        case ECONNRESET:
+        case ECONNABORTED:
+        case ECONNREFUSED:
+        case ENOTCONN:
+        case ENETDOWN:
+        case ENETUNREACH:
+        case EHOSTDOWN:
+        case EHOSTUNREACH:
+            l.l_onoff  = 1;
+            l.l_linger = 0;
+            setsockopt(conn->sd, SOL_SOCKET, SO_LINGER, (char *) &l, sizeof(l));
+            break;
+        default:
+            break;
+    }
     status = close(conn->sd);
     if (status < 0) {
         log_error("close c %d failed, ignored: %s", conn->sd, strerror(errno));

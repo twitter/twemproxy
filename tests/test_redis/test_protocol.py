@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from common import *
+from .common import *
 from pprint import pprint
 
 def get_conn():
@@ -11,6 +11,9 @@ def get_conn():
 def _test(req, resp, sleep=0):
     s = get_conn()
 
+    if isinstance(req, bytes):
+        req = [req]
+
     for i in req:
         s.sendall(i)
         time.sleep(sleep)
@@ -21,8 +24,8 @@ def _test(req, resp, sleep=0):
     assert(data == resp)
 
 def test_slow():
-    req = '*1\r\n$4\r\nPING\r\n'
-    resp = '+PONG\r\n'
+    req = b'*1\r\n$4\r\nPING\r\n'
+    resp = b'+PONG\r\n'
 
     if large > 1000:
         sleep = 1
@@ -32,22 +35,22 @@ def test_slow():
     _test(req, resp, sleep)
 
 def test_pingpong():
-    req = '*1\r\n$4\r\nPING\r\n'
-    resp = '+PONG\r\n'
+    req = b'*1\r\n$4\r\nPING\r\n'
+    resp = b'+PONG\r\n'
     _test(req, resp)
 
 def test_quit():
     if nc.version() < '0.4.2':
         return
-    req = '*1\r\n$4\r\nQUIT\r\n'
-    resp = '+OK\r\n'
+    req = b'*1\r\n$4\r\nQUIT\r\n'
+    resp = b'+OK\r\n'
     _test(req, resp)
 
 def test_quit_without_recv():
     if nc.version() < '0.4.2':
         return
-    req = '*1\r\n$4\r\nQUIT\r\n'
-    resp = '+OK\r\n'
+    req = b'*1\r\n$4\r\nQUIT\r\n'
+    resp = b'+OK\r\n'
     s = get_conn()
 
     s.sendall(req)
@@ -61,19 +64,19 @@ def _test_bad(req):
 
     s.sendall(req)
     data = s.recv(10000)
-    print data
+    print(data)
 
-    assert('' == s.recv(1000))  # peer is closed
+    assert(b'' == s.recv(1000))  # peer is closed
 
 def test_badreq():
     reqs = [
         # '*1\r\n$3\r\nPING\r\n',
-        '\r\n',
+        b'\r\n',
         # '*3abcdefg\r\n',
-        '*3\r\n*abcde\r\n',
+        b'*3\r\n*abcde\r\n',
 
-        '*4\r\n$4\r\nMSET\r\n$1\r\nA\r\n$1\r\nA\r\n$1\r\nA\r\n',
-        '*2\r\n$4\r\nMSET\r\n$1\r\nA\r\n',
+        b'*4\r\n$4\r\nMSET\r\n$1\r\nA\r\n$1\r\nA\r\n$1\r\nA\r\n',
+        b'*2\r\n$4\r\nMSET\r\n$1\r\nA\r\n',
         # '*3\r\n$abcde\r\n',
         # '*3\r\n$3abcde\r\n',
         # '*3\r\n$3\r\nabcde\r\n',
@@ -86,5 +89,5 @@ def test_badreq():
 def test_wrong_argc():
     s = get_conn()
 
-    s.sendall('*1\r\n$3\r\nGET\r\n')
-    assert('' == s.recv(1000))  # peer is closed
+    s.sendall(b'*1\r\n$3\r\nGET\r\n')
+    assert(b'' == s.recv(1000))  # peer is closed

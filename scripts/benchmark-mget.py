@@ -6,7 +6,7 @@
 
 import os
 import re
-import commands
+import subprocess
 
 ports = [
     4001,  # before improve
@@ -15,7 +15,7 @@ ports = [
 ]
 
 def system(cmd):
-    return commands.getoutput(cmd)
+    return subprocess.getoutput(cmd)
 
 def extra(regex, text):
     match = re.search(regex, text, re.DOTALL)
@@ -38,6 +38,6 @@ def testit():
             rtime = extra('100.00% <= (\d+) milliseconds', rst)
             qps = extra('([\.\d]+) requests per second', rst)
 
-            print 'mget_size=%d on %d: pqs: %s, rtime: %s' % (mget_size, port, qps, rtime)
+            print('mget_size=%d on %d: pqs: %s, rtime: %s' % (mget_size, port, qps, rtime))
 
 testit()

@@ -29,7 +29,7 @@ nc = NutCracker('127.0.0.1', 4100, '/tmp/r/nutcracker-4100', CLUSTER_NAME,
                 all_redis, mbuf=mbuf, verbose=nc_verbose)
 
 def setup():
-    print 'setup(mbuf=%s, verbose=%s)' %(mbuf, nc_verbose)
+    print(('setup(mbuf=%s, verbose=%s)' %(mbuf, nc_verbose)))
     for r in all_redis + [nc]:
         r.clean()
         r.deploy()
@@ -44,6 +44,14 @@ def teardown():
 default_kv = {'kkk-%s' % i : 'vvv-%s' % i for i in range(10)}
 
 def getconn():
+    for r in all_redis:
+        c = redis.Redis(r.host(), r.port(), decode_responses=True)
+        c.flushdb()
+
+    r = redis.Redis(nc.host(), nc.port(), decode_responses=True)
+    return r
+
+def getconn_no_decode():
     for r in all_redis:
         c = redis.Redis(r.host(), r.port())
         c.flushdb()

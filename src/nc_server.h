@@ -121,6 +121,7 @@ struct server_pool {
     unsigned           preconnect:1;         /* preconnect? */
     unsigned           redis:1;              /* redis? */
     unsigned           tcpkeepalive:1;       /* tcpkeepalive? */
+    unsigned           throw_on_timeout:1;   /* send RST back to client? */
 };
 
 void server_ref(struct conn *conn, void *owner);

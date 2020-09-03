@@ -44,6 +44,7 @@
 #define CONF_DEFAULT_HASH                    HASH_FNV1A_64
 #define CONF_DEFAULT_DIST                    DIST_KETAMA
 #define CONF_DEFAULT_TIMEOUT                 -1
+#define CONF_DEFAULT_THROW_ON_TIMEOUT        false
 #define CONF_DEFAULT_LISTEN_BACKLOG          512
 #define CONF_DEFAULT_CLIENT_CONNECTIONS      0
 #define CONF_DEFAULT_REDIS                   false
@@ -82,6 +83,7 @@ struct conf_pool {
     struct string      hash_tag;              /* hash_tag: */
     dist_type_t        distribution;          /* distribution: */
     int                timeout;               /* timeout: */
+    int                throw_on_timeout;      /* send RST back to client? */
     int                backlog;               /* backlog: */
     int                client_connections;    /* client_connections: */
     int                tcpkeepalive;          /* tcpkeepalive: */

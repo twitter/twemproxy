@@ -749,13 +749,15 @@ msg_send_chain(struct context *ctx, struct conn *conn, struct msg *msg)
     size_t nsend, nsent;                 /* bytes to send; bytes sent */
     size_t limit;                        /* bytes to send limit */
     ssize_t n;                           /* bytes sent by sendv */
-
+    err_t conn_err;
+    struct server_pool *pool;
     TAILQ_INIT(&send_msgq);
 
     array_set(&sendv, iov, sizeof(iov[0]), NC_IOV_MAX);
 
     /* preprocess - build iovec */
-
+    conn_err = 0;
+    pool = NULL;
     nsend = 0;
     /*
      * readv() and writev() returns EINVAL if the sum of the iov_len values
@@ -810,7 +812,6 @@ msg_send_chain(struct context *ctx, struct conn *conn, struct msg *msg)
          * Finish connection if send_msgq has a connection error
          * on client connection.
          */
-        err_t conn_err = 0;
         if (conn->client) {
             for (msg = TAILQ_FIRST(&send_msgq); msg != NULL && conn_err == 0; msg = nmsg) {
                 nmsg = TAILQ_NEXT(msg, m_tqe);
@@ -819,7 +820,6 @@ msg_send_chain(struct context *ctx, struct conn *conn, struct msg *msg)
                     conn->client, conn->proxy, msg->request, msg->type, msg->err);
                 switch(msg->err) {
                     case EPIPE:
-                    case ETIMEDOUT:
                     case ECONNRESET:
                     case ECONNABORTED:
                     case ENOTCONN:
@@ -828,6 +828,12 @@ msg_send_chain(struct context *ctx, struct conn *conn, struct msg *msg)
                     case EHOSTDOWN:
                     case EHOSTUNREACH:
                         conn_err = msg->err;
+                        break;
+                    case ETIMEDOUT:
+                        pool = conn->owner;
+                        if (pool->throw_on_timeout) {
+                            conn_err = msg->err;
+                        }
                         break;
                     default:
                         break;

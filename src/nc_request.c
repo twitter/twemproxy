@@ -518,6 +518,7 @@ static void
 req_forward_error(struct context *ctx, struct conn *conn, struct msg *msg)
 {
     rstatus_t status;
+    struct server_pool *pool;
 
     ASSERT(conn->client && !conn->proxy);
 
@@ -528,6 +529,26 @@ req_forward_error(struct context *ctx, struct conn *conn, struct msg *msg)
     msg->done = 1;
     msg->error = 1;
     msg->err = errno;
+    switch(msg->err) {
+        case EPIPE:
+        case ECONNRESET:
+        case ECONNABORTED:
+        case ENOTCONN:
+        case ENETDOWN:
+        case ENETUNREACH:
+        case EHOSTDOWN:
+        case EHOSTUNREACH:
+            conn->err = msg->err;
+            break;
+        case ETIMEDOUT:
+            pool = conn->owner;
+            if (pool->throw_on_timeout) {
+                conn->err = msg->err;
+            }
+            break;
+        default:
+            break;
+    }
 
     /* noreply request don't expect any response */
     if (msg->noreply) {

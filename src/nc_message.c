@@ -822,7 +822,6 @@ msg_send_chain(struct context *ctx, struct conn *conn, struct msg *msg)
                     case EPIPE:
                     case ECONNRESET:
                     case ECONNABORTED:
-                    case ECONNREFUSED:
                     case ENOTCONN:
                     case ENETDOWN:
                     case ENETUNREACH:
@@ -833,6 +832,12 @@ msg_send_chain(struct context *ctx, struct conn *conn, struct msg *msg)
                     case ETIMEDOUT:
                         pool = conn->owner;
                         if (pool->throw_on_timeout) {
+                            conn_err = msg->err;
+                        }
+                        break;
+                    case ECONNREFUSED:
+                        pool = conn->owner;
+                        if (pool->throw_on_refused) {
                             conn_err = msg->err;
                         }
                         break;

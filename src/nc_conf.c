@@ -66,6 +66,10 @@ static struct command conf_commands[] = {
       conf_set_bool,
       offsetof(struct conf_pool, throw_on_timeout) },
 
+    { string("throw_on_refused"),
+      conf_set_bool,
+      offsetof(struct conf_pool, throw_on_refused) },
+
     { string("backlog"),
       conf_set_num,
       offsetof(struct conf_pool, backlog) },
@@ -198,6 +202,7 @@ conf_pool_init(struct conf_pool *cp, struct string *name)
 
     cp->timeout = CONF_UNSET_NUM;
     cp->throw_on_timeout = CONF_UNSET_NUM;
+    cp->throw_on_refused = CONF_UNSET_NUM;
     cp->backlog = CONF_UNSET_NUM;
 
     cp->client_connections = CONF_UNSET_NUM;
@@ -296,6 +301,7 @@ conf_pool_each_transform(void *elem, void *data)
     sp->redis = cp->redis ? 1 : 0;
     sp->timeout = cp->timeout;
     sp->throw_on_timeout = cp->throw_on_timeout;
+    sp->throw_on_refused = cp->throw_on_refused;
     sp->backlog = cp->backlog;
     sp->redis_db = cp->redis_db;
 
@@ -343,6 +349,7 @@ conf_dump(struct conf *cf)
                   cp->listen.pname.len, cp->listen.pname.data);
         log_debug(LOG_VVERB, "  timeout: %d", cp->timeout);
         log_debug(LOG_VVERB, "  throw_on_timeout: %d", cp->throw_on_timeout);
+        log_debug(LOG_VVERB, "  throw_on_refused: %d", cp->throw_on_refused);
         log_debug(LOG_VVERB, "  backlog: %d", cp->backlog);
         log_debug(LOG_VVERB, "  hash: %d", cp->hash);
         log_debug(LOG_VVERB, "  hash_tag: \"%.*s\"", cp->hash_tag.len,
@@ -1237,6 +1244,10 @@ conf_validate_pool(struct conf *cf, struct conf_pool *cp)
 
     if (cp->throw_on_timeout == CONF_UNSET_NUM) {
         cp->throw_on_timeout = CONF_DEFAULT_THROW_ON_TIMEOUT;
+    }
+
+    if (cp->throw_on_refused == CONF_UNSET_NUM) {
+        cp->throw_on_refused = CONF_DEFAULT_THROW_ON_REFUSED;
     }
 
     if (cp->backlog == CONF_UNSET_NUM) {

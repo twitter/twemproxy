@@ -822,6 +822,7 @@ msg_send_chain(struct context *ctx, struct conn *conn, struct msg *msg)
                     case EPIPE:
                     case ECONNRESET:
                     case ECONNABORTED:
+                    case ECONNREFUSED:
                     case ENOTCONN:
                     case ENETDOWN:
                     case ENETUNREACH:

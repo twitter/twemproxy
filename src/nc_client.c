@@ -185,6 +185,7 @@ client_close(struct context *ctx, struct conn *conn)
         case ETIMEDOUT:
         case ECONNRESET:
         case ECONNABORTED:
+        case ECONNREFUSED:
         case ENOTCONN:
         case ENETDOWN:
         case ENETUNREACH:

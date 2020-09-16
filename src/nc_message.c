@@ -841,6 +841,12 @@ msg_send_chain(struct context *ctx, struct conn *conn, struct msg *msg)
                             conn_err = msg->err;
                         }
                         break;
+                    case EINVAL:
+                        pool = conn->owner;
+                        if (pool->throw_on_invalid) {
+                            conn_err = msg->err;
+                        }
+                        break;
                     default:
                         break;
                 }

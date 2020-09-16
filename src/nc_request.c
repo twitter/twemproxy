@@ -552,6 +552,12 @@ req_forward_error(struct context *ctx, struct conn *conn, struct msg *msg)
                 conn->err = msg->err;
             }
             break;
+        case EINVAL:
+            pool = conn->owner;
+            if (pool->throw_on_invalid) {
+                conn->err = msg->err;
+            }
+            break;
         default:
             break;
     }

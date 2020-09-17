@@ -125,11 +125,9 @@ client_close(struct context *ctx, struct conn *conn)
     rstatus_t status;
     struct msg *msg, *nmsg; /* current and next message */
     struct server_pool *pool;
-    struct linger l;
-
+    int ret;
     pool = conn->owner;
-    l.l_onoff  = 1;
-    l.l_linger = 0;
+    ret = 0;
 
     ASSERT(conn->client && !conn->proxy);
 
@@ -194,25 +192,28 @@ client_close(struct context *ctx, struct conn *conn)
         case ENETUNREACH:
         case EHOSTDOWN:
         case EHOSTUNREACH:
-            setsockopt(conn->sd, SOL_SOCKET, SO_LINGER, (char *) &l, sizeof(l));
+            ret = nc_set_linger(conn->sd, 0);
             break;
         case ETIMEDOUT:
             if (pool->abort_on_timeout) {
-                setsockopt(conn->sd, SOL_SOCKET, SO_LINGER, (char *) &l, sizeof(l));
+                ret = nc_set_linger(conn->sd, 0);
             }
             break;
         case ECONNREFUSED:
             if (pool->abort_on_refused) {
-                setsockopt(conn->sd, SOL_SOCKET, SO_LINGER, (char *) &l, sizeof(l));
+                ret = nc_set_linger(conn->sd, 0);
             }
             break;
         case EINVAL:
             if (pool->abort_on_invalid) {
-                setsockopt(conn->sd, SOL_SOCKET, SO_LINGER, (char *) &l, sizeof(l));
+                ret = nc_set_linger(conn->sd, 0);
             }
             break;
         default:
             break;
+    }
+    if (ret < 0) {
+        log_error("setsockopt to c %d failed, reason: %s", conn->sd, strerror(errno));
     }
     status = close(conn->sd);
     if (status < 0) {

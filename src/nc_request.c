@@ -542,19 +542,19 @@ req_forward_error(struct context *ctx, struct conn *conn, struct msg *msg)
             break;
         case ETIMEDOUT:
             pool = conn->owner;
-            if (pool->throw_on_timeout) {
+            if (pool->abort_on_timeout) {
                 conn->err = msg->err;
             }
             break;
         case ECONNREFUSED:
             pool = conn->owner;
-            if (pool->throw_on_refused) {
+            if (pool->abort_on_refused) {
                 conn->err = msg->err;
             }
             break;
         case EINVAL:
             pool = conn->owner;
-            if (pool->throw_on_invalid) {
+            if (pool->abort_on_invalid) {
                 conn->err = msg->err;
             }
             break;

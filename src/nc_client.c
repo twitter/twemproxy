@@ -124,7 +124,12 @@ client_close(struct context *ctx, struct conn *conn)
 {
     rstatus_t status;
     struct msg *msg, *nmsg; /* current and next message */
+    struct server_pool *pool;
     struct linger l;
+
+    pool = conn->owner;
+    l.l_onoff  = 1;
+    l.l_linger = 0;
 
     ASSERT(conn->client && !conn->proxy);
 
@@ -182,18 +187,29 @@ client_close(struct context *ctx, struct conn *conn)
 
     switch(conn->err) {
         case EPIPE:
-        case ETIMEDOUT:
         case ECONNRESET:
         case ECONNABORTED:
-        case ECONNREFUSED:
         case ENOTCONN:
         case ENETDOWN:
         case ENETUNREACH:
         case EHOSTDOWN:
         case EHOSTUNREACH:
-            l.l_onoff  = 1;
-            l.l_linger = 0;
             setsockopt(conn->sd, SOL_SOCKET, SO_LINGER, (char *) &l, sizeof(l));
+            break;
+        case ETIMEDOUT:
+            if (pool->abort_on_timeout) {
+                setsockopt(conn->sd, SOL_SOCKET, SO_LINGER, (char *) &l, sizeof(l));
+            }
+            break;
+        case ECONNREFUSED:
+            if (pool->abort_on_refused) {
+                setsockopt(conn->sd, SOL_SOCKET, SO_LINGER, (char *) &l, sizeof(l));
+            }
+            break;
+        case EINVAL:
+            if (pool->abort_on_invalid) {
+                setsockopt(conn->sd, SOL_SOCKET, SO_LINGER, (char *) &l, sizeof(l));
+            }
             break;
         default:
             break;

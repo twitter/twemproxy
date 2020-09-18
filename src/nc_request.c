@@ -518,7 +518,6 @@ static void
 req_forward_error(struct context *ctx, struct conn *conn, struct msg *msg)
 {
     rstatus_t status;
-    struct server_pool *pool;
 
     ASSERT(conn->client && !conn->proxy);
 
@@ -538,25 +537,10 @@ req_forward_error(struct context *ctx, struct conn *conn, struct msg *msg)
         case ENETUNREACH:
         case EHOSTDOWN:
         case EHOSTUNREACH:
-            conn->err = msg->err;
-            break;
         case ETIMEDOUT:
-            pool = conn->owner;
-            if (pool->abort_on_timeout) {
-                conn->err = msg->err;
-            }
-            break;
         case ECONNREFUSED:
-            pool = conn->owner;
-            if (pool->abort_on_refused) {
-                conn->err = msg->err;
-            }
-            break;
         case EINVAL:
-            pool = conn->owner;
-            if (pool->abort_on_invalid) {
-                conn->err = msg->err;
-            }
+            conn->err = msg->err;
             break;
         default:
             break;

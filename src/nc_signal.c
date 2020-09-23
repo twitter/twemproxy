@@ -71,6 +71,8 @@ signal_handler(int signo)
     void (*action)(void);
     char *actionstr;
     bool done;
+    int code;
+    char msg[EXIT_MSG_MAX_LEN];
 
     for (sig = signals; sig->signo != 0; sig++) {
         if (sig->signo == signo) {
@@ -82,6 +84,7 @@ signal_handler(int signo)
     actionstr = "";
     action = NULL;
     done = false;
+    code = 0;
 
     switch (signo) {
     case SIGUSR1:
@@ -108,7 +111,8 @@ signal_handler(int signo)
     case SIGINT:
     case SIGTERM:
         done = true;
-        actionstr = ", exiting";
+        nc_safe_snprintf(msg, EXIT_MSG_MAX_LEN, ", exiting (%d)", code);
+        actionstr = msg;
         break;
 
     case SIGSEGV:
@@ -128,6 +132,6 @@ signal_handler(int signo)
     }
 
     if (done) {
-        exit(0);
+        exit(code);
     }
 }

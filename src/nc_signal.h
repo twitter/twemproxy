@@ -20,6 +20,8 @@
 
 #include <nc_core.h>
 
+#define EXIT_MSG_MAX_LEN 256 /* max length of exit message */
+
 struct signal {
     int  signo;
     char *signame;

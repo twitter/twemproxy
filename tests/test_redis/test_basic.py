@@ -70,6 +70,20 @@ def test_signal():
     assert(strstr(log, 'TTOU'))
     assert(strstr(log, 'SEGV'))
 
+    nc.start()
+    nc.signal('INT')
+    time.sleep(.3)
+    log = open(nc.logfile()).read()
+    assert(strstr(log, 'INT'))
+    assert(strstr(log, 'exiting (0)'))
+
+    nc.start()
+    nc.signal('TERM')
+    time.sleep(.3)
+    log = open(nc.logfile()).read()
+    assert(strstr(log, 'TERM'))
+    assert(strstr(log, 'exiting (0)'))
+
     #recover
     nc.start()
 

@@ -62,6 +62,18 @@ static struct command conf_commands[] = {
       conf_set_num,
       offsetof(struct conf_pool, timeout) },
 
+    { string("abort_on_timeout"),
+      conf_set_bool,
+      offsetof(struct conf_pool, abort_on_timeout) },
+
+    { string("abort_on_refused"),
+      conf_set_bool,
+      offsetof(struct conf_pool, abort_on_refused) },
+
+    { string("abort_on_invalid"),
+      conf_set_bool,
+      offsetof(struct conf_pool, abort_on_invalid) },
+
     { string("backlog"),
       conf_set_num,
       offsetof(struct conf_pool, backlog) },
@@ -193,6 +205,9 @@ conf_pool_init(struct conf_pool *cp, struct string *name)
     cp->distribution = CONF_UNSET_DIST;
 
     cp->timeout = CONF_UNSET_NUM;
+    cp->abort_on_timeout = CONF_UNSET_NUM;
+    cp->abort_on_refused = CONF_UNSET_NUM;
+    cp->abort_on_invalid = CONF_UNSET_NUM;
     cp->backlog = CONF_UNSET_NUM;
 
     cp->client_connections = CONF_UNSET_NUM;
@@ -290,6 +305,9 @@ conf_pool_each_transform(void *elem, void *data)
 
     sp->redis = cp->redis ? 1 : 0;
     sp->timeout = cp->timeout;
+    sp->abort_on_timeout = cp->abort_on_timeout;
+    sp->abort_on_refused = cp->abort_on_refused;
+    sp->abort_on_invalid = cp->abort_on_invalid;
     sp->backlog = cp->backlog;
     sp->redis_db = cp->redis_db;
 
@@ -336,6 +354,9 @@ conf_dump(struct conf *cf)
         log_debug(LOG_VVERB, "  listen: %.*s",
                   cp->listen.pname.len, cp->listen.pname.data);
         log_debug(LOG_VVERB, "  timeout: %d", cp->timeout);
+        log_debug(LOG_VVERB, "  abort_on_timeout: %d", cp->abort_on_timeout);
+        log_debug(LOG_VVERB, "  abort_on_refused: %d", cp->abort_on_refused);
+        log_debug(LOG_VVERB, "  abort_on_invalid: %d", cp->abort_on_invalid);
         log_debug(LOG_VVERB, "  backlog: %d", cp->backlog);
         log_debug(LOG_VVERB, "  hash: %d", cp->hash);
         log_debug(LOG_VVERB, "  hash_tag: \"%.*s\"", cp->hash_tag.len,
@@ -1226,6 +1247,18 @@ conf_validate_pool(struct conf *cf, struct conf_pool *cp)
 
     if (cp->timeout == CONF_UNSET_NUM) {
         cp->timeout = CONF_DEFAULT_TIMEOUT;
+    }
+
+    if (cp->abort_on_timeout == CONF_UNSET_NUM) {
+        cp->abort_on_timeout = CONF_DEFAULT_ABORT_ON_TIMEOUT;
+    }
+
+    if (cp->abort_on_refused == CONF_UNSET_NUM) {
+        cp->abort_on_refused = CONF_DEFAULT_ABORT_ON_REFUSED;
+    }
+
+    if (cp->abort_on_invalid == CONF_UNSET_NUM) {
+        cp->abort_on_invalid = CONF_DEFAULT_ABORT_ON_INVALID;
     }
 
     if (cp->backlog == CONF_UNSET_NUM) {

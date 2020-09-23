@@ -45,7 +45,7 @@ class Base:
         self._gen_control_script()
 
     def _gen_control_script(self):
-        content = file(os.path.join(WORKDIR, 'conf/control.sh')).read()
+        content = open(os.path.join(WORKDIR, 'conf/control.sh')).read()
         content = TT(content, self.args)
 
         control_filename = TT('${path}/${name}_control', self.args)
@@ -53,7 +53,7 @@ class Base:
         fout = open(control_filename, 'w+')
         fout.write(content)
         fout.close()
-        os.chmod(control_filename, 0755)
+        os.chmod(control_filename, 0o755)
 
     def start(self):
         if self._alive():
@@ -121,8 +121,8 @@ class RedisServer(Base):
     def __init__(self, host, port, path, cluster_name, server_name, auth = None):
         Base.__init__(self, 'redis', host, port, path)
 
-        self.args['startcmd']     = TT('bin/redis-server conf/redis.conf', self.args)
-        self.args['runcmd']       = TT('redis-server \*:$port', self.args)
+        self.args['startcmd']     = TT('bin/redis-server conf/redis.conf --port $port', self.args)
+        self.args['runcmd']       = TT('redis-server.*$port', self.args)
         self.args['conf']         = TT('$path/conf/redis.conf', self.args)
         self.args['pidfile']      = TT('$path/log/redis.pid', self.args)
         self.args['logfile']      = TT('$path/log/redis.log', self.args)
@@ -154,7 +154,7 @@ class RedisServer(Base):
         return strstr(self._ping(), 'PONG')
 
     def _gen_conf(self):
-        content = file(os.path.join(WORKDIR, 'conf/redis.conf')).read()
+        content = open(os.path.join(WORKDIR, 'conf/redis.conf')).read()
         content = TT(content, self.args)
         if self.args['auth']:
             content += '\r\nrequirepass %s' % self.args['auth']
@@ -197,7 +197,7 @@ class Memcached(Base):
     def __init__(self, host, port, path, cluster_name, server_name):
         Base.__init__(self, 'memcached', host, port, path)
 
-        self.args['startcmd']     = TT('bin/memcached -d -p $port', self.args)
+        self.args['startcmd']     = TT('bin/memcached -d -p $port -u memcached', self.args)
         self.args['runcmd']       = self.args['startcmd']
 
         self.args['cluster_name'] = cluster_name
@@ -254,7 +254,7 @@ $cluster_name:
   auto_eject_hosts: false
   redis: $is_redis
   backlog: 512
-  timeout: 400
+  timeout: 600
   client_connections: 0
   server_connections: 1
   server_retry_timeout: 2000
@@ -285,7 +285,7 @@ $cluster_name:
             c = telnetlib.Telnet(self.args['host'], self.args['status_port'])
             ret = c.read_all()
             return json_decode(ret)
-        except Exception, e:
+        except Exception as e:
             logging.debug('can not get _info_dict of nutcracker, \
                           [Exception: %s]' % (e, ))
             return None

@@ -35,7 +35,7 @@ nc = NutCracker('127.0.0.1', 4100, '/tmp/r/nutcracker-4100', CLUSTER_NAME,
                 all_redis, mbuf=mbuf, verbose=nc_verbose)
 
 def _setup():
-    print 'setup(mbuf=%s, verbose=%s)' %(mbuf, nc_verbose)
+    print(('setup(mbuf=%s, verbose=%s)' %(mbuf, nc_verbose)))
     for r in all_redis + [nc]:
         r.deploy()
         r.stop()
@@ -60,14 +60,14 @@ def send_cmd(s, req, resp):
 @with_setup(_setup, _teardown)
 def test_reload_with_old_conf():
     if nc.version() < '0.4.2':
-        print 'Ignore test_reload for version %s' % nc.version()
+        print(('Ignore test_reload for version %s' % nc.version()))
         return
     pid = nc.pid()
     # print 'old pid:', pid
-    r = redis.Redis(nc.host(), nc.port())
+    r = redis.Redis(nc.host(), nc.port(), decode_responses=True)
     r.set('k', 'v')
 
-    conn = get_tcp_conn(nc.host(), nc.port())
+    conn = get_tcp_conn(nc.host(), nc.port(), decode_responses=True)
     send_cmd(conn, '*2\r\n$3\r\nGET\r\n$1\r\nk\r\n', '$1\r\nv\r\n')
 
     # nc.reload() is same as nc.stop() and nc.start()
@@ -78,7 +78,7 @@ def test_reload_with_old_conf():
     send_cmd(conn, '*2\r\n$3\r\nGET\r\n$1\r\nk\r\n', '$1\r\nv\r\n')
 
     # conn2 should connect to new instance
-    conn2 = get_tcp_conn(nc.host(), nc.port())
+    conn2 = get_tcp_conn(nc.host(), nc.port(), decode_responses=True)
     send_cmd(conn2, '*2\r\n$3\r\nGET\r\n$1\r\nk\r\n', '$1\r\nv\r\n')
 
     # the old connection is still ok in T_RELOAD_DELAY seconds
@@ -93,16 +93,16 @@ def test_reload_with_old_conf():
     # conn2 should survive
     send_cmd(conn2, '*2\r\n$3\r\nGET\r\n$1\r\nk\r\n', '$1\r\nv\r\n')
 
-    r = redis.Redis(nc.host(), nc.port())
+    r = redis.Redis(nc.host(), nc.port(), decode_responses=True)
     rst = r.set('k', 'v')
     assert(r.get('k') == 'v')
 
 @with_setup(_setup, _teardown)
 def test_new_port():
     if nc.version() < '0.4.2':
-        print 'Ignore test_reload for version %s' % nc.version()
+        print(('Ignore test_reload for version %s' % nc.version()))
         return
-    r = redis.Redis(nc.host(), nc.port())
+    r = redis.Redis(nc.host(), nc.port(), decode_responses=True)
     r.set('k', 'v')
 
     content = '''
@@ -120,8 +120,8 @@ reload_test:
     nc.set_config(content)
     time.sleep(T_RELOAD_DELAY)
 
-    r1 = redis.Redis(nc.host(), nc.port())
-    r2 = redis.Redis(nc.host(), 4101)
+    r1 = redis.Redis(nc.host(), nc.port(), decode_responses=True)
+    r2 = redis.Redis(nc.host(), 4101, decode_responses=True)
 
     assert_fail('Connection refused', r1.get, 'k')
     assert(r2.get('k') == 'v')
@@ -129,10 +129,10 @@ reload_test:
 @with_setup(_setup, _teardown)
 def test_pool_add_del():
     if nc.version() < '0.4.2':
-        print 'Ignore test_reload for version %s' % nc.version()
+        print(('Ignore test_reload for version %s' % nc.version()))
         return
 
-    r = redis.Redis(nc.host(), nc.port())
+    r = redis.Redis(nc.host(), nc.port(), decode_responses=True)
 
     r.set('k', 'v')
     content = '''
@@ -158,8 +158,8 @@ reload_test2:
     nc.set_config(content)
     time.sleep(T_RELOAD_DELAY)
 
-    r1 = redis.Redis(nc.host(), nc.port())
-    r2 = redis.Redis(nc.host(), 4101)
+    r1 = redis.Redis(nc.host(), nc.port(), decode_responses=True)
+    r2 = redis.Redis(nc.host(), 4101, decode_responses=True)
 
     assert(r1.get('k') == 'v')
     assert(r2.get('k') == 'v')
@@ -178,9 +178,9 @@ reload_test:
     nc.set_config(content)
     time.sleep(T_RELOAD_DELAY)
     pid = nc.pid()
-    print system('ls -l /proc/%s/fd/' % pid)
+    print((system('ls -l /proc/%s/fd/' % pid)))
 
-    r3 = redis.Redis(nc.host(), 4102)
+    r3 = redis.Redis(nc.host(), 4102, decode_responses=True)
 
     assert_fail('Connection refused', r1.get, 'k')
     assert_fail('Connection refused', r2.get, 'k')

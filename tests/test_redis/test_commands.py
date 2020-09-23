@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 #coding: utf-8
 
-from common import *
+from .common import *
 
 def test_linsert():
     r = getconn()
@@ -48,7 +48,7 @@ def test_hscan_large():
     dic = {}
     while True:
         cursor, t = r.hscan('a', cursor, count=10)
-        for k, v in t.items():
+        for k, v in list(t.items()):
             dic[k] = v
 
         if '0' == str(cursor):
@@ -70,7 +70,7 @@ def test_hscan_large():
 def test_zscan():
     r = getconn()
 
-    r.zadd('a', 'a', 1, 'b', 2, 'c', 3)
+    r.zadd('a', {'a':1, 'b':2, 'c':3})
 
     cursor, pairs = r.zscan('a')
     assert(str(cursor) == '0')

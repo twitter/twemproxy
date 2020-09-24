@@ -75,14 +75,14 @@ def test_signal():
     time.sleep(.3)
     log = open(nc.logfile()).read()
     assert(strstr(log, 'INT'))
-    assert(strstr(log, 'exiting (0)'))
+    assert(strstr(log, 'exiting'))
 
     nc.start()
     nc.signal('TERM')
     time.sleep(.3)
     log = open(nc.logfile()).read()
     assert(strstr(log, 'TERM'))
-    assert(strstr(log, 'exiting (0)'))
+    assert(strstr(log, 'exiting'))
 
     #recover
     nc.start()

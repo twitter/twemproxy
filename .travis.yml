@@ -1,3 +1,29 @@
-language: c
-script: bash ./travis.sh
-
+language: python
+python:
+  - "3.8"
+cache:
+  directories:
+    - $HOME/.cache/pip
+    - $HOME/.cache/redis
+before_install:
+  - sudo apt-get update
+  - sudo apt-get install -y git
+  - sudo apt-get install -y socat
+  - sudo apt-get install -y memcached
+  # build redis from source
+  - |
+    set -e;
+    ls $HOME/.cache/redis 1>/dev/null 2>&1 || git clone https://github.com/redis/redis.git -b 4.0.14 $HOME/.cache/redis
+    cd $HOME/.cache/redis
+    make -j $(nproc)
+    sudo make install
+    cd -
+  - pip install nose
+  - pip install python-memcached
+  - pip install redis
+install:
+  - CFLAGS="-ggdb3 -O0" autoreconf -fvi
+  - ./configure --enable-debug=log
+  - make -j $(nproc)
+  - sudo make install
+script: bash travis.sh

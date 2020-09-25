@@ -13,7 +13,7 @@ before_install:
   # build redis from source
   - |
     set -e;
-    ls $HOME/.cache/redis 1>/dev/null 2>&1 || git clone https://github.com/redis/redis.git -b 4.0.14 $HOME/.cache/redis
+    ls $HOME/.cache/redis/src 1>/dev/null 2>&1 || git clone https://github.com/redis/redis.git -b 4.0.14 $HOME/.cache/redis
     cd $HOME/.cache/redis
     make -j $(nproc)
     sudo make install

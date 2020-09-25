@@ -1,4 +1,4 @@
-# twemproxy (nutcracker) [![Build Status](https://secure.travis-ci.org/twitter/twemproxy.png)](http://travis-ci.org/twitter/twemproxy)
+# twemproxy (nutcracker) [![Build Status](https://secure.travis-ci.org/colopl/twemproxy.png)](http://travis-ci.org/colopl/twemproxy)
 
 **twemproxy** (pronounced "two-em-proxy"), aka **nutcracker** is a fast and lightweight proxy for [memcached](http://www.memcached.org/) and [redis](http://redis.io/) protocol. It was built primarily to reduce the number of connections to the caching servers on the backend. This, together with protocol pipelining and sharding enables you to horizontally scale your distributed caching architecture.
 

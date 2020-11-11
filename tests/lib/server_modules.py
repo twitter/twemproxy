@@ -214,7 +214,7 @@ class Memcached(Base):
 
 class NutCracker(Base):
     def __init__(self, host, port, path, cluster_name, masters, mbuf=512,
-            verbose=5, is_redis=True, redis_auth=None):
+            verbose=5, is_redis=True, redis_auth=None, redis_db=0):
         Base.__init__(self, 'nutcracker', host, port, path)
 
         self.masters = masters
@@ -233,8 +233,9 @@ class NutCracker(Base):
         self.args['runcmd']   = TTCMD('bin/nutcracker -d -c $conf -o $logfile \
                                        -p $pidfile -s $status_port', self.args)
 
-        self.args['cluster_name']= cluster_name
-        self.args['is_redis']= str(is_redis).lower()
+        self.args['cluster_name' ]= cluster_name
+        self.args['is_redis'] = str(is_redis).lower()
+        self.args['redis_db'] = redis_db
 
     def _alive(self):
         return self._info_dict()
@@ -248,6 +249,7 @@ class NutCracker(Base):
         content = '''
 $cluster_name:
   listen: 0.0.0.0:$port
+  redis_db: $redis_db
   hash: fnv1a_64
   distribution: modula
   preconnect: true

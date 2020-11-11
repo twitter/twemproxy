@@ -327,6 +327,29 @@ stats_pool_unmap(struct array *stats_pool)
 }
 
 static rstatus_t
+stats_pool_redis_db_init(struct array *stats_pool, struct array *server_pool)
+{
+    uint32_t i, npool;
+
+    npool = array_n(server_pool);
+    ASSERT(npool != 0);
+
+    for (i = 0; i < npool; i++) {
+        struct server_pool *sp = array_get(server_pool, i);
+        struct stats_pool *stp = array_get(stats_pool, i);
+        struct stats_metric *stm;
+
+        // init redis_db in metrics
+        stm = array_get(&stp->metric, STATS_POOL_redis_db);
+        printf("test init redis db: %ld\n", sp->redis_db);
+        stm->value.counter = (int64_t)sp->redis_db;
+        printf("test init redis db2: %ld\n", stm->value.counter);
+    }
+
+    return NC_OK;
+}
+
+static rstatus_t
 stats_create_buf(struct stats *st)
 {
     uint32_t int64_max_digits = 20; /* INT64_MAX = 9223372036854775807 */
@@ -936,6 +959,11 @@ stats_create(uint16_t stats_port, char *stats_ip, int stats_interval,
     /* map server pool to current (a), shadow (b) and sum (c) */
 
     status = stats_pool_map(&st->current, server_pool);
+    if (status != NC_OK) {
+        goto error;
+    }
+
+    status = stats_pool_redis_db_init(&st->current, server_pool);
     if (status != NC_OK) {
         goto error;
     }

@@ -22,6 +22,7 @@
 
 #define STATS_POOL_CODEC(ACTION)                                                                                    \
     /* client behavior */                                                                                           \
+    ACTION( redis_db,               STATS_GAUGE,        "# redis database number")                                  \
     ACTION( client_eof,             STATS_COUNTER,      "# eof on client connections")                              \
     ACTION( client_err,             STATS_COUNTER,      "# errors on client connections")                           \
     ACTION( client_connections,     STATS_GAUGE,        "# active client connections")                              \

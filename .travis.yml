@@ -22,8 +22,8 @@ before_install:
   - pip install python-memcached
   - pip install redis
 install:
-  - CFLAGS="-ggdb3 -O0" autoreconf -fvi
-  - ./configure --enable-debug=log
+  - autoreconf -fvi
+  - CFLAGS="-ggdb3 -O3 -fno-strict-aliasing" ./configure --enable-debug=log
   - make -j $(nproc)
   - sudo make install
 script: bash travis.sh

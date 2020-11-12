@@ -214,7 +214,7 @@ class Memcached(Base):
 
 class NutCracker(Base):
     def __init__(self, host, port, path, cluster_name, masters, mbuf=512,
-            verbose=5, is_redis=True, redis_auth=None, redis_db=0):
+            verbose=5, is_redis=True, redis_auth=None, redis_db=0, timeout=400):
         Base.__init__(self, 'nutcracker', host, port, path)
 
         self.masters = masters
@@ -236,6 +236,7 @@ class NutCracker(Base):
         self.args['cluster_name' ]= cluster_name
         self.args['is_redis'] = str(is_redis).lower()
         self.args['redis_db'] = redis_db
+        self.args['timeout'] = timeout
 
     def _alive(self):
         return self._info_dict()
@@ -256,7 +257,7 @@ $cluster_name:
   auto_eject_hosts: false
   redis: $is_redis
   backlog: 512
-  timeout: 600
+  timeout: $timeout
   client_connections: 0
   server_connections: 1
   server_retry_timeout: 2000

@@ -101,7 +101,7 @@ def test_nc_stats():
         stat = nc._info_dict()
         #pprint(stat)
         if name in ['client_connections', 'client_eof', 'client_err', \
-                    'forward_error', 'fragments', 'server_ejects']:
+                    'forward_error', 'fragments', 'server_ejects', 'redis_db']:
             return stat[CLUSTER_NAME][name]
 
         #sum num of each server
@@ -125,6 +125,21 @@ def test_nc_stats():
     #for mget-improve
     assert(get_stat('requests') == 22)
     assert(get_stat('responses') == 22)
+
+    # redis_db test
+    assert(get_stat('redis_db') == 0)
+
+    nc.args['redis_db'] = 3
+    nc.stop()
+    nc.deploy()
+    nc.start()
+    assert(get_stat('redis_db') == 3)
+
+    nc.args['redis_db'] = 0
+    nc.stop()
+    nc.deploy()
+    nc.start()
+    assert(get_stat('redis_db') == 0)
 
 def test_issue_323():
     # do on redis

@@ -1236,7 +1236,7 @@ memcache_append_key(struct msg *r, uint8_t *key, uint32_t keylen)
  * read the comment in proto/nc_redis.c
  */
 static rstatus_t
-memcache_fragment_retrieval(struct msg *r, uint32_t ncontinuum,
+memcache_fragment_retrieval(struct msg *r, uint32_t nservers,
                             struct msg_tqh *frag_msgq,
                             uint32_t key_step)
 {
@@ -1245,7 +1245,7 @@ memcache_fragment_retrieval(struct msg *r, uint32_t ncontinuum,
     uint32_t i;
     rstatus_t status;
 
-    sub_msgs = nc_zalloc(ncontinuum * sizeof(*sub_msgs));
+    sub_msgs = nc_zalloc(nservers * sizeof(*sub_msgs));
     if (sub_msgs == NULL) {
         return NC_ENOMEM;
     }
@@ -1275,10 +1275,12 @@ memcache_fragment_retrieval(struct msg *r, uint32_t ncontinuum,
     r->nfrag = 0;
     r->frag_owner = r;
 
+    /** Build up the key1 key2 ... to be sent to a given server at index idx */
     for (i = 0; i < array_n(r->keys); i++) {        /* for each  key */
         struct msg *sub_msg;
         struct keypos *kpos = array_get(r->keys, i);
         uint32_t idx = msg_backend_idx(r, kpos->start, kpos->end - kpos->start);
+        ASSERT(idx < nservers);
 
         if (sub_msgs[idx] == NULL) {
             sub_msgs[idx] = msg_get(r->owner, r->request, r->redis);
@@ -1297,7 +1299,7 @@ memcache_fragment_retrieval(struct msg *r, uint32_t ncontinuum,
         }
     }
 
-    for (i = 0; i < ncontinuum; i++) {     /* prepend mget header, and forward it */
+    for (i = 0; i < nservers; i++) {     /* prepend mget header, and forward the get[s] key1 key2\r\n to the corresponding server(s) */
         struct msg *sub_msg = sub_msgs[i];
         if (sub_msg == NULL) {
             continue;
@@ -1334,10 +1336,10 @@ memcache_fragment_retrieval(struct msg *r, uint32_t ncontinuum,
 }
 
 rstatus_t
-memcache_fragment(struct msg *r, uint32_t ncontinuum, struct msg_tqh *frag_msgq)
+memcache_fragment(struct msg *r, uint32_t nservers, struct msg_tqh *frag_msgq)
 {
     if (memcache_retrieval(r)) {
-        return memcache_fragment_retrieval(r, ncontinuum, frag_msgq, 1);
+        return memcache_fragment_retrieval(r, nservers, frag_msgq, 1);
     }
     return NC_OK;
 }

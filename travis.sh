@@ -1,28 +1,39 @@
-#!/bin/bash
-#file   : travis.sh
-#author : ning
-#date   : 2014-05-10 16:54:43
+#!/usr/bin/env bash
+# Main ci script for nutcracker tests
+set -xeu
 
-#install deps if we are in travis
-if [ -n "$TRAVIS" ]; then
-    sudo apt-get install socat
+function print_usage() {
+    echo "Usage: $0 [REDIS_VER]" 1>&2
+    echo "e.g.   $0 3.2.12" 1>&2
+    exit 1
+}
 
-    #python libs
-    sudo pip install redis
-    sudo pip install nose
+REDIS_VER=3.2.11
+if [[ "$#" > 1 ]]; then
+    echo "Too many arguments" 1>&2
+    print_usage
+elif [[ "$#" > 0 ]]; then
+	REDIS_VER="$1"
+fi
 
-    sudo pip install git+https://github.com/andymccurdy/redis-py.git@2.10.3
-    sudo pip install git+https://github.com/idning/python-memcached.git#egg=memcache
-fi 
+PACKAGE_NAME="nutcrackerci"
 
-#build twemproxy
-CFLAGS="-ggdb3 -O0" autoreconf -fvi && ./configure --enable-debug=log && make 
+TAG=$( git describe --always )
+DOCKER_IMG_NAME=twemproxy-build-$PACKAGE_NAME-$REDIS_VER-$TAG
 
-ln -s `pwd`/src/nutcracker  tests/_binaries/
-cp `which redis-server` tests/_binaries/
-cp `which redis-cli` tests/_binaries/
-cp `which memcached` tests/_binaries/
+rm -rf twemproxy
 
-#run test
-cd tests/ && nosetests --nologcapture -x -v
+DOCKER_TAG=twemproxy-$PACKAGE_NAME-$REDIS_VER:$TAG
 
+docker build -f ci/Dockerfile \
+   --tag $DOCKER_TAG \
+   --build-arg=REDIS_VER=$REDIS_VER \
+   .
+
+# Run nose tests
+docker run \
+   --rm \
+   -e REDIS_VER=$REDIS_VER \
+   --name=$DOCKER_IMG_NAME \
+   $DOCKER_TAG \
+   nosetests -v test_memcache test_system test_redis

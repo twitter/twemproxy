@@ -89,6 +89,37 @@ memcache_retrieval(struct msg *r)
 }
 
 /*
+ * Return true, if the memcache command should be fragmented,
+ * otherwise return false.
+ *
+ * The only supported memcache commands that can have multiple keys
+ * are get/gets. Both are multigets, and the latter returns CAS token with the
+ * value.
+ *
+ * Fragmented requests are assumed to be slower due to the fact that they need
+ * to allocate an array to track which key went to which server,
+ * so avoid them when possible.
+ */
+static bool
+memcache_should_fragment(struct msg *r)
+{
+    switch (r->type) {
+    case MSG_REQ_MC_GET:
+    case MSG_REQ_MC_GETS:
+        /**
+         * A memcache get for a single key is only sent to one server.
+         * Fragmenting it would work but be less efficient.
+         */
+        return array_n(r->keys) != 1;
+
+    default:
+        break;
+    }
+
+    return false;
+}
+
+/*
  * Return true, if the memcache command is a arithmetic command, otherwise
  * return false
  */
@@ -1236,7 +1267,7 @@ memcache_append_key(struct msg *r, uint8_t *key, uint32_t keylen)
  * read the comment in proto/nc_redis.c
  */
 static rstatus_t
-memcache_fragment_retrieval(struct msg *r, uint32_t nservers,
+memcache_fragment_retrieval(struct msg *r, uint32_t nserver,
                             struct msg_tqh *frag_msgq,
                             uint32_t key_step)
 {
@@ -1245,7 +1276,7 @@ memcache_fragment_retrieval(struct msg *r, uint32_t nservers,
     uint32_t i;
     rstatus_t status;
 
-    sub_msgs = nc_zalloc(nservers * sizeof(*sub_msgs));
+    sub_msgs = nc_zalloc(nserver * sizeof(*sub_msgs));
     if (sub_msgs == NULL) {
         return NC_ENOMEM;
     }
@@ -1280,7 +1311,7 @@ memcache_fragment_retrieval(struct msg *r, uint32_t nservers,
         struct msg *sub_msg;
         struct keypos *kpos = array_get(r->keys, i);
         uint32_t idx = msg_backend_idx(r, kpos->start, kpos->end - kpos->start);
-        ASSERT(idx < nservers);
+        ASSERT(idx < nserver);
 
         if (sub_msgs[idx] == NULL) {
             sub_msgs[idx] = msg_get(r->owner, r->request, r->redis);
@@ -1298,8 +1329,11 @@ memcache_fragment_retrieval(struct msg *r, uint32_t nservers,
             return status;
         }
     }
-
-    for (i = 0; i < nservers; i++) {     /* prepend mget header, and forward the get[s] key1 key2\r\n to the corresponding server(s) */
+    /*
+     * prepend mget header, and forward the get[s] key1 key2\r\n
+     * to the corresponding server(s)
+     */
+    for (i = 0; i < nserver; i++) {
         struct msg *sub_msg = sub_msgs[i];
         if (sub_msg == NULL) {
             continue;
@@ -1336,10 +1370,10 @@ memcache_fragment_retrieval(struct msg *r, uint32_t nservers,
 }
 
 rstatus_t
-memcache_fragment(struct msg *r, uint32_t nservers, struct msg_tqh *frag_msgq)
+memcache_fragment(struct msg *r, uint32_t nserver, struct msg_tqh *frag_msgq)
 {
-    if (memcache_retrieval(r)) {
-        return memcache_fragment_retrieval(r, nservers, frag_msgq, 1);
+    if (memcache_should_fragment(r)) {
+        return memcache_fragment_retrieval(r, nserver, frag_msgq, 1);
     }
     return NC_OK;
 }

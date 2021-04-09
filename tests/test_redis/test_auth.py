@@ -74,7 +74,7 @@ def test_auth_basic():
         assert_equal(b'v', r.get('k'))
 
         # auth fail here, should we return ok or not => we will mark the conn state as not authed
-        assert_fail('invalid password', r.execute_command, 'AUTH', 'badpasswd')
+        assert_fail('invalid password|WRONGPASS', r.execute_command, 'AUTH', 'badpasswd')
 
         assert_fail('NOAUTH|operation not permitted', r.ping)
         assert_fail('NOAUTH|operation not permitted', r.get, 'k')

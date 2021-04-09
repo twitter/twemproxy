@@ -25,9 +25,9 @@ usage
     |-- redis-server
     |-- memcached
 
-3. run::
+3. run with nosetests (or ./nosetests_verbose.sh)::
 
-    $ nosetests -v
+    $ python3 -m nose -v
     test_del.test_multi_delete_on_readonly ... ok
     test_mget.test_mget ... ok
 

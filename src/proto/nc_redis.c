@@ -62,7 +62,6 @@ static bool
 redis_arg0(struct msg *r)
 {
     switch (r->type) {
-    case MSG_REQ_REDIS_EXISTS:
     case MSG_REQ_REDIS_PERSIST:
     case MSG_REQ_REDIS_PTTL:
     case MSG_REQ_REDIS_TTL:
@@ -71,6 +70,7 @@ redis_arg0(struct msg *r)
 
     case MSG_REQ_REDIS_DECR:
     case MSG_REQ_REDIS_GET:
+    case MSG_REQ_REDIS_GETDEL:
     case MSG_REQ_REDIS_INCR:
     case MSG_REQ_REDIS_STRLEN:
 
@@ -80,14 +80,12 @@ redis_arg0(struct msg *r)
     case MSG_REQ_REDIS_HVALS:
 
     case MSG_REQ_REDIS_LLEN:
-    case MSG_REQ_REDIS_LPOP:
-    case MSG_REQ_REDIS_RPOP:
 
     case MSG_REQ_REDIS_SCARD:
     case MSG_REQ_REDIS_SMEMBERS:
 
     case MSG_REQ_REDIS_ZCARD:
-    case MSG_REQ_REDIS_PFCOUNT:
+        /* TODO: Support emulating 2-arg username+password auth by just checking password? */
     case MSG_REQ_REDIS_AUTH:
         return true;
 
@@ -110,6 +108,7 @@ redis_arg1(struct msg *r)
     case MSG_REQ_REDIS_EXPIREAT:
     case MSG_REQ_REDIS_PEXPIRE:
     case MSG_REQ_REDIS_PEXPIREAT:
+    case MSG_REQ_REDIS_MOVE:
 
     case MSG_REQ_REDIS_APPEND:
     case MSG_REQ_REDIS_DECRBY:
@@ -121,11 +120,10 @@ redis_arg1(struct msg *r)
 
     case MSG_REQ_REDIS_HEXISTS:
     case MSG_REQ_REDIS_HGET:
+    case MSG_REQ_REDIS_HSTRLEN:
 
     case MSG_REQ_REDIS_LINDEX:
-    case MSG_REQ_REDIS_LPUSHX:
     case MSG_REQ_REDIS_RPOPLPUSH:
-    case MSG_REQ_REDIS_RPUSHX:
 
     case MSG_REQ_REDIS_SISMEMBER:
 
@@ -157,7 +155,6 @@ redis_arg2(struct msg *r)
 
     case MSG_REQ_REDIS_HINCRBY:
     case MSG_REQ_REDIS_HINCRBYFLOAT:
-    case MSG_REQ_REDIS_HSET:
     case MSG_REQ_REDIS_HSETNX:
 
     case MSG_REQ_REDIS_LRANGE:
@@ -166,6 +163,7 @@ redis_arg2(struct msg *r)
     case MSG_REQ_REDIS_LTRIM:
 
     case MSG_REQ_REDIS_SMOVE:
+    case MSG_REQ_REDIS_BRPOPLPUSH:
 
     case MSG_REQ_REDIS_ZCOUNT:
     case MSG_REQ_REDIS_ZLEXCOUNT:
@@ -173,8 +171,6 @@ redis_arg2(struct msg *r)
     case MSG_REQ_REDIS_ZREMRANGEBYLEX:
     case MSG_REQ_REDIS_ZREMRANGEBYRANK:
     case MSG_REQ_REDIS_ZREMRANGEBYSCORE:
-
-    case MSG_REQ_REDIS_RESTORE:
         return true;
 
     default:
@@ -193,6 +189,7 @@ redis_arg3(struct msg *r)
 {
     switch (r->type) {
     case MSG_REQ_REDIS_LINSERT:
+    case MSG_REQ_REDIS_LMOVE:
         return true;
 
     default:
@@ -203,7 +200,7 @@ redis_arg3(struct msg *r)
 }
 
 /*
- * Return true, if the redis command accepts 0 or more arguments, otherwise
+ * Return true, if the redis command operates on one key and accepts 0 or more arguments, otherwise
  * return false
  */
 static bool
@@ -211,18 +208,33 @@ redis_argn(struct msg *r)
 {
     switch (r->type) {
     case MSG_REQ_REDIS_SORT:
+    case MSG_REQ_REDIS_COPY:
 
     case MSG_REQ_REDIS_BITCOUNT:
     case MSG_REQ_REDIS_BITPOS:
+    case MSG_REQ_REDIS_BITFIELD:
+    case MSG_REQ_REDIS_BITOP:
 
+    case MSG_REQ_REDIS_EXISTS:
+    case MSG_REQ_REDIS_GETEX:
     case MSG_REQ_REDIS_SET:
+
     case MSG_REQ_REDIS_HDEL:
     case MSG_REQ_REDIS_HMGET:
     case MSG_REQ_REDIS_HMSET:
     case MSG_REQ_REDIS_HSCAN:
+    case MSG_REQ_REDIS_HSET:
+    case MSG_REQ_REDIS_HRANDFIELD:
 
+    case MSG_REQ_REDIS_BLPOP:
+    case MSG_REQ_REDIS_BRPOP:
     case MSG_REQ_REDIS_LPUSH:
+    case MSG_REQ_REDIS_LPUSHX:
     case MSG_REQ_REDIS_RPUSH:
+    case MSG_REQ_REDIS_RPUSHX:
+    case MSG_REQ_REDIS_LPOP:
+    case MSG_REQ_REDIS_RPOP:
+    case MSG_REQ_REDIS_LPOS:
 
     case MSG_REQ_REDIS_SADD:
     case MSG_REQ_REDIS_SDIFF:
@@ -235,20 +247,46 @@ redis_argn(struct msg *r)
     case MSG_REQ_REDIS_SRANDMEMBER:
     case MSG_REQ_REDIS_SSCAN:
     case MSG_REQ_REDIS_SPOP:
+    case MSG_REQ_REDIS_SMISMEMBER:
 
     case MSG_REQ_REDIS_PFADD:
     case MSG_REQ_REDIS_PFMERGE:
+    case MSG_REQ_REDIS_PFCOUNT:
+
+    case MSG_REQ_REDIS_BZPOPMAX:
+    case MSG_REQ_REDIS_BZPOPMIN:
 
     case MSG_REQ_REDIS_ZADD:
+    case MSG_REQ_REDIS_ZDIFF:
+    case MSG_REQ_REDIS_ZDIFFSTORE:
+    case MSG_REQ_REDIS_ZINTER:
     case MSG_REQ_REDIS_ZINTERSTORE:
+    case MSG_REQ_REDIS_ZMSCORE:
+    case MSG_REQ_REDIS_ZPOPMAX:
+    case MSG_REQ_REDIS_ZPOPMIN:
+    case MSG_REQ_REDIS_ZRANDMEMBER:
     case MSG_REQ_REDIS_ZRANGE:
+    case MSG_REQ_REDIS_ZRANGEBYLEX:
     case MSG_REQ_REDIS_ZRANGEBYSCORE:
+    case MSG_REQ_REDIS_ZRANGESTORE:
     case MSG_REQ_REDIS_ZREM:
     case MSG_REQ_REDIS_ZREVRANGE:
-    case MSG_REQ_REDIS_ZRANGEBYLEX:
+    case MSG_REQ_REDIS_ZREVRANGEBYLEX:
     case MSG_REQ_REDIS_ZREVRANGEBYSCORE:
-    case MSG_REQ_REDIS_ZUNIONSTORE:
     case MSG_REQ_REDIS_ZSCAN:
+    case MSG_REQ_REDIS_ZUNION:
+    case MSG_REQ_REDIS_ZUNIONSTORE:
+
+    case MSG_REQ_REDIS_GEODIST:
+    case MSG_REQ_REDIS_GEOPOS:
+    case MSG_REQ_REDIS_GEOHASH:
+    case MSG_REQ_REDIS_GEOADD:
+    case MSG_REQ_REDIS_GEORADIUS:
+    case MSG_REQ_REDIS_GEORADIUSBYMEMBER:
+    case MSG_REQ_REDIS_GEOSEARCH:
+    case MSG_REQ_REDIS_GEOSEARCHSTORE:
+
+    case MSG_REQ_REDIS_RESTORE:
         return true;
 
     default:
@@ -268,6 +306,8 @@ redis_argx(struct msg *r)
     switch (r->type) {
     case MSG_REQ_REDIS_MGET:
     case MSG_REQ_REDIS_DEL:
+    case MSG_REQ_REDIS_UNLINK:
+    case MSG_REQ_REDIS_TOUCH:
         return true;
 
     default:
@@ -596,6 +636,11 @@ redis_parse_req(struct msg *r)
                     break;
                 }
 
+                if (str4icmp(m, 'l', 'p', 'o', 's')) {
+                    r->type = MSG_REQ_REDIS_LPOS;
+                    break;
+                }
+
                 if (str4icmp(m, 'l', 'r', 'e', 'm')) {
                     r->type = MSG_REQ_REDIS_LREM;
                     break;
@@ -678,6 +723,17 @@ redis_parse_req(struct msg *r)
                     break;
                 }
 
+                if (str4icmp(m, 'm', 'o', 'v', 'e')) {
+                    r->type = MSG_REQ_REDIS_MOVE;
+                    r->noforward = 1;
+                    break;
+                }
+
+                if (str4icmp(m, 'c', 'o', 'p', 'y')) {
+                    r->type = MSG_REQ_REDIS_COPY;
+                    break;
+                }
+
                 break;
 
             case 5:
@@ -756,6 +812,11 @@ redis_parse_req(struct msg *r)
                     break;
                 }
 
+                if (str5icmp(m, 'z', 'd', 'i', 'f', 'f')) {
+                    r->type = MSG_REQ_REDIS_ZDIFF;
+                    break;
+                }
+
                 if (str5icmp(m, 'z', 'r', 'a', 'n', 'k')) {
                     r->type = MSG_REQ_REDIS_ZRANK;
                     break;
@@ -768,6 +829,36 @@ redis_parse_req(struct msg *r)
 
                 if (str5icmp(m, 'p', 'f', 'a', 'd', 'd')) {
                     r->type = MSG_REQ_REDIS_PFADD;
+                    break;
+                }
+
+                if (str5icmp(m, 'g', 'e', 't', 'e', 'x')) {
+                    r->type = MSG_REQ_REDIS_GETEX;
+                    break;
+                }
+
+                if (str5icmp(m, 'b', 'i', 't', 'o', 'p')) {
+                    r->type = MSG_REQ_REDIS_BITOP;
+                    break;
+                }
+
+                if (str5icmp(m, 't', 'o', 'u', 'c', 'h')) {
+                    r->type = MSG_REQ_REDIS_TOUCH;
+                    break;
+                }
+
+                if (str5icmp(m, 'l', 'm', 'o', 'v', 'e')) {
+                    r->type = MSG_REQ_REDIS_LMOVE;
+                    break;
+                }
+
+                if (str5icmp(m, 'b', 'l', 'p', 'o', 'p')) {
+                    r->type = MSG_REQ_REDIS_BLPOP;
+                    break;
+                }
+
+                if (str5icmp(m, 'b', 'r', 'p', 'o', 'p')) {
+                    r->type = MSG_REQ_REDIS_BRPOP;
                     break;
                 }
 
@@ -879,6 +970,36 @@ redis_parse_req(struct msg *r)
                     break;
                 }
 
+                if (str6icmp(m, 'g', 'e', 'o', 'p', 'o', 's')) {
+                    r->type = MSG_REQ_REDIS_GEOPOS;
+                    break;
+                }
+
+                if (str6icmp(m, 'g', 'e', 'o', 'a', 'd', 'd')) {
+                    r->type = MSG_REQ_REDIS_GEOADD;
+                    break;
+                }
+
+                if (str6icmp(m, 'g', 'e', 't', 'd', 'e', 'l')) {
+                    r->type = MSG_REQ_REDIS_GETDEL;
+                    break;
+                }
+
+                if (str6icmp(m, 'z', 'u', 'n', 'i', 'o', 'n')) {
+                    r->type = MSG_REQ_REDIS_ZUNION;
+                    break;
+                }
+
+                if (str6icmp(m, 'z', 'i', 'n', 't', 'e', 'r')) {
+                    r->type = MSG_REQ_REDIS_ZINTER;
+                    break;
+                }
+
+                if (str6icmp(m, 'u', 'n', 'l', 'i', 'n', 'k')) {
+                    r->type = MSG_REQ_REDIS_UNLINK;
+                    break;
+                }
+
                 break;
 
             case 7:
@@ -937,6 +1058,36 @@ redis_parse_req(struct msg *r)
                     break;
                 }
 
+                if (str7icmp(m, 'z', 'm', 's', 'c', 'o', 'r', 'e')) {
+                    r->type = MSG_REQ_REDIS_ZMSCORE;
+                    break;
+                }
+
+                if (str7icmp(m, 'z', 'p', 'o', 'p', 'm', 'i', 'n')) {
+                    r->type = MSG_REQ_REDIS_ZPOPMIN;
+                    break;
+                }
+
+                if (str7icmp(m, 'z', 'p', 'o', 'p', 'm', 'a', 'x')) {
+                    r->type = MSG_REQ_REDIS_ZPOPMAX;
+                    break;
+                }
+
+                if (str7icmp(m, 'g', 'e', 'o', 'd', 'i', 's', 't')) {
+                    r->type = MSG_REQ_REDIS_GEODIST;
+                    break;
+                }
+
+                if (str7icmp(m, 'g', 'e', 'o', 'h', 'a', 's', 'h')) {
+                    r->type = MSG_REQ_REDIS_GEOHASH;
+                    break;
+                }
+
+                if (str7icmp(m, 'h', 's', 't', 'r', 'l', 'e', 'n')) {
+                    r->type = MSG_REQ_REDIS_HSTRLEN;
+                    break;
+                }
+
                 break;
 
             case 8:
@@ -970,6 +1121,21 @@ redis_parse_req(struct msg *r)
                     break;
                 }
 
+                if (str8icmp(m, 'b', 'i', 't', 'f', 'i', 'e', 'l', 'd')) {
+                    r->type = MSG_REQ_REDIS_BITFIELD;
+                    break;
+                }
+
+                if (str8icmp(m, 'b', 'z', 'p', 'o', 'p', 'm', 'i', 'n')) {
+                    r->type = MSG_REQ_REDIS_BZPOPMIN;
+                    break;
+                }
+
+                if (str8icmp(m, 'b', 'z', 'p', 'o', 'p', 'm', 'a', 'x')) {
+                    r->type = MSG_REQ_REDIS_BZPOPMAX;
+                    break;
+                }
+
                 break;
 
             case 9:
@@ -998,6 +1164,16 @@ redis_parse_req(struct msg *r)
                     break;
                 }
 
+                if (str9icmp(m, 'g', 'e', 'o', 's', 'e', 'a', 'r', 'c', 'h')) {
+                    r->type = MSG_REQ_REDIS_GEOSEARCH;
+                    break;
+                }
+
+                if (str9icmp(m, 'g', 'e', 'o', 'r', 'a', 'd', 'i', 'u', 's')) {
+                    r->type = MSG_REQ_REDIS_GEORADIUS;
+                    break;
+                }
+
                 break;
 
             case 10:
@@ -1005,6 +1181,28 @@ redis_parse_req(struct msg *r)
                     r->type = MSG_REQ_REDIS_SDIFFSTORE;
                     break;
                 }
+
+                if (str10icmp(m, 'h', 'r', 'a', 'n', 'd', 'f', 'i', 'e', 'l', 'd')) {
+                    r->type = MSG_REQ_REDIS_HRANDFIELD;
+                    break;
+                }
+
+                if (str10icmp(m, 's', 'm', 'i', 's', 'm', 'e', 'm', 'b', 'e', 'r')) {
+                    r->type = MSG_REQ_REDIS_SMISMEMBER;
+                    break;
+                }
+
+                if (str10icmp(m, 'z', 'd', 'i', 'f', 'f', 's', 't', 'o', 'r', 'e')) {
+                    r->type = MSG_REQ_REDIS_ZDIFFSTORE;
+                    break;
+                }
+
+                if (str10icmp(m, 'b', 'r', 'p', 'o', 'p', 'l', 'p', 'u', 's', 'h')) {
+                    r->type = MSG_REQ_REDIS_BRPOPLPUSH;
+                    break;
+                }
+
+                break;
 
             case 11:
                 if (str11icmp(m, 'i', 'n', 'c', 'r', 'b', 'y', 'f', 'l', 'o', 'a', 't')) {
@@ -1042,6 +1240,21 @@ redis_parse_req(struct msg *r)
                     break;
                 }
 
+                if (str11icmp(m, 'z', 'r', 'a', 'n', 'd', 'm', 'e', 'm', 'b', 'e', 'r')) {
+                    r->type = MSG_REQ_REDIS_ZRANGEBYLEX;
+                    break;
+                }
+
+                if (str11icmp(m, 'z', 'r', 'a', 'n', 'g', 'e', 's', 't', 'o', 'r', 'e')) {
+                    r->type = MSG_REQ_REDIS_ZRANGESTORE;
+                    break;
+                }
+
+                if (str11icmp(m, 'z', 'r', 'a', 'n', 'd', 'm', 'e', 'm', 'b', 'e', 'r')) {
+                    r->type = MSG_REQ_REDIS_ZRANDMEMBER;
+                    break;
+                }
+
                 break;
 
             case 12:
@@ -1067,6 +1280,16 @@ redis_parse_req(struct msg *r)
                     break;
                 }
 
+                if (str14icmp(m, 'z', 'r', 'e', 'v', 'r', 'a', 'n', 'g', 'e', 'b', 'y', 'l', 'e', 'x')) {
+                    r->type = MSG_REQ_REDIS_ZREVRANGEBYLEX;
+                    break;
+                }
+                if (str14icmp(m, 'g', 'e', 'o', 's', 'e', 'a', 'r', 'c', 'h', 's', 't', 'o', 'r', 'e')) {
+                    r->type = MSG_REQ_REDIS_GEOSEARCHSTORE;
+                    break;
+                }
+
+
                 break;
 
             case 15:
@@ -1087,8 +1310,13 @@ redis_parse_req(struct msg *r)
                     r->type = MSG_REQ_REDIS_ZREVRANGEBYSCORE;
                     break;
                 }
-
                 break;
+
+            case 17:
+                if (str17icmp(m, 'g', 'e', 'o', 'r', 'a', 'd', 'i', 'u', 's', 'b', 'y', 'm', 'e', 'm', 'b', 'e', 'r')) {
+                    r->type = MSG_REQ_REDIS_GEORADIUSBYMEMBER;
+                    break;
+                }
 
             default:
                 break;
@@ -2386,7 +2614,7 @@ redis_pre_coalesce(struct msg *r)
     switch (r->type) {
     case MSG_RSP_REDIS_INTEGER:
         /* only redis 'del' fragmented request sends back integer reply */
-        ASSERT(pr->type == MSG_REQ_REDIS_DEL);
+        ASSERT(pr->type == MSG_REQ_REDIS_DEL || pr->type == MSG_REQ_REDIS_TOUCH || pr->type == MSG_REQ_REDIS_UNLINK);
 
         mbuf = STAILQ_FIRST(&r->mhdr);
         /*
@@ -2648,6 +2876,12 @@ redis_fragment_argx(struct msg *r, uint32_t nserver, struct msg_tqh *frag_msgq,
         } else if (r->type == MSG_REQ_REDIS_MSET) {
             status = msg_prepend_format(sub_msg, "*%d\r\n$4\r\nmset\r\n",
                                         sub_msg->narg + 1);
+        } else if (r->type == MSG_REQ_REDIS_TOUCH) {
+            status = msg_prepend_format(sub_msg, "*%d\r\n$5\r\ntouch\r\n",
+                                        sub_msg->narg + 1);
+        } else if (r->type == MSG_REQ_REDIS_UNLINK) {
+            status = msg_prepend_format(sub_msg, "*%d\r\n$6\r\nunlink\r\n",
+                                        sub_msg->narg + 1);
         } else {
             NOT_REACHED();
         }
@@ -2678,8 +2912,11 @@ redis_fragment(struct msg *r, uint32_t nserver, struct msg_tqh *frag_msgq)
     switch (r->type) {
     case MSG_REQ_REDIS_MGET:
     case MSG_REQ_REDIS_DEL:
+    case MSG_REQ_REDIS_TOUCH:
+    case MSG_REQ_REDIS_UNLINK:
         return redis_fragment_argx(r, nserver, frag_msgq, 1);
 
+        /* TODO: MSETNX - instead of responding with OK, respond with 1 if all fragments respond with 1 */
     case MSG_REQ_REDIS_MSET:
         return redis_fragment_argx(r, nserver, frag_msgq, 2);
 
@@ -2729,7 +2966,7 @@ redis_post_coalesce_mset(struct msg *request)
 }
 
 void
-redis_post_coalesce_del(struct msg *request)
+redis_post_coalesce_del_or_touch(struct msg *request)
 {
     struct msg *response = request->peer;
     rstatus_t status;
@@ -2796,7 +3033,9 @@ redis_post_coalesce(struct msg *r)
         return redis_post_coalesce_mget(r);
 
     case MSG_REQ_REDIS_DEL:
-        return redis_post_coalesce_del(r);
+    case MSG_REQ_REDIS_TOUCH:
+    case MSG_REQ_REDIS_UNLINK:
+        return redis_post_coalesce_del_or_touch(r);
 
     case MSG_REQ_REDIS_MSET:
         return redis_post_coalesce_mset(r);

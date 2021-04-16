@@ -213,7 +213,7 @@ redis_argn(struct msg *r)
     case MSG_REQ_REDIS_BITCOUNT:
     case MSG_REQ_REDIS_BITPOS:
     case MSG_REQ_REDIS_BITFIELD:
-    case MSG_REQ_REDIS_BITOP:
+        /* TODO: Support REDIS_BITOP operation destkey key ... and add tests - this requires handling key in a position other than the first one */
 
     case MSG_REQ_REDIS_EXISTS:
     case MSG_REQ_REDIS_GETEX:
@@ -837,11 +837,6 @@ redis_parse_req(struct msg *r)
                     break;
                 }
 
-                if (str5icmp(m, 'b', 'i', 't', 'o', 'p')) {
-                    r->type = MSG_REQ_REDIS_BITOP;
-                    break;
-                }
-
                 if (str5icmp(m, 't', 'o', 'u', 'c', 'h')) {
                     r->type = MSG_REQ_REDIS_TOUCH;
                     break;
@@ -1241,7 +1236,7 @@ redis_parse_req(struct msg *r)
                 }
 
                 if (str11icmp(m, 'z', 'r', 'a', 'n', 'd', 'm', 'e', 'm', 'b', 'e', 'r')) {
-                    r->type = MSG_REQ_REDIS_ZRANGEBYLEX;
+                    r->type = MSG_REQ_REDIS_ZRANDMEMBER;
                     break;
                 }
 

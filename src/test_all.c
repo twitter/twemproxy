@@ -133,6 +133,18 @@ static void test_redis_parse_rsp_success(void) {
     test_redis_parse_rsp_success_case("*2\r\n$3\r\nfoo\r\n$3\r\nbar\r\n");  /* array with 2 bulk strings */
     test_redis_parse_rsp_success_case("*3\r\n:1\r\n:2\r\n:3\r\n");  /* array with 3 integers */
     test_redis_parse_rsp_success_case("*-1\r\n");  /* null array for BLPOP */
+    /*
+     * Test support for parsing arrays of arrays.
+     * They can be returned by COMMAND, EVAL, etc.
+     */
+    test_redis_parse_rsp_success_case("*2\r\n"
+            "*3\r\n"
+            ":1\r\n"
+            ":2\r\n"
+            ":3\r\n"
+            "*2\r\n"
+            "+Foo\r\n"
+            "-Bar\r\n");  /* array of 2 arrays */
 }
 
 static void test_memcache_parse_rsp_success_case(char* data, int expected) {

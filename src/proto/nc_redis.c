@@ -1943,6 +1943,7 @@ redis_parse_rsp(struct msg *r)
     struct mbuf *b;
     uint8_t *p, *m;
     uint8_t ch;
+    int depth;
 
     enum {
         SW_START,
@@ -2161,8 +2162,9 @@ redis_parse_rsp(struct msg *r)
 
         case SW_SIMPLE:
             if (ch == CR) {
-              state = SW_MULTIBULK_ARGN_LF;
-              r->rnarg--;
+                r->rnarg--;
+                r->stack[r->nested_depth-1]--;
+                state = SW_MULTIBULK_ARGN_LF;
             }
             break;
 
@@ -2279,8 +2281,18 @@ redis_parse_rsp(struct msg *r)
                 /* rsp_start <- p */
                 r->narg_start = p;
                 r->rnarg = 0;
+                r->nested_depth++;
+
+                if (r->nested_depth > MAXDEPTH) {
+                    log_debug(LOG_ERR, "only support %d levels of multibulk", MAXDEPTH);
+                    goto error;
+                }
             } else if (ch == '-') {
-                state = SW_RUNTO_CRLF;
+                p = p-1;
+                r->token = NULL;
+                r->rnarg = 1;
+                r->stack[r->nested_depth-1] = r->rnarg;
+                state = SW_MULTIBULK_ARGN_LEN;
             } else if (isdigit(ch)) {
                 r->rnarg = r->rnarg * 10 + (uint32_t)(ch - '0');
             } else if (ch == CR) {
@@ -2291,6 +2303,8 @@ redis_parse_rsp(struct msg *r)
                 r->narg = r->rnarg;
                 r->narg_end = p;
                 r->token = NULL;
+
+                r->stack[r->nested_depth-1] = r->narg;
                 state = SW_MULTIBULK_NARG_LF;
             } else {
                 goto error;
@@ -2303,7 +2317,17 @@ redis_parse_rsp(struct msg *r)
             case LF:
                 if (r->rnarg == 0) {
                     /* response is '*0\r\n' */
-                    goto done;
+                    if (r->nested_depth == 1) {
+                        goto done;
+                    } else {
+                        log_debug(LOG_VVVERB,
+                            "multibulk support@end of a nested empty bulk %d %d %s",
+                            r->nested_depth, r->stack[r->nested_depth-1], p);
+
+                        p = p - 1;
+                        state = SW_MULTIBULK_ARGN_LF;
+                        break;
+                    }
                 }
 
                 state = SW_MULTIBULK_ARGN_LEN;
@@ -2377,6 +2401,7 @@ redis_parse_rsp(struct msg *r)
                 }
                 r->rnarg--;
                 r->token = NULL;
+                r->stack[r->nested_depth-1]--;
             } else {
                 goto error;
             }
@@ -2418,7 +2443,23 @@ redis_parse_rsp(struct msg *r)
         case SW_MULTIBULK_ARGN_LF:
             switch (ch) {
             case LF:
-                if (r->rnarg == 0) {
+                log_debug(LOG_VVVERB,
+                    "multibulk support@the end of the bulk: %d %d %s",
+                    r->nested_depth, r->stack[r->nested_depth-1], p);
+
+                depth = r->nested_depth;
+                while (depth > 1 && r->stack[depth-1] == 0) {
+                    depth--;
+                    r->stack[depth-1]--;
+                    r->nested_depth = depth;
+                    r->rnarg = r->stack[depth-1];
+
+                    log_debug(LOG_VVVERB,
+                        "multibulk support@the end of a nested multibulk: %d %d %s",
+                        r->nested_depth, r->stack[r->nested_depth-1], p);
+                }
+
+                if (r->stack[0] == 0) {
                     goto done;
                 }
 

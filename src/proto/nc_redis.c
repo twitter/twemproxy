@@ -1920,7 +1920,12 @@ redis_parse_rsp(struct msg *r)
 
                     break;
                 }
-                state = SW_RUNTO_CRLF;
+                if (ch == '\r') {
+                    state = SW_ALMOST_DONE;
+                } else {
+                    /* Read remaining characters until '\r' */
+                    state = SW_RUNTO_CRLF;
+                }
             }
 
             break;
@@ -2101,9 +2106,9 @@ redis_parse_rsp(struct msg *r)
                  * there is a special case for sscan/hscan/zscan, these command
                  * replay a nested multi-bulk with a number and a multi bulk like this:
                  *
-                 * - mulit-bulk
+                 * - multi-bulk
                  *    - cursor
-                 *    - mulit-bulk
+                 *    - multi-bulk
                  *       - val1
                  *       - val2
                  *       - val3

@@ -2,6 +2,7 @@
 #include <nc_conf.h>
 #include <nc_util.h>
 #include <proto/nc_proto.h>
+#include <stdio.h>
 
 static int failures = 0;
 static int successes = 0;
@@ -16,7 +17,7 @@ static void expect_same_uint32_t(uint32_t expected, uint32_t actual, const char*
     }
 }
 
-static void expect_same_ptr(void *expected, void *actual, const char* message) {
+static void expect_same_ptr(const void *expected, const void *actual, const char* message) {
     if (expected != actual) {
         printf("FAIL Expected %p, got %p (%s)\n", expected, actual, message);
         failures++;
@@ -121,6 +122,7 @@ static void test_redis_parse_rsp_success_case(char* data) {
 
 /* Test support for https://redis.io/topics/protocol */
 static void test_redis_parse_rsp_success(void) {
+    test_redis_parse_rsp_success_case("-CUSTOMERR\r\n");  /* Error message without a space */
     test_redis_parse_rsp_success_case("-Error message\r\n");  /* Error message */
     test_redis_parse_rsp_success_case("+OK\r\n");  /* Error message without a space */
 

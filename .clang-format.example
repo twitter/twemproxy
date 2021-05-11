@@ -1,0 +1,45 @@
+# This may be useful with https://clang.llvm.org/docs/ClangFormat.html#script-for-patch-reformatting
+# but some of clang's reformattings may conflict with notes/c-style-guide.txt, which takes precedence.
+#
+# This is deliberately named .clang-format.example instead of .clang-format to avoid editors 
+# unexpectedly using this to reformatting entire files because of these shortcomings.
+# It can be copied into .clang-format to use this for local development selectively.
+#
+# Note: this clang format file has many shortcomings.
+# Attempting to apply this automatically to everything may make code less readable.
+# However, this may be useful for spot checking new code,
+# or if you're not certain of indentation style or general spacing/wrapping rules
+#
+# Known shortcomings:
+# - Some places exceed the 80 column limit deliberately for readability, e.g. help strings or error messages or function prototypes. (BreakStringLiterals helps preserve some of those)
+# - Some places deliberately put blocks on a single line when there are a lot of similar blocks.
+#   AllowShortBlocksOnASingleLine is not useful.
+# - Some places deliberately put blocks on a single line when there are a lot of similar blocks.
+# - No good way to eliminate space before and after PRIu64 and other macros for adjacent string literal concatenation
+# - clang-format is not aware of macros, some of which have different styles from functions.
+# - Function declarations are not typically aligned
+# - Some variable declarations are aligned and others aren't on a case by case basis
+# - The choice of function argument grouping should depends on which function arguments are semantically related,
+#   not just on fitting within 80 columns.
+
+AllowShortBlocksOnASingleLine: true
+BasedOnStyle: LLVM
+AlwaysBreakAfterDefinitionReturnType: All
+UseTab: Never
+IndentWidth: 4
+TabWidth: 4
+ColumnLimit: 80
+BreakBeforeBraces: Linux
+SortIncludes: false
+
+BreakStringLiterals: false
+# BitFieldColonSpacing is too new to work in clang-format 11
+# https://releases.llvm.org/11.0.0/tools/clang/docs/ClangFormatStyleOptions.html
+# Latest: https://clang.llvm.org/docs/ClangFormatStyleOptions.html
+#
+# BitFieldColonSpacing: None
+#
+# XXX no way to treat the `*` indicating a value is a pointer as part of the aligned name for the declaration
+# XXX function declarations are not typically aligned
+AlignConsecutiveDeclarations: true
+AlignConsecutiveMacros: true

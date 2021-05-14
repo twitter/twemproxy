@@ -2839,20 +2839,23 @@ redis_handle_auth_req(struct msg *req, struct msg *rsp)
 }
 
 rstatus_t
-redis_add_auth(struct context *ctx, struct conn *c_conn, struct conn *s_conn)
+redis_add_auth(struct context *ctx, struct conn *conn, struct server *server, int *sended)
 {
     rstatus_t status;
     struct msg *msg;
     struct server_pool *pool;
 
-    ASSERT(!s_conn->client && !s_conn->proxy);
-    ASSERT(!conn_authenticated(s_conn));
+    ASSERT(!conn->client && !conn->proxy && conn->connected && conn->redis);
+    ASSERT(sended);
 
-    pool = c_conn->owner;
+    pool = server->owner;
+    if (!pool->require_auth) {
+        return NC_OK;
+    } 
 
-    msg = msg_get(c_conn, true, c_conn->redis);
+    msg = msg_get(conn, true, conn->redis);
     if (msg == NULL) {
-        c_conn->err = errno;
+        conn->err = errno;
         return NC_ENOMEM;
     }
 
@@ -2863,23 +2866,33 @@ redis_add_auth(struct context *ctx, struct conn *c_conn, struct conn *s_conn)
         return status;
     }
 
+    msg->type = MSG_REQ_REDIS_AUTH;
+    msg->result = MSG_PARSE_OK;
     msg->swallow = 1;
-    s_conn->enqueue_inq(ctx, s_conn, msg);
-    s_conn->authenticated = 1;
+    msg->owner = NULL;
+
+    conn->authenticated = 1;
+
+    /* enqueue as head and send */
+    req_server_enqueue_imsgq_head(ctx, conn, msg);
+    *sended = 1;
+
+    log_debug(LOG_NOTICE, "sent 'AUTH %s' to %s | %s", pool->redis_auth.data,
+              pool->name.data, server->name.data);
 
     return NC_OK;
 }
 
-void
-redis_post_connect(struct context *ctx, struct conn *conn, struct server *server)
+rstatus_t
+redis_select_db(struct context *ctx, struct conn *conn, struct server *server, int *sended)
 {
     rstatus_t status;
     struct server_pool *pool = server->owner;
     struct msg *msg;
     int digits;
 
-    ASSERT(!conn->client && conn->connected);
-    ASSERT(conn->redis);
+    ASSERT(!conn->client && conn->connected && conn->redis);
+    ASSERT(sended);
 
     /*
      * By default, every connection to redis uses the database DB 0. You
@@ -2888,7 +2901,7 @@ redis_post_connect(struct context *ctx, struct conn *conn, struct server *server
      * on a per pool basis in the configuration
      */
     if (pool->redis_db <= 0) {
-        return;
+        return NC_OK;
     }
 
     /*
@@ -2898,14 +2911,15 @@ redis_post_connect(struct context *ctx, struct conn *conn, struct server *server
      */
     msg = msg_get(conn, true, conn->redis);
     if (msg == NULL) {
-        return;
+        conn->err = errno;
+        return NC_ENOMEM;
     }
 
     digits = (pool->redis_db >= 10) ? (int)log10(pool->redis_db) + 1 : 1;
     status = msg_prepend_format(msg, "*2\r\n$6\r\nSELECT\r\n$%d\r\n%d\r\n", digits, pool->redis_db);
     if (status != NC_OK) {
         msg_put(msg);
-        return;
+        return status;
     }
     msg->type = MSG_REQ_REDIS_SELECT;
     msg->result = MSG_PARSE_OK;
@@ -2914,10 +2928,23 @@ redis_post_connect(struct context *ctx, struct conn *conn, struct server *server
 
     /* enqueue as head and send */
     req_server_enqueue_imsgq_head(ctx, conn, msg);
-    msg_send(ctx, conn);
+    *sended = 1;
 
     log_debug(LOG_NOTICE, "sent 'SELECT %d' to %s | %s", pool->redis_db,
               pool->name.data, server->name.data);
+
+    return NC_OK;
+}
+
+void
+redis_post_connect(struct context *ctx, struct conn *conn, struct server *server)
+{
+    int sended = 0;
+    redis_select_db(ctx, conn, server, &sended);
+    redis_add_auth(ctx, conn, server, &sended);
+    if (sended) {
+        msg_send(ctx, conn);
+    }
 }
 
 void

@@ -130,6 +130,7 @@ bool server_active(struct conn *conn);
 rstatus_t server_init(struct array *server, struct array *conf_server, struct server_pool *sp);
 void server_deinit(struct array *server);
 struct conn *server_conn(struct server *server);
+struct conn *server_established_conn(struct context *ctx, struct server *server);
 rstatus_t server_connect(struct context *ctx, struct server *server, struct conn *conn);
 void server_close(struct context *ctx, struct conn *conn);
 void server_connected(struct context *ctx, struct conn *conn);

@@ -25,6 +25,7 @@ typedef rstatus_t (*msg_add_auth_t)(struct context *ctx, struct conn *c_conn, st
 typedef rstatus_t (*msg_fragment_t)(struct msg *, uint32_t, struct msg_tqh *);
 typedef void (*msg_coalesce_t)(struct msg *r);
 typedef rstatus_t (*msg_reply_t)(struct msg *r);
+typedef bool (*msg_broadcast_t)(struct msg *r);
 typedef bool (*msg_failure_t)(struct msg *r);
 
 typedef enum msg_parse_result {
@@ -161,6 +162,7 @@ typedef enum msg_parse_result {
     ACTION( REQ_REDIS_ZSCORE )                                                                      \
     ACTION( REQ_REDIS_ZUNIONSTORE )                                                                 \
     ACTION( REQ_REDIS_ZSCAN)                                                                        \
+    ACTION( REQ_REDIS_SCRIPT )                 /* redis requests - script */                        \
     ACTION( REQ_REDIS_EVAL )                   /* redis requests - eval */                          \
     ACTION( REQ_REDIS_EVALSHA )                                                                     \
     ACTION( REQ_REDIS_PING )                   /* redis requests - ping/quit */                     \
@@ -223,6 +225,7 @@ struct msg {
 
     msg_fragment_t       fragment;        /* message fragment */
     msg_reply_t          reply;           /* generate message reply (example: ping) */
+    msg_broadcast_t      broadcast;       /* check this message need broadcast */
     msg_add_auth_t       add_auth;        /* add auth message when we forward msg */
     msg_failure_t        failure;         /* transient failure response? */
 
@@ -273,6 +276,7 @@ void msg_deinit(void);
 struct string *msg_type_string(msg_type_t type);
 struct msg *msg_get(struct conn *conn, bool request, bool redis);
 void msg_put(struct msg *msg);
+struct msg *msg_clone(struct msg *src);
 struct msg *msg_get_error(bool redis, err_t err);
 void msg_dump(struct msg *msg, int level);
 bool msg_empty(struct msg *msg);

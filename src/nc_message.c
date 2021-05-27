@@ -230,6 +230,7 @@ done:
     msg->result = MSG_PARSE_OK;
 
     msg->fragment = NULL;
+    msg->broadcast = NULL;
     msg->reply = NULL;
     msg->pre_coalesce = NULL;
     msg->post_coalesce = NULL;
@@ -295,6 +296,7 @@ msg_get(struct conn *conn, bool request, bool redis)
         }
         msg->add_auth = redis_add_auth;
         msg->fragment = redis_fragment;
+        msg->broadcast = redis_broadcast;
         msg->reply = redis_reply;
         msg->failure = redis_failure;
         msg->pre_coalesce = redis_pre_coalesce;
@@ -887,4 +889,27 @@ msg_send(struct context *ctx, struct conn *conn)
     } while (conn->send_ready);
 
     return NC_OK;
+}
+
+struct msg *
+msg_clone(struct msg *r) {
+    struct msg *ret = msg_get(r->owner, r->request, r->redis);
+    struct mbuf *mbuf, *nbuf;            /* current and next mbuf */
+    rstatus_t status; uint32_t mlen;
+
+    for (mbuf = STAILQ_FIRST(&r->mhdr); mbuf != NULL; mbuf = nbuf) {
+        nbuf = STAILQ_NEXT(mbuf, next);
+
+        if (mbuf_empty(mbuf)) {
+            continue;
+        }
+
+        mlen = mbuf_length(mbuf);
+        status = msg_append(ret, mbuf->pos, mlen);
+        if (status != NC_OK) {
+            msg_put(ret);
+            return NULL;
+        }
+    }
+    return ret;
 }

@@ -215,6 +215,17 @@ server_conn(struct server *server)
     return conn;
 }
 
+struct conn *
+server_established_conn(struct context *ctx, struct server *server) {
+    struct conn *conn = server_conn(server);
+    rstatus_t status = server_connect(ctx, server, conn);
+    if (status != NC_OK) {
+        server_close(ctx, conn);
+        return NULL;
+    }    
+    return conn;
+}
+
 static rstatus_t
 server_each_preconnect(void *elem, void *data)
 {

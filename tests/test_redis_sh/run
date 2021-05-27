@@ -1,0 +1,10 @@
+#!/bin/bash
+
+source ./start_cluster.sh 	
+
+bash $1
+RET=$?
+
+source ./stop_cluster.sh
+
+exit $?

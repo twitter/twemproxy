@@ -553,14 +553,14 @@ req_forward_stats(struct context *ctx, struct server *server, struct msg *msg)
 }
 
 static void
-req_forward(struct context *ctx, struct conn *c_conn, struct msg *msg)
+req_forward_base(struct context *ctx, struct conn *c_conn, struct msg *msg, struct conn *s_conn)
 {
     rstatus_t status;
-    struct conn *s_conn;
     struct server_pool *pool;
     uint8_t *key;
     uint32_t keylen;
     struct keypos *kpos;
+    bool fixed_dest = !s_conn;
 
     ASSERT(c_conn->client && !c_conn->proxy);
 
@@ -571,12 +571,14 @@ req_forward(struct context *ctx, struct conn *c_conn, struct msg *msg)
 
     pool = c_conn->owner;
 
-    ASSERT(array_n(msg->keys) > 0);
-    kpos = array_get(msg->keys, 0);
-    key = kpos->start;
-    keylen = (uint32_t)(kpos->end - kpos->start);
+    if (s_conn == NULL) {
+        ASSERT(array_n(msg->keys) > 0);
+        kpos = array_get(msg->keys, 0);
+        key = kpos->start;
+        keylen = (uint32_t)(kpos->end - kpos->start);
 
-    s_conn = server_pool_conn(ctx, c_conn->owner, key, keylen);
+        s_conn = server_pool_conn(ctx, c_conn->owner, key, keylen);
+    }
     if (s_conn == NULL) {
         req_forward_error(ctx, c_conn, msg);
         return;
@@ -606,9 +608,47 @@ req_forward(struct context *ctx, struct conn *c_conn, struct msg *msg)
 
     req_forward_stats(ctx, s_conn->owner, msg);
 
-    log_debug(LOG_VERB, "forward from c %d to s %d req %"PRIu64" len %"PRIu32
-              " type %d with key '%.*s'", c_conn->sd, s_conn->sd, msg->id,
-              msg->mlen, msg->type, keylen, key);
+    if (fixed_dest) {
+        log_debug(LOG_VERB, "forward from c %d to s %d req %"PRIu64" len %"PRIu32
+                  " type %d", c_conn->sd, s_conn->sd, msg->id,
+                  msg->mlen, msg->type);
+    }
+    else {
+        log_debug(LOG_VERB, "forward from c %d to s %d req %"PRIu64" len %"PRIu32
+                  " type %d with key '%.*s'", c_conn->sd, s_conn->sd, msg->id,
+                  msg->mlen, msg->type, keylen, key);
+    }
+}
+
+static void
+req_forward(struct context *ctx, struct conn *c_conn, struct msg *msg) 
+{
+    req_forward_base(ctx, c_conn, msg, NULL);
+}
+
+struct broadcast_data {
+    struct msg *msg;
+    struct context *ctx;
+};
+
+static rstatus_t req_server_pool_iter(void *elem, void *data) 
+{
+    struct broadcast_data *p = data;
+    struct conn *s_conn = server_established_conn(p->ctx, elem);
+    struct msg *copied = msg_clone(p->msg);
+    if (!copied) {
+        return NC_ENOMEM;
+    }
+    req_forward_base(p->ctx, p->msg->owner, copied, s_conn);
+    return NC_OK;
+}
+
+static rstatus_t
+broadcast(struct context *ctx, struct conn *c_conn, struct msg *msg) 
+{
+    struct server_pool *pool = c_conn->owner;
+    struct broadcast_data data = { msg, ctx };
+    return array_each(&(pool->server), req_server_pool_iter, &data);
 }
 
 void
@@ -652,6 +692,18 @@ req_recv_done(struct context *ctx, struct conn *conn, struct msg *msg,
             conn->err = errno;
         }
 
+        return;
+    }
+
+    /* if required, do broadcast */
+    if (msg->broadcast && msg->broadcast(msg)) {
+        status = broadcast(ctx, conn, msg);
+        if (status != NC_OK) {
+            if (!msg->noreply) {
+                conn->enqueue_outq(ctx, conn, msg);
+            }
+            req_forward_error(ctx, conn, msg);
+        }
         return;
     }
 

@@ -336,6 +336,20 @@ proxy_accept(struct context *ctx, struct conn *p)
         return NC_OK;
     }
 
+    if (pool->client_connections && (pool->nc_conn_q + 1 > pool->client_connections)) {
+        log_debug(LOG_CRIT,
+                  "pool client connections %"PRIu32" exceed limit %"PRIu32
+                  " in pool %"PRIu32" '%.*s'",
+                  pool->nc_conn_q, pool->client_connections,
+                  pool->idx, pool->name.len, pool->name.data);
+        status = close(sd);
+        if (status < 0) {
+            log_error("close c %d failed, ignored: %s", sd, strerror(errno));
+        }
+
+        return NC_OK;
+    }
+
     c = conn_get(p->owner, true, p->redis);
     if (c == NULL) {
         log_error("get conn for c %d from p %d failed: %s", sd, p->sd,

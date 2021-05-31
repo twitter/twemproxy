@@ -283,6 +283,11 @@ server_failure(struct context *ctx, struct server *server)
         return;
     }
 
+    /* avoid processing and changing the stats unnecessarily */
+    if (server->dead) {
+        return;
+    }
+
     now = nc_usec_now();
     if (now < 0) {
         return;
@@ -301,6 +306,11 @@ server_failure(struct context *ctx, struct server *server)
 
     server->failure_count = 0;
     server->next_retry = next;
+
+    /* only mark as dead if the config says so */
+    if (!pool->auto_eject_drop) {
+        server->dead = 1;
+    }
 
     status = server_pool_run(pool);
     if (status != NC_OK) {
@@ -578,6 +588,7 @@ server_ok(struct context *ctx, struct conn *conn)
                   server->failure_count);
         server->failure_count = 0;
         server->next_retry = 0LL;
+        server->dead = 0;
     }
 }
 
@@ -726,6 +737,14 @@ server_pool_conn(struct context *ctx, struct server_pool *pool, uint8_t *key,
     if (server == NULL) {
         return NULL;
     }
+
+    /* dead and not yet the time to retry */
+    if (server->dead && nc_usec_now() < server->next_retry) {
+        errno = ETIMEDOUT;
+        return NULL;
+    }
+
+    server->dead = 0;
 
     /* pick a connection to a given server */
     conn = server_conn(server);

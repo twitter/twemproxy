@@ -82,6 +82,7 @@ struct server {
 
     int64_t            next_retry;    /* next retry time in usec */
     uint32_t           failure_count; /* # consecutive failures */
+    unsigned           dead:1;        /* server marked as dead */
 };
 
 struct server_pool {
@@ -118,6 +119,7 @@ struct server_pool {
     struct string      redis_auth;           /* redis_auth password (matches requirepass on redis) */
     unsigned           require_auth;         /* require_auth? */
     unsigned           auto_eject_hosts:1;   /* auto_eject_hosts? */
+    unsigned           auto_eject_drop:1;    /* drop auto ejected hosts? */
     unsigned           preconnect:1;         /* preconnect? */
     unsigned           redis:1;              /* redis? */
     unsigned           tcpkeepalive:1;       /* tcpkeepalive? */

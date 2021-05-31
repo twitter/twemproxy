@@ -103,6 +103,18 @@ event_base_destroy(struct event_base *evb)
     nc_free(evb);
 }
 
+static void
+eliminate_pending_events(struct event_base *evb, struct conn *c, int16_t filter) {
+    for (int i = evb->nprocessed + 1; i < evb->nreturned; i++) {
+        struct kevent *ev = &evb->event[i];
+        if (ev->udata == c && (!filter || filter == ev->filter)) {
+            ev->flags = 0;
+            ev->filter = 0;
+            break;
+        }
+    }
+}
+
 int
 event_add_in(struct event_base *evb, struct conn *c)
 {
@@ -144,6 +156,12 @@ event_del_in(struct event_base *evb, struct conn *c)
 
     c->recv_active = 0;
 
+    /*
+     * Eliminate subsequent READ events, if we have disabled READ during
+     * processing one of the previous ones.
+     */
+    eliminate_pending_events(evb, c, EVFILT_READ);
+
     return 0;
 }
 
@@ -155,7 +173,6 @@ event_add_out(struct event_base *evb, struct conn *c)
     ASSERT(evb->kq > 0);
     ASSERT(c != NULL);
     ASSERT(c->sd > 0);
-    ASSERT(c->recv_active);
     ASSERT(evb->nchange < evb->nevent);
 
     if (c->send_active) {
@@ -178,7 +195,6 @@ event_del_out(struct event_base *evb, struct conn *c)
     ASSERT(evb->kq > 0);
     ASSERT(c != NULL);
     ASSERT(c->sd > 0);
-    ASSERT(c->recv_active);
     ASSERT(evb->nchange < evb->nevent);
 
     if (!c->send_active) {
@@ -189,6 +205,12 @@ event_del_out(struct event_base *evb, struct conn *c)
     EV_SET(event, c->sd, EVFILT_WRITE, EV_DELETE, 0, 0, c);
 
     c->send_active = 0;
+
+    /*
+     * Eliminate subsequent WRITE events, if we have disabled WRITE during
+     * processing one of the previous ones.
+     */
+    eliminate_pending_events(evb, c, EVFILT_WRITE);
 
     return 0;
 }
@@ -212,8 +234,6 @@ event_add_conn(struct event_base *evb, struct conn *c)
 int
 event_del_conn(struct event_base *evb, struct conn *c)
 {
-    int i;
-
     ASSERT(evb->kq > 0);
     ASSERT(c != NULL);
     ASSERT(c->sd > 0);
@@ -223,18 +243,10 @@ event_del_conn(struct event_base *evb, struct conn *c)
     event_del_in(evb, c);
 
     /*
-     * Now, eliminate pending events for c->sd (there should be at most one
-     * other event). This is important because we will close c->sd and free
-     * c when we return.
+     * Now, eliminate all outstanding pending events for (c).
+     * This is important because we will close and free (c) when we return.
      */
-    for (i = evb->nprocessed + 1; i < evb->nreturned; i++) {
-        struct kevent *ev = &evb->event[i];
-        if (ev->ident == (uintptr_t)c->sd) {
-            ev->flags = 0;
-            ev->filter = 0;
-            break;
-        }
-    }
+    eliminate_pending_events(evb, c, 0);
 
     return 0;
 }
@@ -317,7 +329,18 @@ event_wait(struct event_base *evb, int timeout)
                 }
 
                 if (evb->cb != NULL && events != 0) {
+                    struct conn *c = ev->udata;
                     evb->cb(ev->udata, events);
+                    if((ev->flags & EV_EOF) && !c->done && !c->err) {
+                        /* Invoke the callback again, if the fd is closed
+                         * and we have not noticed it yet.
+                         * Could not do it earlier because there might
+                         * have been some data pending, so we had to
+                         * simulate a clean WRITE (or READ?) first.
+                         * Now we simulate READ again, it'll recv()=>0.
+                         */
+                        evb->cb(ev->udata, EVENT_READ);
+                    }
                 }
             }
             return evb->nreturned;
@@ -343,70 +366,6 @@ event_wait(struct event_base *evb, int timeout)
     }
 
     NOT_REACHED();
-}
-
-void
-event_loop_stats(event_stats_cb_t cb, void *arg)
-{
-    struct stats *st = arg;
-    int status, kq;
-    struct kevent change, event;
-    struct timespec ts, *tsp;
-
-    kq = kqueue();
-    if (kq < 0) {
-        log_error("kqueue failed: %s", strerror(errno));
-        return;
-    }
-
-    EV_SET(&change, st->sd, EVFILT_READ, EV_ADD | EV_CLEAR, 0, 0, NULL);
-
-    /* kevent should block indefinitely if st->interval < 0 */
-    if (st->interval < 0) {
-        tsp = NULL;
-    } else {
-        tsp = &ts;
-        tsp->tv_sec = st->interval / 1000LL;
-        tsp->tv_nsec = (st->interval % 1000LL) * 1000000LL;
-    }
-
-    for (;;) {
-        int nreturned;
-
-        nreturned = kevent(kq, &change, 1, &event, 1, tsp);
-        if (nreturned < 0) {
-            if (errno == EINTR) {
-                continue;
-            }
-            log_error("kevent on kq %d with m %d failed: %s", kq, st->sd,
-                      strerror(errno));
-            goto error;
-        }
-
-        ASSERT(nreturned <= 1);
-
-        if (nreturned == 1) {
-            struct kevent *ev = &event;
-
-            if (ev->flags & EV_ERROR) {
-                if (ev->data == EINTR) {
-                    continue;
-                }
-                log_error("kevent on kq %d with m %d failed: %s", kq, st->sd,
-                          strerror(ev->data));
-                goto error;
-            }
-        }
-
-        cb(st, &nreturned);
-    }
-
-error:
-    status = close(kq);
-    if (status < 0) {
-        log_error("close kq %d failed, ignored: %s", kq, strerror(errno));
-    }
-    kq = -1;
 }
 
 #endif /* NC_HAVE_KQUEUE */

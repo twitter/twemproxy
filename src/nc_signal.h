@@ -31,4 +31,11 @@ rstatus_t signal_init(void);
 void signal_deinit(void);
 void signal_handler(int signo);
 
+/*
+ * Get a read-only file descriptor which will receive signals.
+ * This is useful in case one wants to break the event loop on signal
+ * and react on it synchronously versus in the asynchronous signal handler.
+ */
+int signal_get_fd(void);
+
 #endif

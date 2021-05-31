@@ -21,6 +21,10 @@
 #include <nc_core.h>
 #include <nc_server.h>
 #include <nc_conf.h>
+#include <nc_proxy.h>
+#include <nc_introspect.h>
+
+#define POOL_NOINDEX    (~(uint32_t)0)
 
 static void
 server_resolve(struct server *server, struct conn *conn)
@@ -34,9 +38,7 @@ server_resolve(struct server *server, struct conn *conn)
         return;
     }
 
-    conn->family = server->info.family;
-    conn->addrlen = server->info.addrlen;
-    conn->addr = (struct sockaddr *)&server->info.addr;
+    conn->info = server->info;
 }
 
 void
@@ -44,7 +46,7 @@ server_ref(struct conn *conn, void *owner)
 {
     struct server *server = owner;
 
-    ASSERT(!conn->client && !conn->proxy);
+    ASSERT(CONN_KIND_IS_SERVER(conn));
     ASSERT(conn->owner == NULL);
 
     server_resolve(server, conn);
@@ -63,7 +65,7 @@ server_unref(struct conn *conn)
 {
     struct server *server;
 
-    ASSERT(!conn->client && !conn->proxy);
+    ASSERT(CONN_KIND_IS_SERVER(conn));
     ASSERT(conn->owner != NULL);
 
     server = conn->owner;
@@ -83,7 +85,7 @@ server_timeout(struct conn *conn)
     struct server *server;
     struct server_pool *pool;
 
-    ASSERT(!conn->client && !conn->proxy);
+    ASSERT(CONN_KIND_IS_SERVER(conn));
 
     server = conn->owner;
     pool = server->owner;
@@ -94,7 +96,7 @@ server_timeout(struct conn *conn)
 bool
 server_active(struct conn *conn)
 {
-    ASSERT(!conn->client && !conn->proxy);
+    ASSERT(CONN_KIND_IS_SERVER(conn));
 
     if (!TAILQ_EMPTY(&conn->imsg_q)) {
         log_debug(LOG_VVERB, "s %d is active", conn->sd);
@@ -179,6 +181,9 @@ server_deinit(struct array *server)
 
         s = array_pop(server);
         ASSERT(TAILQ_EMPTY(&s->s_conn_q) && s->ns_conn_q == 0);
+
+        string_deinit(&s->pname);
+        string_deinit(&s->name);
     }
     array_deinit(server);
 }
@@ -198,7 +203,8 @@ server_conn(struct server *server)
      */
 
     if (server->ns_conn_q < pool->server_connections) {
-        return conn_get(server, false, pool->redis);
+        return conn_get(server, pool->redis
+            ? NC_CONN_SERVER_REDIS : NC_CONN_SERVER_MEMCACHE);
     }
     ASSERT(server->ns_conn_q == pool->server_connections);
 
@@ -207,7 +213,7 @@ server_conn(struct server *server)
      * it back into the tail of queue to maintain the lru order
      */
     conn = TAILQ_FIRST(&server->s_conn_q);
-    ASSERT(!conn->client && !conn->proxy);
+    ASSERT(CONN_KIND_IS_SERVER(conn));
 
     TAILQ_REMOVE(&server->s_conn_q, conn, conn_tqe);
     TAILQ_INSERT_TAIL(&server->s_conn_q, conn, conn_tqe);
@@ -348,7 +354,7 @@ server_close(struct context *ctx, struct conn *conn)
     struct msg *msg, *nmsg; /* current and next message */
     struct conn *c_conn;    /* peer client connection */
 
-    ASSERT(!conn->client && !conn->proxy);
+    ASSERT(CONN_KIND_IS_SERVER(conn));
 
     server_close_stats(ctx, conn->owner, conn->err, conn->eof,
                        conn->connected);
@@ -374,12 +380,13 @@ server_close(struct context *ctx, struct conn *conn)
          * 2. client has already closed its connection
          */
         if (msg->swallow || msg->noreply) {
-            log_debug(LOG_INFO, "close s %d swallow req %"PRIu64" len %"PRIu32
-                      " type %d", conn->sd, msg->id, msg->mlen, msg->type);
+            log_debug(LOG_INFO, "close %s %d swallow req %"PRIu64" len %"PRIu32
+                      " type %d", CONN_KIND_AS_STRING(conn), conn->sd,
+                      msg->id, msg->mlen, msg->type);
             req_put(msg);
         } else {
             c_conn = msg->owner;
-            ASSERT(c_conn->client && !c_conn->proxy);
+            ASSERT(CONN_KIND_IS_CLIENT(c_conn));
 
             msg->done = 1;
             msg->error = 1;
@@ -393,9 +400,12 @@ server_close(struct context *ctx, struct conn *conn)
                 event_add_out(ctx->evb, msg->owner);
             }
 
-            log_debug(LOG_INFO, "close s %d schedule error for req %"PRIu64" "
-                      "len %"PRIu32" type %d from c %d%c %s", conn->sd, msg->id,
-                      msg->mlen, msg->type, c_conn->sd, conn->err ? ':' : ' ',
+            log_debug(LOG_INFO, "close %s %d schedule error for req %"PRIu64" "
+                      "len %"PRIu32" type %d from %s %d%c %s",
+                      CONN_KIND_AS_STRING(conn), conn->sd, msg->id,
+                      msg->mlen, msg->type,
+                      CONN_KIND_AS_STRING(c_conn), c_conn->sd,
+                      conn->err ? ':' : ' ',
                       conn->err ? strerror(conn->err): " ");
         }
     }
@@ -408,12 +418,13 @@ server_close(struct context *ctx, struct conn *conn)
         conn->dequeue_outq(ctx, conn, msg);
 
         if (msg->swallow) {
-            log_debug(LOG_INFO, "close s %d swallow req %"PRIu64" len %"PRIu32
-                      " type %d", conn->sd, msg->id, msg->mlen, msg->type);
+            log_debug(LOG_INFO, "close %s %d swallow req %"PRIu64" len %"PRIu32
+                      " type %d", CONN_KIND_AS_STRING(conn), conn->sd,
+                      msg->id, msg->mlen, msg->type);
             req_put(msg);
         } else {
             c_conn = msg->owner;
-            ASSERT(c_conn->client && !c_conn->proxy);
+            ASSERT(CONN_KIND_IS_CLIENT(c_conn));
 
             msg->done = 1;
             msg->error = 1;
@@ -426,9 +437,12 @@ server_close(struct context *ctx, struct conn *conn)
                 event_add_out(ctx->evb, msg->owner);
             }
 
-            log_debug(LOG_INFO, "close s %d schedule error for req %"PRIu64" "
-                      "len %"PRIu32" type %d from c %d%c %s", conn->sd, msg->id,
-                      msg->mlen, msg->type, c_conn->sd, conn->err ? ':' : ' ',
+            log_debug(LOG_INFO, "close %s %d schedule error for req %"PRIu64" "
+                      "len %"PRIu32" type %d from %s %d%c %s",
+                      CONN_KIND_AS_STRING(conn), conn->sd, msg->id,
+                      msg->mlen, msg->type,
+                      CONN_KIND_AS_STRING(c_conn), c_conn->sd,
+                      conn->err ? ':' : ' ',
                       conn->err ? strerror(conn->err): " ");
         }
     }
@@ -443,8 +457,9 @@ server_close(struct context *ctx, struct conn *conn)
 
         rsp_put(msg);
 
-        log_debug(LOG_INFO, "close s %d discarding rsp %"PRIu64" len %"PRIu32" "
-                  "in error", conn->sd, msg->id, msg->mlen);
+        log_debug(LOG_INFO, "close %s %d discarding rsp %"PRIu64" len %"PRIu32" "
+                  "in error", CONN_KIND_AS_STRING(conn), conn->sd,
+                  msg->id, msg->mlen);
     }
 
     ASSERT(conn->smsg == NULL);
@@ -455,7 +470,8 @@ server_close(struct context *ctx, struct conn *conn)
 
     status = close(conn->sd);
     if (status < 0) {
-        log_error("close s %d failed, ignored: %s", conn->sd, strerror(errno));
+        log_error("close %s %d failed, ignored: %s",
+                  CONN_KIND_AS_STRING(conn), conn->sd, strerror(errno));
     }
     conn->sd = -1;
 
@@ -467,7 +483,7 @@ server_connect(struct context *ctx, struct server *server, struct conn *conn)
 {
     rstatus_t status;
 
-    ASSERT(!conn->client && !conn->proxy);
+    ASSERT(CONN_KIND_IS_SERVER(conn));
 
     if (conn->err) {
       ASSERT(conn->done && conn->sd < 0);
@@ -483,7 +499,7 @@ server_connect(struct context *ctx, struct server *server, struct conn *conn)
     log_debug(LOG_VVERB, "connect to server '%.*s'", server->pname.len,
               server->pname.data);
 
-    conn->sd = socket(conn->family, SOCK_STREAM, 0);
+    conn->sd = socket(conn->info.family, SOCK_STREAM, 0);
     if (conn->sd < 0) {
         log_error("socket for server '%.*s' failed: %s", server->pname.len,
                   server->pname.data, strerror(errno));
@@ -493,49 +509,56 @@ server_connect(struct context *ctx, struct server *server, struct conn *conn)
 
     status = nc_set_nonblocking(conn->sd);
     if (status != NC_OK) {
-        log_error("set nonblock on s %d for server '%.*s' failed: %s",
-                  conn->sd, server->pname.len, server->pname.data,
-                  strerror(errno));
+        log_error("set nonblock on %s %d for server '%.*s' failed: %s",
+                  CONN_KIND_AS_STRING(conn), conn->sd,
+                  server->pname.len, server->pname.data, strerror(errno));
         goto error;
     }
 
     if (server->pname.data[0] != '/') {
         status = nc_set_tcpnodelay(conn->sd);
         if (status != NC_OK) {
-            log_warn("set tcpnodelay on s %d for server '%.*s' failed, ignored: %s",
-                     conn->sd, server->pname.len, server->pname.data,
+            log_warn("set tcpnodelay on %s %d for server '%.*s' failed, ignored: %s",
+                     CONN_KIND_AS_STRING(conn), conn->sd,
+                     server->pname.len, server->pname.data,
                      strerror(errno));
         }
     }
 
     status = event_add_conn(ctx->evb, conn);
     if (status != NC_OK) {
-        log_error("event add conn s %d for server '%.*s' failed: %s",
-                  conn->sd, server->pname.len, server->pname.data,
+        log_error("event add conn %s %d for server '%.*s' failed: %s",
+                  CONN_KIND_AS_STRING(conn), conn->sd,
+                  server->pname.len, server->pname.data,
                   strerror(errno));
         goto error;
     }
 
     ASSERT(!conn->connecting && !conn->connected);
 
-    status = connect(conn->sd, conn->addr, conn->addrlen);
+    status = connect(conn->sd, (struct sockaddr *)&conn->info.addr,
+                               conn->info.addrlen);
     if (status != NC_OK) {
         if (errno == EINPROGRESS) {
             conn->connecting = 1;
-            log_debug(LOG_DEBUG, "connecting on s %d to server '%.*s'",
-                      conn->sd, server->pname.len, server->pname.data);
+            log_debug(LOG_DEBUG, "connecting on %s %d to server '%.*s'",
+                      CONN_KIND_AS_STRING(conn), conn->sd,
+                      server->pname.len, server->pname.data);
             return NC_OK;
         }
 
-        log_error("connect on s %d to server '%.*s' failed: %s", conn->sd,
-                  server->pname.len, server->pname.data, strerror(errno));
+        log_error("connect on %s %d to server '%.*s' (%s) failed: %s",
+                  CONN_KIND_AS_STRING(conn), conn->sd,
+                  server->pname.len, server->pname.data,
+                  conn_unresolve_descriptive(conn), strerror(errno));
 
         goto error;
     }
 
     ASSERT(!conn->connecting);
     conn->connected = 1;
-    log_debug(LOG_INFO, "connected on s %d to server '%.*s'", conn->sd,
+    log_debug(LOG_INFO, "connected on %s %d to server '%.*s'",
+              CONN_KIND_AS_STRING(conn), conn->sd,
               server->pname.len, server->pname.data);
 
     return NC_OK;
@@ -550,7 +573,7 @@ server_connected(struct context *ctx, struct conn *conn)
 {
     struct server *server = conn->owner;
 
-    ASSERT(!conn->client && !conn->proxy);
+    ASSERT(CONN_KIND_IS_SERVER(conn));
     ASSERT(conn->connecting && !conn->connected);
 
     stats_server_incr(ctx, server, server_connections);
@@ -560,7 +583,8 @@ server_connected(struct context *ctx, struct conn *conn)
 
     conn->post_connect(ctx, conn, server);
 
-    log_debug(LOG_INFO, "connected on s %d to server '%.*s'", conn->sd,
+    log_debug(LOG_INFO, "connected on %s %d to server '%.*s'",
+              CONN_KIND_AS_STRING(conn), conn->sd,
               server->pname.len, server->pname.data);
 }
 
@@ -569,7 +593,7 @@ server_ok(struct context *ctx, struct conn *conn)
 {
     struct server *server = conn->owner;
 
-    ASSERT(!conn->client && !conn->proxy);
+    ASSERT(CONN_KIND_IS_SERVER(conn));
     ASSERT(conn->connected);
 
     if (server->failure_count != 0) {
@@ -743,10 +767,9 @@ server_pool_conn(struct context *ctx, struct server_pool *pool, uint8_t *key,
 }
 
 static rstatus_t
-server_pool_each_preconnect(void *elem, void *data)
+server_pool_preconnect_fn(struct server_pool *sp, void *data)
 {
     rstatus_t status;
-    struct server_pool *sp = elem;
 
     if (!sp->preconnect) {
         return NC_OK;
@@ -761,59 +784,37 @@ server_pool_each_preconnect(void *elem, void *data)
 }
 
 rstatus_t
-server_pool_preconnect(struct context *ctx)
+server_pool_each(struct server_pools *server_pools, pool_each_t func, void *key)
 {
     rstatus_t status;
+    struct server_pool *pool, *tmpool;
 
-    status = array_each(&ctx->pool, server_pool_each_preconnect, NULL);
-    if (status != NC_OK) {
-        return status;
+    TAILQ_FOREACH_SAFE(pool, server_pools, pool_tqe, tmpool) {
+        status = func(pool, key);
+        if (status != NC_OK) {
+            return status;
+        }
     }
 
     return NC_OK;
 }
 
-static rstatus_t
-server_pool_each_disconnect(void *elem, void *data)
+rstatus_t
+server_pool_preconnect(struct context *ctx)
 {
-    rstatus_t status;
-    struct server_pool *sp = elem;
+    return server_pool_each(&ctx->pools, server_pool_preconnect_fn, NULL);
+}
 
-    status = array_each(&sp->server, server_each_disconnect, NULL);
-    if (status != NC_OK) {
-        return status;
-    }
-
-    return NC_OK;
+static rstatus_t
+server_pool_disconnect_fn(struct server_pool *sp, void *data)
+{
+    return array_each(&sp->server, server_each_disconnect, NULL);
 }
 
 void
-server_pool_disconnect(struct context *ctx)
+server_pool_disconnect(struct server_pools *server_pools)
 {
-    array_each(&ctx->pool, server_pool_each_disconnect, NULL);
-}
-
-static rstatus_t
-server_pool_each_set_owner(void *elem, void *data)
-{
-    struct server_pool *sp = elem;
-    struct context *ctx = data;
-
-    sp->ctx = ctx;
-
-    return NC_OK;
-}
-
-static rstatus_t
-server_pool_each_calc_connections(void *elem, void *data)
-{
-    struct server_pool *sp = elem;
-    struct context *ctx = data;
-
-    ctx->max_nsconn += sp->server_connections * array_n(&sp->server);
-    ctx->max_nsconn += 1; /* pool listening socket */
-
-    return NC_OK;
+    server_pool_each(server_pools, server_pool_disconnect_fn, NULL);
 }
 
 rstatus_t
@@ -839,89 +840,525 @@ server_pool_run(struct server_pool *pool)
     return NC_OK;
 }
 
-static rstatus_t
-server_pool_each_run(void *elem, void *data)
-{
-    return server_pool_run(elem);
-}
-
 rstatus_t
-server_pool_init(struct array *server_pool, struct array *conf_pool,
+server_pool_init(struct server_pools *server_pools, struct array *conf_pool,
                  struct context *ctx)
 {
     rstatus_t status;
     uint32_t npool;
+    uint32_t n_server_pools;
+    struct server_pool *pool;
 
     npool = array_n(conf_pool);
     ASSERT(npool != 0);
-    ASSERT(array_n(server_pool) == 0);
-
-    status = array_init(server_pool, npool, sizeof(struct server_pool));
-    if (status != NC_OK) {
-        return status;
-    }
 
     /* transform conf pool to server pool */
-    status = array_each(conf_pool, conf_pool_each_transform, server_pool);
+    status = array_each(conf_pool, conf_pool_each_transform, server_pools);
     if (status != NC_OK) {
-        server_pool_deinit(server_pool);
-        return status;
-    }
-    ASSERT(array_n(server_pool) == npool);
-
-    /* set ctx as the server pool owner */
-    status = array_each(server_pool, server_pool_each_set_owner, ctx);
-    if (status != NC_OK) {
-        server_pool_deinit(server_pool);
+        server_pool_deinit(server_pools);
         return status;
     }
 
-    /* compute max server connections */
-    ctx->max_nsconn = 0;
-    status = array_each(server_pool, server_pool_each_calc_connections, ctx);
-    if (status != NC_OK) {
-        server_pool_deinit(server_pool);
-        return status;
+    /*
+     * Do a post-initialization work on all server pools.
+     */
+    n_server_pools = 0;
+    TAILQ_FOREACH(pool, server_pools, pool_tqe) {
+        pool->ctx = ctx;  /* Set owner */
+        pool->idx = n_server_pools++;
+        /* compute max server connections */
+        ctx->max_nsconn += pool->server_connections * array_n(&pool->server);
+        ctx->max_nsconn += 1; /* pool listening socket */
+        /* update server pool continuum */
+        server_pool_run(pool);
+    }
+    ASSERT(npool == n_server_pools);
+
+    log_debug(LOG_DEBUG, "init %"PRIu32" pools", n_server_pools);
+
+    return NC_OK;
+}
+
+struct server_pool *
+server_pool_new()
+{
+    struct server_pool *pool;
+    pool = nc_calloc(1, sizeof(struct server_pool));
+    return pool;
+}
+
+void
+server_pool_free(struct server_pool *pool)
+{
+    string_deinit(&pool->name);
+    string_deinit(&pool->addrstr);
+    string_deinit(&pool->hash_tag);
+    string_deinit(&pool->redis_auth);
+    nc_free(pool);  /* FIXME: memory leaks here. */
+}
+
+static void
+server_pool_move_client_connections(struct server_pool *from, struct server_pool *to) {
+    struct conn *conn, *tmp_conn;
+
+    TAILQ_INIT(&to->c_conn_q);
+    to->nc_conn_q = 0;
+
+    TAILQ_FOREACH_SAFE(conn, &from->c_conn_q, conn_tqe, tmp_conn) {
+        TAILQ_REMOVE(&from->c_conn_q, conn, conn_tqe);
+        TAILQ_INSERT_TAIL(&to->c_conn_q, conn, conn_tqe);
+        conn->owner = to;
+        to->nc_conn_q++;
     }
 
-    /* update server pool continuum */
-    status = array_each(server_pool, server_pool_each_run, NULL);
-    if (status != NC_OK) {
-        server_pool_deinit(server_pool);
-        return status;
+    ASSERT(to->nc_conn_q == from->nc_conn_q);
+
+    from->nc_conn_q = 0;
+    TAILQ_INIT(&from->c_conn_q);
+}
+
+static rstatus_t
+server_pool_deinit_fn(struct server_pool *pool, void *data) {
+
+    ASSERT(pool->p_conn == NULL);
+    ASSERT(TAILQ_EMPTY(&pool->c_conn_q) && pool->nc_conn_q == 0);
+
+    if (pool->pool_counterpart) {
+        pool->pool_counterpart->pool_counterpart = 0;
+        pool->pool_counterpart = 0;
     }
 
-    log_debug(LOG_DEBUG, "init %"PRIu32" pools", npool);
+    if (pool->continuum != NULL) {
+        nc_free(pool->continuum);
+        pool->ncontinuum = 0;
+        pool->nserver_continuum = 0;
+        pool->nlive_server = 0;
+    }
+
+    server_pool_disconnect_fn(pool, NULL);
+    server_deinit(&pool->server);
+
+    log_debug(LOG_DEBUG, "deinit pool %"PRIu32" '%.*s'", pool->idx,
+              pool->name.len, pool->name.data);
+
+    if(pool->ctx) {
+        TAILQ_REMOVE(&pool->ctx->pools, pool, pool_tqe);
+    }
+    server_pool_free(pool);
 
     return NC_OK;
 }
 
 void
-server_pool_deinit(struct array *server_pool)
+server_pool_deinit(struct server_pools *server_pools)
 {
-    uint32_t i, npool;
+    server_pool_each(server_pools, server_pool_deinit_fn, NULL);
 
-    for (i = 0, npool = array_n(server_pool); i < npool; i++) {
-        struct server_pool *sp;
+    log_debug(LOG_DEBUG, "deinit pools");
+}
 
-        sp = array_pop(server_pool);
-        ASSERT(sp->p_conn == NULL);
-        ASSERT(TAILQ_EMPTY(&sp->c_conn_q) && sp->nc_conn_q == 0);
+uint32_t
+server_pools_n(struct server_pools *server_pools) {
+    struct server_pool *pool;
+    uint32_t npool = 0;
 
-        if (sp->continuum != NULL) {
-            nc_free(sp->continuum);
-            sp->ncontinuum = 0;
-            sp->nserver_continuum = 0;
-            sp->nlive_server = 0;
-        }
-
-        server_deinit(&sp->server);
-
-        log_debug(LOG_DEBUG, "deinit pool %"PRIu32" '%.*s'", sp->idx,
-                  sp->name.len, sp->name.data);
+    TAILQ_FOREACH(pool, server_pools, pool_tqe) {
+        npool++;
     }
 
-    array_deinit(server_pool);
-
-    log_debug(LOG_DEBUG, "deinit %"PRIu32" pools", npool);
+    return npool;
 }
+
+
+/*
+ * Convert between each (flat) and hierarchical fold.
+ */
+struct morphism_and_accumulator {
+    nc_morphism_f morphism;
+    void *accumulator;
+};
+
+static rstatus_t server_pool_each_to_fold(void *elem, void *data) {
+    struct morphism_and_accumulator *mac = data;
+    struct server *server = elem;
+    struct conn *conn;
+    uint32_t count;
+
+    mac->accumulator = mac->morphism(NC_ELEMENT_IS_SERVER,
+                                     server, mac->accumulator);
+
+    count = 0;
+    /* Iterate over server connections going to a single server. */
+    TAILQ_FOREACH(conn, &server->s_conn_q, conn_tqe) {
+        mac->accumulator = mac->morphism(NC_ELEMENT_IS_CONNECTION,
+                                         conn, mac->accumulator);
+        count++;
+    }
+    ASSERT(server->ns_conn_q == count);
+
+    return NC_OK;
+}
+
+static void *
+server_pool_fold(struct server_pool *pool, nc_morphism_f f, void *acc) {
+    struct morphism_and_accumulator mac;
+    struct conn *conn;
+    rstatus_t status;
+
+    acc = f(NC_ELEMENT_IS_POOL, pool, acc);
+
+    if(pool->p_conn)
+        acc = f(NC_ELEMENT_IS_CONNECTION, pool->p_conn, acc);
+
+    /* Iterate over client connections accessing a single pool proxy. */
+    TAILQ_FOREACH(conn, &pool->c_conn_q, conn_tqe) {
+        acc = f(NC_ELEMENT_IS_CONNECTION, conn, acc);
+    }
+
+    mac.morphism = f;
+    mac.accumulator = acc;
+
+    status = array_each(&pool->server, server_pool_each_to_fold, &mac);
+    ASSERT(status == NC_OK);
+
+    return mac.accumulator;
+}
+
+void *
+server_pools_fold(struct server_pools *server_pools, nc_morphism_f f, void *acc) {
+    struct server_pool *pool;
+
+    TAILQ_FOREACH(pool, server_pools, pool_tqe) {
+        acc = server_pool_fold(pool, f, acc);
+    }
+
+    return acc;
+}
+
+/*
+ * Set a given reload state to all pools.
+ */
+static void
+server_pools_set_reload_state(struct server_pools *server_pools, enum server_pools_reload_state state) {
+    struct server_pool *pool;
+
+    TAILQ_FOREACH(pool, server_pools, pool_tqe) {
+        pool->reload_state = state;
+    }
+}
+
+/*
+ * Check that all reload states equal to the given state.
+ */
+static bool
+server_pools_check_reload_state(struct server_pools *pools, enum server_pools_reload_state state) {
+    struct server_pool *pool;
+
+    TAILQ_FOREACH(pool, pools, pool_tqe) {
+        if(pool->reload_state != state)
+            return false;
+    }
+    return true;
+}
+
+/*
+ * Pause ingress stream of data from clients, and accepting new ones.
+ */
+static void
+server_pool_pause_incoming_client_traffic(struct server_pool *pool) {
+    log_debug(LOG_DEBUG, "Pausing client connections for pool '%.*s' (%s)",
+              pool->name.len, pool->name.data,
+              nc_unresolve(&pool->p_conn->info));
+
+    /* Pause proxy connection (not accepting new clients) */
+    event_del_in(pool->ctx->evb, pool->p_conn);
+
+    /* Pause client connections */
+    struct conn *conn;
+    TAILQ_FOREACH(conn, &pool->c_conn_q, conn_tqe) {
+        event_del_in(pool->ctx->evb, conn);
+    }
+
+}
+
+static void
+server_pool_resume_incoming_client_traffic(struct server_pool *pool) {
+    log_debug(LOG_DEBUG, "Resume client connections for pool '%.*s' (%s)",
+              pool->name.len, pool->name.data,
+              nc_unresolve(&pool->p_conn->info));
+
+    /* Resume proxy connection (accepting new clients) */
+    event_add_in(pool->ctx->evb, pool->p_conn);
+
+    /* Resume client connections */
+    struct conn *conn;
+    TAILQ_FOREACH(conn, &pool->c_conn_q, conn_tqe) {
+        event_add_in(pool->ctx->evb, conn);
+    }
+}
+
+struct last_not_drained {
+    struct conn *conn_not_drained;
+    int num_not_drained;
+};
+
+static void *
+connection_is_drained(enum nc_morph_elem_type etype, void *elem, void *acc0) {
+
+    if(etype == NC_ELEMENT_IS_CONNECTION) {
+        struct conn *conn = elem;
+        struct last_not_drained *nd = acc0;
+
+        if((conn->rmsg == NULL
+                || msg_empty(conn->rmsg))
+            && conn->smsg == NULL
+            && TAILQ_EMPTY(&conn->imsg_q)
+            && (TAILQ_EMPTY(&conn->omsg_q)
+                || CONN_KIND_IS_CLIENT(conn))
+        ) {
+            /* Connection is effectively drained. */
+        } else {
+            nd->conn_not_drained = conn;
+            nd->num_not_drained++;
+        }
+    }
+
+    return acc0;
+}
+
+/*
+ * We decide that the pool is drained when there are no outstanding
+ * unprocessed messages in the client and server connections.
+ */
+static bool
+server_pool_drained(struct server_pool *pool) {
+    struct last_not_drained nd = { 0 };
+
+    server_pool_fold(pool, connection_is_drained, &nd);
+
+    if(nd.conn_not_drained) {
+        log_debug(LOG_DEBUG, "something (e.g. %s %s) is still not drained (%d)",
+            CONN_KIND_AS_STRING(nd.conn_not_drained),
+            conn_unresolve_descriptive(nd.conn_not_drained),
+            nd.num_not_drained);
+    }
+
+    if(nd.conn_not_drained)
+        return false;
+    else
+        return true;
+}
+
+/*
+ * For each reload state there's some things to do before we consider
+ * reloading safely initiated.
+ */
+static rstatus_t
+server_pools_kick_state_machine(struct server_pools *pools)
+{
+    struct server_pool *pool, *tpool;
+    rstatus_t rstatus;
+
+    TAILQ_FOREACH_SAFE(pool, pools, pool_tqe, tpool) {
+        switch(pool->reload_state) {
+        case RSTATE_OLD_AND_ACTIVE:
+        case RSTATE_NEW_WAIT_FOR_OLD:
+            break;
+        case RSTATE_NEW:
+            rstatus = proxy_each_init(pool, 0);
+            if(rstatus != NC_OK) {
+                return rstatus;
+            }
+            pool->reload_state = RSTATE_OLD_AND_ACTIVE;
+            break;
+        case RSTATE_OLD_TO_SHUTDOWN:
+            if(!pool->pool_counterpart) {
+                /*
+                 * This pool is not needed anymore. Shut down immediately.
+                 * NOTE: since we're are going to be able to undo
+                 * the changes, the pools are organized so the new pools
+                 * are placed at the beginning of the TAILQ. This way,
+                 * all errors to initialize the new pools can materialize
+                 * before we get to the old pools and start deiniting them.
+                 */
+                ASSERT(pool->p_conn);
+                proxy_each_deinit(pool, 0);
+                pool->p_conn = 0;
+                server_pool_deinit_fn(pool, 0);
+                break;
+            } else {
+                ASSERT(pool->p_conn);
+                server_pool_pause_incoming_client_traffic(pool);
+                pool->reload_state = RSTATE_OLD_DRAINING;
+            }
+            break;
+        case RSTATE_OLD_DRAINING:
+            if(server_pool_drained(pool)) {
+                struct server_pool *npool = pool->pool_counterpart;
+                ASSERT(pool->pool_counterpart);
+                ASSERT(npool->pool_counterpart == pool);
+                ASSERT(npool->p_conn == false);
+
+                npool->pool_counterpart = 0;
+                pool->pool_counterpart = 0;
+
+                /* Move proxy connection */
+                npool->p_conn = pool->p_conn;
+                npool->p_conn->owner = npool;
+                pool->p_conn = NULL;
+                /* Move client connections over as well */
+                server_pool_move_client_connections(pool, npool);
+                server_pool_resume_incoming_client_traffic(npool);
+                npool->reload_state = RSTATE_OLD_AND_ACTIVE;
+                server_pool_run(npool);
+
+                /* Remove the old pool*/
+                server_pool_deinit_fn(pool, 0);
+            }
+            break;
+        }
+    }
+
+    return NC_OK;
+}
+
+static void
+server_pools_undo_partial_reload(struct server_pools *pools) {
+    struct server_pool *pool, *tpool;
+
+    log_error("Can't reload configuration, reverting back pool changes");
+
+    TAILQ_FOREACH_SAFE(pool, pools, pool_tqe, tpool) {
+        switch(pool->reload_state) {
+        case RSTATE_OLD_AND_ACTIVE:
+            break;
+        case RSTATE_OLD_TO_SHUTDOWN:
+            pool->reload_state = RSTATE_OLD_AND_ACTIVE;
+            pool->pool_counterpart = 0;
+            break;
+        case RSTATE_OLD_DRAINING:
+            /* Unpause getting the data from clients */
+            server_pool_resume_incoming_client_traffic(pool);
+            pool->reload_state = RSTATE_OLD_AND_ACTIVE;
+            pool->pool_counterpart = 0;
+            break;
+        case RSTATE_NEW:
+            server_pool_deinit_fn(pool, 0);
+            break;
+        case RSTATE_NEW_WAIT_FOR_OLD:
+            server_pool_deinit_fn(pool, 0);
+            break;
+        }
+    }
+
+    /* Just checking that the state is back to normal */
+    TAILQ_FOREACH(pool, pools, pool_tqe) {
+        ASSERT(pool->reload_state == RSTATE_OLD_AND_ACTIVE);
+    }
+}
+
+rstatus_t
+server_pools_kick_replacement(struct server_pools *old_pools, struct server_pools *new_pools)
+{
+    struct server_pool *npool, *tmp_npool;
+    struct server_pool *opool;
+
+    ASSERT(server_pools_check_reload_state(old_pools, RSTATE_OLD_AND_ACTIVE));
+    ASSERT(server_pools_n(new_pools) != 0);
+
+    server_pools_set_reload_state(old_pools, RSTATE_OLD_AND_ACTIVE); server_pools_set_reload_state(new_pools, RSTATE_NEW);
+
+    /*
+     * Establish correspondence between old and new pools.
+     */
+    TAILQ_FOREACH(opool, old_pools, pool_tqe) {
+        TAILQ_FOREACH_SAFE(npool, new_pools, pool_tqe, tmp_npool) {
+            if (npool->reload_state == RSTATE_NEW && string_compare(&opool->name, &npool->name) == 0) {
+                npool->reload_state = RSTATE_NEW_WAIT_FOR_OLD;
+                opool->reload_state = RSTATE_OLD_TO_SHUTDOWN;
+                npool->pool_counterpart = opool;
+                opool->pool_counterpart = npool;
+            }
+        }
+    }
+
+    /*
+     * Initiate removal of unused pools.
+     */
+    TAILQ_FOREACH(opool, old_pools, pool_tqe) {
+        if(opool->reload_state == RSTATE_OLD_AND_ACTIVE) {
+            opool->reload_state = RSTATE_OLD_TO_SHUTDOWN;
+            opool->pool_counterpart = 0;
+        }
+    }
+
+    /*
+     * Move new pools into the new ones.
+     * NOTE: since we're are going to be able to undo
+     * the changes, the pools are organized so the new pools
+     * are placed at the beginning of the TAILQ. This way,
+     * all errors to initialize the new pools can materialize
+     * before we get to the old pools and start deiniting them.
+     * NOTE: however, the index (pool->idx) of the new pools
+     * should correspond to their natural order in the list.
+     * So we move the items one by one from the tail of the new pool
+     * into the beginning of the target pool.
+     */
+    TAILQ_FOREACH_REVERSE_SAFE(npool, new_pools, server_pools, pool_tqe, tmp_npool) {
+        TAILQ_REMOVE(new_pools, npool, pool_tqe);
+        TAILQ_INSERT_HEAD(old_pools, npool, pool_tqe);
+    }
+    new_pools = 0;  /* Do not touch this any more */
+
+    /*
+     * Kick the state machine for each of the new and old pools.
+     */
+    if(server_pools_kick_state_machine(old_pools) != NC_OK) {
+        server_pools_undo_partial_reload(old_pools);
+        return NC_ERROR;
+    } else {
+        /*
+         * Finally change the state of the new pools if everything was
+         * properly initialized (and all new proxy connections was properly
+         * bound to ip addresses).
+         */
+        TAILQ_FOREACH(opool, old_pools, pool_tqe) {
+            if(opool->reload_state == RSTATE_NEW)
+                opool->reload_state = RSTATE_OLD_AND_ACTIVE;
+        }
+    }
+
+    return NC_OK;
+}
+
+/*
+ * Attempt to complete the code reload (pool replacement) process.
+ */
+bool
+server_pools_finish_replacement(struct server_pools *pools)
+{
+
+    log_debug(LOG_DEBUG, "replacement completion test invoked");
+
+    rstatus_t rstatus;
+    rstatus = server_pools_kick_state_machine(pools);
+    ASSERT(rstatus == NC_OK);
+
+    bool finished;
+    finished = server_pools_check_reload_state(pools, RSTATE_OLD_AND_ACTIVE);
+    log_debug(LOG_DEBUG, "replacement %s",
+        finished ? "is finished" : "is still in progress");
+    return finished;
+}
+
+
+void
+server_pools_log(int level, const char *prefix, struct server_pools *pools)
+{
+    log_debug(LOG_NOTICE, "%s", prefix);
+    log_runtime_objects(LOG_NOTICE, TAILQ_FIRST(pools)->ctx, pools,
+        FRO_POOLS | FRO_SERVERS | FRO_SERVER_CONNS
+        | (level >= LOG_DEBUG ? FRO_CLIENT_CONNS : 0)
+        | (level >= LOG_DEBUG ? FRO_DETAIL_VERBOSE : 0));
+}
+

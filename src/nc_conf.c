@@ -154,13 +154,16 @@ conf_server_each_transform(void *elem, void *data)
     s->idx = array_idx(server, s);
     s->owner = NULL;
 
-    s->pname = cs->pname;
-    s->name = cs->name;
-    s->addrstr = cs->addrstr;
+    string_init(&s->pname);
+    string_init(&s->name);
+    string_init(&s->addrstr);
+    string_duplicate(&s->pname, &cs->pname);
+    string_duplicate(&s->name, &cs->name);
+    string_duplicate(&s->addrstr, &cs->addrstr);
     s->port = (uint16_t)cs->port;
     s->weight = (uint32_t)cs->weight;
 
-    nc_memcpy(&s->info, &cs->info, sizeof(cs->info));
+    s->info = cs->info;
 
     s->ns_conn_q = 0;
     TAILQ_INIT(&s->s_conn_q);
@@ -252,48 +255,42 @@ conf_pool_each_transform(void *elem, void *data)
 {
     rstatus_t status;
     struct conf_pool *cp = elem;
-    struct array *server_pool = data;
+    struct server_pools *server_pools = data;
     struct server_pool *sp;
 
     ASSERT(cp->valid);
 
-    sp = array_push(server_pool);
+    sp = server_pool_new();
     ASSERT(sp != NULL);
 
-    sp->idx = array_idx(server_pool, sp);
-    sp->ctx = NULL;
-
-    sp->p_conn = NULL;
-    sp->nc_conn_q = 0;
     TAILQ_INIT(&sp->c_conn_q);
 
-    array_null(&sp->server);
-    sp->ncontinuum = 0;
-    sp->nserver_continuum = 0;
-    sp->continuum = NULL;
-    sp->nlive_server = 0;
-    sp->next_rebuild = 0LL;
-
-    sp->name = cp->name;
-    sp->addrstr = cp->listen.pname;
+    status = string_duplicate(&sp->name, &cp->name);
+    ASSERT(status == NC_OK);
+    status = string_duplicate(&sp->addrstr, &cp->listen.pname);
+    ASSERT(status == NC_OK);
     sp->port = (uint16_t)cp->listen.port;
 
-    nc_memcpy(&sp->info, &cp->listen.info, sizeof(cp->listen.info));
+    sp->info = cp->listen.info;
     sp->perm = cp->listen.perm;
 
     sp->key_hash_type = cp->hash;
     sp->key_hash = hash_algos[cp->hash];
     sp->dist_type = cp->distribution;
-    sp->hash_tag = cp->hash_tag;
+    status = string_duplicate_if_nonempty(&sp->hash_tag, &cp->hash_tag);
+    ASSERT(status == NC_OK);
 
     sp->tcpkeepalive = cp->tcpkeepalive ? 1 : 0;
-
     sp->redis = cp->redis ? 1 : 0;
+
+    status = string_duplicate_if_nonempty(&sp->redis_auth, &cp->redis_auth);
+    ASSERT(status == NC_OK);
     sp->timeout = cp->timeout;
     sp->backlog = cp->backlog;
     sp->redis_db = cp->redis_db;
 
-    sp->redis_auth = cp->redis_auth;
+    status = string_duplicate_if_nonempty(&sp->redis_auth, &cp->redis_auth);
+    ASSERT(status == NC_OK);
     sp->require_auth = cp->redis_auth.len > 0 ? 1 : 0;
 
     sp->client_connections = (uint32_t)cp->client_connections;
@@ -307,6 +304,8 @@ conf_pool_each_transform(void *elem, void *data)
     if (status != NC_OK) {
         return status;
     }
+
+    TAILQ_INSERT_TAIL(server_pools, sp, pool_tqe);
 
     log_debug(LOG_VERB, "transform to pool %"PRIu32" '%.*s'", sp->idx,
               sp->name.len, sp->name.data);
@@ -1652,7 +1651,7 @@ conf_add_server(struct conf *cf, struct command *cmd, void *conf)
         return CONF_ERROR;
     }
 
-    status = string_copy(&field->addrstr, addr, addrlen);
+    status = string_copy(&field->addrstr, (uint8_t *)addr, addrlen);
     if (status != NC_OK) {
         return CONF_ERROR;
     }
@@ -1745,7 +1744,7 @@ conf_set_hash(struct conf *cf, struct command *cmd, void *conf)
             continue;
         }
 
-        *hp = hash - hash_strings;
+        *hp = (hash_type_t)(hash - hash_strings);
 
         return CONF_OK;
     }
@@ -1774,7 +1773,7 @@ conf_set_distribution(struct conf *cf, struct command *cmd, void *conf)
             continue;
         }
 
-        *dp = dist - dist_strings;
+        *dp = (dist_type_t)(dist - dist_strings);
 
         return CONF_OK;
     }

@@ -23,9 +23,9 @@ req_get(struct conn *conn)
 {
     struct msg *msg;
 
-    ASSERT(conn->client && !conn->proxy);
+    ASSERT(CONN_KIND_IS_CLIENT(conn));
 
-    msg = msg_get(conn, true, conn->redis);
+    msg = msg_get(conn, true);
     if (msg == NULL) {
         conn->err = errno;
     }
@@ -88,10 +88,11 @@ req_log(struct msg *req)
 
     req_type = msg_type_string(req->type);
 
-    log_debug(LOG_NOTICE, "req %"PRIu64" done on c %d req_time %"PRIi64".%03"PRIi64
+    log_debug(LOG_NOTICE, "req %"PRIu64" done on %s %d req_time %"PRIi64".%03"PRIi64
               " msec type %.*s narg %"PRIu32" req_len %"PRIu32" rsp_len %"PRIu32
               " key0 '%s' peer '%s' done %d error %d",
-              req->id, req->owner->sd, req_time / 1000, req_time % 1000,
+              req->id, CONN_KIND_AS_STRING(req->owner), req->owner->sd,
+              req_time / 1000, req_time % 1000,
               req_type->len, req_type->data, req->narg, req_len, rsp_len,
               kpos->start, peer_str, req->done, req->error);
 }
@@ -132,7 +133,7 @@ req_done(struct conn *conn, struct msg *msg)
     uint64_t id;             /* fragment id */
     uint32_t nfragment;      /* # fragment */
 
-    ASSERT(conn->client && !conn->proxy);
+    ASSERT(CONN_KIND_IS_CLIENT(conn));
     ASSERT(msg->request);
 
     if (!msg->done) {
@@ -202,8 +203,9 @@ req_done(struct conn *conn, struct msg *msg)
 
     msg->post_coalesce(msg->frag_owner);
 
-    log_debug(LOG_DEBUG, "req from c %d with fid %"PRIu64" and %"PRIu32" "
-              "fragments is done", conn->sd, id, nfragment);
+    log_debug(LOG_DEBUG, "req from %s %d with fid %"PRIu64" and %"PRIu32" "
+              "fragments is done", CONN_KIND_AS_STRING(conn), conn->sd,
+              id, nfragment);
 
     return true;
 }
@@ -285,8 +287,9 @@ ferror:
         nfragment++;
     }
 
-    log_debug(LOG_DEBUG, "req from c %d with fid %"PRIu64" and %"PRIu32" "
-              "fragments is in error", conn->sd, id, nfragment);
+    log_debug(LOG_DEBUG, "req from %s %d with fid %"PRIu64" and %"PRIu32" "
+              "fragments is in error", CONN_KIND_AS_STRING(conn), conn->sd,
+              id, nfragment);
 
     return true;
 }
@@ -295,7 +298,7 @@ void
 req_server_enqueue_imsgq(struct context *ctx, struct conn *conn, struct msg *msg)
 {
     ASSERT(msg->request);
-    ASSERT(!conn->client && !conn->proxy);
+    ASSERT(CONN_KIND_IS_SERVER(conn));
 
     /*
      * timeout clock starts ticking the instant the message is enqueued into
@@ -319,7 +322,7 @@ void
 req_server_enqueue_imsgq_head(struct context *ctx, struct conn *conn, struct msg *msg)
 {
     ASSERT(msg->request);
-    ASSERT(!conn->client && !conn->proxy);
+    ASSERT(CONN_KIND_IS_SERVER(conn));
 
     /*
      * timeout clock starts ticking the instant the message is enqueued into
@@ -343,7 +346,7 @@ void
 req_server_dequeue_imsgq(struct context *ctx, struct conn *conn, struct msg *msg)
 {
     ASSERT(msg->request);
-    ASSERT(!conn->client && !conn->proxy);
+    ASSERT(CONN_KIND_IS_SERVER(conn));
 
     TAILQ_REMOVE(&conn->imsg_q, msg, s_tqe);
 
@@ -355,7 +358,7 @@ void
 req_client_enqueue_omsgq(struct context *ctx, struct conn *conn, struct msg *msg)
 {
     ASSERT(msg->request);
-    ASSERT(conn->client && !conn->proxy);
+    ASSERT(CONN_KIND_IS_CLIENT(conn));
 
     TAILQ_INSERT_TAIL(&conn->omsg_q, msg, c_tqe);
 }
@@ -364,7 +367,7 @@ void
 req_server_enqueue_omsgq(struct context *ctx, struct conn *conn, struct msg *msg)
 {
     ASSERT(msg->request);
-    ASSERT(!conn->client && !conn->proxy);
+    ASSERT(CONN_KIND_IS_SERVER(conn));
 
     TAILQ_INSERT_TAIL(&conn->omsg_q, msg, s_tqe);
 
@@ -376,7 +379,7 @@ void
 req_client_dequeue_omsgq(struct context *ctx, struct conn *conn, struct msg *msg)
 {
     ASSERT(msg->request);
-    ASSERT(conn->client && !conn->proxy);
+    ASSERT(CONN_KIND_IS_CLIENT(conn));
 
     TAILQ_REMOVE(&conn->omsg_q, msg, c_tqe);
 }
@@ -385,7 +388,7 @@ void
 req_server_dequeue_omsgq(struct context *ctx, struct conn *conn, struct msg *msg)
 {
     ASSERT(msg->request);
-    ASSERT(!conn->client && !conn->proxy);
+    ASSERT(CONN_KIND_IS_SERVER(conn));
 
     msg_tmo_delete(msg);
 
@@ -400,7 +403,7 @@ req_recv_next(struct context *ctx, struct conn *conn, bool alloc)
 {
     struct msg *msg;
 
-    ASSERT(conn->client && !conn->proxy);
+    ASSERT(CONN_KIND_IS_CLIENT(conn));
 
     if (conn->eof) {
         msg = conn->rmsg;
@@ -412,8 +415,9 @@ req_recv_next(struct context *ctx, struct conn *conn, bool alloc)
             ASSERT(msg->peer == NULL);
             ASSERT(msg->request && !msg->done);
 
-            log_error("eof c %d discarding incomplete req %"PRIu64" len "
-                      "%"PRIu32"", conn->sd, msg->id, msg->mlen);
+            log_error("eof %s %d discarding incomplete req %"PRIu64" len "
+                      "%"PRIu32"", CONN_KIND_AS_STRING(conn), conn->sd,
+                      msg->id, msg->mlen);
 
             req_put(msg);
         }
@@ -427,7 +431,7 @@ req_recv_next(struct context *ctx, struct conn *conn, bool alloc)
          */
         if (!conn->active(conn)) {
             conn->done = 1;
-            log_debug(LOG_INFO, "c %d is done", conn->sd);
+            log_debug(LOG_INFO, "%s %d is done", CONN_KIND_AS_STRING(conn), conn->sd);
         }
         return NULL;
     }
@@ -455,7 +459,7 @@ req_make_reply(struct context *ctx, struct conn *conn, struct msg *req)
 {
     struct msg *rsp;
 
-    rsp = msg_get(conn, false, conn->redis); /* replay */
+    rsp = msg_get(conn, false); /* replay */
     if (rsp == NULL) {
         conn->err = errno;
         return NC_ENOMEM;
@@ -474,12 +478,12 @@ req_make_reply(struct context *ctx, struct conn *conn, struct msg *req)
 static bool
 req_filter(struct context *ctx, struct conn *conn, struct msg *msg)
 {
-    ASSERT(conn->client && !conn->proxy);
+    ASSERT(CONN_KIND_IS_CLIENT(conn));
 
     if (msg_empty(msg)) {
         ASSERT(conn->rmsg == NULL);
-        log_debug(LOG_VERB, "filter empty req %"PRIu64" from c %d", msg->id,
-                  conn->sd);
+        log_debug(LOG_VERB, "filter empty req %"PRIu64" from %s %d", msg->id,
+                  CONN_KIND_AS_STRING(conn), conn->sd);
         req_put(msg);
         return true;
     }
@@ -490,8 +494,8 @@ req_filter(struct context *ctx, struct conn *conn, struct msg *msg)
      * as soon as all pending replies have been written to the client.
      */
     if (msg->quit) {
-        log_debug(LOG_INFO, "filter quit req %"PRIu64" from c %d", msg->id,
-                  conn->sd);
+        log_debug(LOG_INFO, "filter quit req %"PRIu64" from %s %d", msg->id,
+                  CONN_KIND_AS_STRING(conn), conn->sd);
         if (conn->rmsg != NULL) {
             log_debug(LOG_INFO, "discard invalid req %"PRIu64" len %"PRIu32" "
                       "from c %d sent after quit req", conn->rmsg->id,
@@ -519,15 +523,18 @@ req_forward_error(struct context *ctx, struct conn *conn, struct msg *msg)
 {
     rstatus_t status;
 
-    ASSERT(conn->client && !conn->proxy);
+    ASSERT(CONN_KIND_IS_CLIENT(conn));
 
     log_debug(LOG_INFO, "forward req %"PRIu64" len %"PRIu32" type %d from "
-              "c %d failed: %s", msg->id, msg->mlen, msg->type, conn->sd,
-              strerror(errno));
+              "%s %d failed: %s", msg->id, msg->mlen, msg->type,
+              CONN_KIND_AS_STRING(conn), conn->sd, strerror(errno));
 
     msg->done = 1;
     msg->error = 1;
     msg->err = errno;
+    if(msg->frag_owner) {
+        msg->frag_owner->nfrag_done++;
+    }
 
     /* noreply request don't expect any response */
     if (msg->noreply) {
@@ -535,7 +542,27 @@ req_forward_error(struct context *ctx, struct conn *conn, struct msg *msg)
         return;
     }
 
-    if (req_done(conn, TAILQ_FIRST(&conn->omsg_q))) {
+    err_t old_err = conn->err;
+
+    bool request_is_done = req_done(conn, TAILQ_FIRST(&conn->omsg_q));
+
+    if(!old_err && conn->err) {
+        /*
+         * req_done() is a weird function. It is allowed to modify the
+         * connection state if for some reason the structure of the message
+         * is not up to its liking. For example, the msg->post_coalesce()
+         * used in req_done() can mark the connection as erroneous if
+         * there is no msg->fraq_seq[i]->peer. This should be structured
+         * differently. Meanwhile, we don't allow sudden connection close
+         * to happen for erroneous requests, and just wait until the output
+         * queue is drained.
+         * See ../tests/check_config_reload_after_failure.py for test.
+         */
+        conn->err = old_err;
+        conn->eof = 1;
+    }
+
+    if(request_is_done) {
         status = event_add_out(ctx->evb, conn);
         if (status != NC_OK) {
             conn->err = errno;
@@ -562,7 +589,7 @@ req_forward(struct context *ctx, struct conn *c_conn, struct msg *msg)
     uint32_t keylen;
     struct keypos *kpos;
 
-    ASSERT(c_conn->client && !c_conn->proxy);
+    ASSERT(CONN_KIND_IS_CLIENT(c_conn));
 
     /* enqueue message (request) into client outq, if response is expected */
     if (!msg->noreply) {
@@ -581,7 +608,7 @@ req_forward(struct context *ctx, struct conn *c_conn, struct msg *msg)
         req_forward_error(ctx, c_conn, msg);
         return;
     }
-    ASSERT(!s_conn->client && !s_conn->proxy);
+    ASSERT(CONN_KIND_IS_SERVER(s_conn));
 
     /* enqueue the message (request) into server inq */
     if (TAILQ_EMPTY(&s_conn->imsg_q)) {
@@ -606,8 +633,10 @@ req_forward(struct context *ctx, struct conn *c_conn, struct msg *msg)
 
     req_forward_stats(ctx, s_conn->owner, msg);
 
-    log_debug(LOG_VERB, "forward from c %d to s %d req %"PRIu64" len %"PRIu32
-              " type %d with key '%.*s'", c_conn->sd, s_conn->sd, msg->id,
+    log_debug(LOG_VERB, "forward from %s %d to %s %d req %"PRIu64" len %"PRIu32
+              " type %d with key '%.*s'",
+              CONN_KIND_AS_STRING(c_conn), c_conn->sd,
+              CONN_KIND_AS_STRING(s_conn), s_conn->sd, msg->id,
               msg->mlen, msg->type, keylen, key);
 }
 
@@ -621,7 +650,7 @@ req_recv_done(struct context *ctx, struct conn *conn, struct msg *msg,
     struct msg *sub_msg;
     struct msg *tmsg; 			/* tmp next message */
 
-    ASSERT(conn->client && !conn->proxy);
+    ASSERT(CONN_KIND_IS_CLIENT(conn));
     ASSERT(msg->request);
     ASSERT(msg->owner == conn);
     ASSERT(conn->rmsg == msg);
@@ -697,7 +726,7 @@ req_send_next(struct context *ctx, struct conn *conn)
     rstatus_t status;
     struct msg *msg, *nmsg; /* current and next message */
 
-    ASSERT(!conn->client && !conn->proxy);
+    ASSERT(CONN_KIND_IS_SERVER(conn));
 
     if (conn->connecting) {
         server_connected(ctx, conn);
@@ -729,7 +758,8 @@ req_send_next(struct context *ctx, struct conn *conn)
     ASSERT(nmsg->request && !nmsg->done);
 
     log_debug(LOG_VVERB, "send next req %"PRIu64" len %"PRIu32" type %d on "
-              "s %d", nmsg->id, nmsg->mlen, nmsg->type, conn->sd);
+              "%s %d", nmsg->id, nmsg->mlen, nmsg->type,
+              CONN_KIND_AS_STRING(conn), conn->sd);
 
     return nmsg;
 }
@@ -737,13 +767,14 @@ req_send_next(struct context *ctx, struct conn *conn)
 void
 req_send_done(struct context *ctx, struct conn *conn, struct msg *msg)
 {
-    ASSERT(!conn->client && !conn->proxy);
+    ASSERT(CONN_KIND_IS_SERVER(conn));
     ASSERT(msg != NULL && conn->smsg == NULL);
     ASSERT(msg->request && !msg->done);
     ASSERT(msg->owner != conn);
 
     log_debug(LOG_VVERB, "send done req %"PRIu64" len %"PRIu32" type %d on "
-              "s %d", msg->id, msg->mlen, msg->type, conn->sd);
+              "%s %d", msg->id, msg->mlen, msg->type,
+              CONN_KIND_AS_STRING(conn), conn->sd);
 
     /* dequeue the message (request) from server inq */
     conn->dequeue_inq(ctx, conn, msg);

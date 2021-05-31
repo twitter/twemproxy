@@ -105,17 +105,20 @@ event_add_out(struct event_base *evb, struct conn *c)
 {
     int status;
     int evp = evb->evp;
+    int events;
 
     ASSERT(evp > 0);
     ASSERT(c != NULL);
     ASSERT(c->sd > 0);
-    ASSERT(c->recv_active);
 
     if (c->send_active) {
         return 0;
     }
 
-    status = port_associate(evp, PORT_SOURCE_FD, c->sd, POLLIN | POLLOUT, c);
+    events = (c->recv_active ? POLLIN : 0)
+            | (c->send_active ? POLLOUT : 0);
+
+    status = port_associate(evp, PORT_SOURCE_FD, c->sd, events, c);
     if (status < 0) {
         log_error("port associate on evp %d sd %d failed: %s", evp, c->sd,
                   strerror(errno));
@@ -135,7 +138,6 @@ event_del_out(struct event_base *evb, struct conn *c)
     ASSERT(evp > 0);
     ASSERT(c != NULL);
     ASSERT(c->sd > 0);
-    ASSERT(c->recv_active);
 
     if (!c->send_active) {
         return 0;
@@ -221,15 +223,11 @@ event_reassociate(struct event_base *evb, struct conn *c)
     ASSERT(evp > 0);
     ASSERT(c != NULL);
     ASSERT(c->sd > 0);
-    ASSERT(c->recv_active);
 
-    if (c->send_active) {
-        events = POLLIN | POLLOUT;
-    } else {
-        events = POLLIN;
-    }
+    events = (c->recv_active ? POLLIN : 0)
+            | (c->send_active ? POLLOUT : 0);
 
-    status = port_associate(evp, PORT_SOURCE_FD, c->sd, events , c);
+    status = port_associate(evp, PORT_SOURCE_FD, c->sd, events, c);
     if (status < 0) {
         log_error("port associate on evp %d sd %d failed: %s", evp, c->sd,
                   strerror(errno));
@@ -346,75 +344,6 @@ event_wait(struct event_base *evb, int timeout)
     }
 
     NOT_REACHED();
-}
-
-void
-event_loop_stats(event_stats_cb_t cb, void *arg)
-{
-    struct stats *st = arg;
-    int status, evp;
-    port_event_t event;
-    struct timespec ts, *tsp;
-
-    evp = port_create();
-    if (evp < 0) {
-        log_error("port create failed: %s", strerror(errno));
-        return;
-    }
-
-    status = port_associate(evp, PORT_SOURCE_FD, st->sd, POLLIN, NULL);
-    if (status < 0) {
-        log_error("port associate on evp %d sd %d failed: %s", evp, st->sd,
-                  strerror(errno));
-        goto error;
-    }
-
-    /* port_getn should block indefinitely if st->interval < 0 */
-    if (st->interval < 0) {
-        tsp = NULL;
-    } else {
-        tsp = &ts;
-        tsp->tv_sec = st->interval / 1000LL;
-        tsp->tv_nsec = (st->interval % 1000LL) * 1000000LL;
-    }
-
-
-    for (;;) {
-        unsigned int nreturned = 1;
-
-        status = port_getn(evp, &event, 1, &nreturned, tsp);
-        if (status != NC_OK) {
-            if (errno == EINTR || errno == EAGAIN) {
-                continue;
-            }
-
-            if (errno != ETIME) {
-                log_error("port getn on evp %d with m %d failed: %s", evp,
-                          st->sd, strerror(errno));
-                goto error;
-            }
-        }
-
-        ASSERT(nreturned <= 1);
-
-        if (nreturned == 1) {
-            /* re-associate monitoring descriptor with the port */
-            status = port_associate(evp, PORT_SOURCE_FD, st->sd, POLLIN, NULL);
-            if (status < 0) {
-                log_error("port associate on evp %d sd %d failed: %s", evp, st->sd,
-                          strerror(errno));
-            }
-        }
-
-        cb(st, &nreturned);
-    }
-
-error:
-    status = close(evp);
-    if (status < 0) {
-        log_error("close evp %d failed, ignored: %s", evp, strerror(errno));
-    }
-    evp = -1;
 }
 
 #endif /* NC_HAVE_EVENT_PORTS */

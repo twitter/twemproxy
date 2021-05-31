@@ -575,7 +575,7 @@ nc_resolve(struct string *name, int port, struct sockinfo *si)
  *
  * This routine is not reentrant
  */
-char *
+static char *
 nc_unresolve_addr(struct sockaddr *addr, socklen_t addrlen)
 {
     static char unresolve[NI_MAXHOST + NI_MAXSERV];
@@ -595,6 +595,23 @@ nc_unresolve_addr(struct sockaddr *addr, socklen_t addrlen)
 }
 
 /*
+ * Unreslove the sockinfo irrespectively of the socket type.
+ */
+char *
+nc_unresolve(struct sockinfo *si) {
+    switch(si->family) {
+    case AF_INET:
+    case AF_INET6:
+        return nc_unresolve_addr((struct sockaddr *)&si->addr, si->addrlen);
+    case AF_UNIX:
+        return si->addr.un.sun_path;
+    default:
+        NOT_REACHED();
+        return "(unknown)";
+    }
+}
+
+/*
  * Unresolve the socket descriptor peer address by translating it to a
  * character string describing the host and service
  *
@@ -604,20 +621,19 @@ char *
 nc_unresolve_peer_desc(int sd)
 {
     static struct sockinfo si;
-    struct sockaddr *addr;
-    socklen_t addrlen;
     int status;
 
     memset(&si, 0, sizeof(si));
-    addr = (struct sockaddr *)&si.addr;
-    addrlen = sizeof(si.addr);
+    si.addrlen = sizeof(si.addr);
 
-    status = getpeername(sd, addr, &addrlen);
+    status = getpeername(sd, (struct sockaddr *)&si.addr, &si.addrlen);
     if (status < 0) {
         return "unknown";
+    } else {
+        si.family = si.addr.in.sin_family;
     }
 
-    return nc_unresolve_addr(addr, addrlen);
+    return nc_unresolve(&si);
 }
 
 /*

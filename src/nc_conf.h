@@ -48,6 +48,7 @@
 #define CONF_DEFAULT_CLIENT_CONNECTIONS      0
 #define CONF_DEFAULT_REDIS                   false
 #define CONF_DEFAULT_REDIS_DB                0
+#define CONF_DEFAULT_REDIS_IGNORE_SELECT     false
 #define CONF_DEFAULT_PRECONNECT              false
 #define CONF_DEFAULT_AUTO_EJECT_HOSTS        false
 #define CONF_DEFAULT_SERVER_RETRY_TIMEOUT    30 * 1000      /* in msec */
@@ -88,6 +89,7 @@ struct conf_pool {
     int                redis;                 /* redis: */
     struct string      redis_auth;            /* redis_auth: redis auth password (matches requirepass on redis) */
     int                redis_db;              /* redis_db: redis db */
+    int                redis_ignore_select;   /* redis_ignore_select: whether to ignore selects and just reply ok */
     int                preconnect;            /* preconnect: */
     int                auto_eject_hosts;      /* auto_eject_hosts: */
     int                server_connections;    /* server_connections: */

@@ -86,6 +86,10 @@ static struct command conf_commands[] = {
       conf_set_num,
       offsetof(struct conf_pool, redis_db) },
 
+    { string("redis_ignore_select"),
+      conf_set_bool,
+      offsetof(struct conf_pool, redis_ignore_select) },
+
     { string("preconnect"),
       conf_set_bool,
       offsetof(struct conf_pool, preconnect) },
@@ -200,6 +204,7 @@ conf_pool_init(struct conf_pool *cp, struct string *name)
     cp->redis = CONF_UNSET_NUM;
     cp->tcpkeepalive = CONF_UNSET_NUM;
     cp->redis_db = CONF_UNSET_NUM;
+    cp->redis_ignore_select = CONF_UNSET_NUM;
     cp->preconnect = CONF_UNSET_NUM;
     cp->auto_eject_hosts = CONF_UNSET_NUM;
     cp->server_connections = CONF_UNSET_NUM;
@@ -292,6 +297,7 @@ conf_pool_each_transform(void *elem, void *data)
     sp->timeout = cp->timeout;
     sp->backlog = cp->backlog;
     sp->redis_db = cp->redis_db;
+    sp->redis_ignore_select = cp->redis_ignore_select ? 1 : 0;
 
     sp->redis_auth = cp->redis_auth;
     sp->require_auth = cp->redis_auth.len > 0 ? 1 : 0;
@@ -1244,6 +1250,10 @@ conf_validate_pool(struct conf *cf, struct conf_pool *cp)
 
     if (cp->redis_db == CONF_UNSET_NUM) {
         cp->redis_db = CONF_DEFAULT_REDIS_DB;
+    }
+    
+    if (cp->redis_ignore_select == CONF_UNSET_NUM) {
+        cp->redis_ignore_select = CONF_DEFAULT_REDIS_IGNORE_SELECT;
     }
 
     if (cp->preconnect == CONF_UNSET_NUM) {

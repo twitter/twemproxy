@@ -62,6 +62,8 @@ static bool
 redis_arg0(struct msg *r)
 {
     switch (r->type) {
+    case MSG_REQ_REDIS_SELECT:
+
     case MSG_REQ_REDIS_EXISTS:
     case MSG_REQ_REDIS_PERSIST:
     case MSG_REQ_REDIS_PTTL:
@@ -105,7 +107,7 @@ redis_arg0(struct msg *r)
 static bool
 redis_arg1(struct msg *r)
 {
-    switch (r->type) {
+    switch (r->type) {      
     case MSG_REQ_REDIS_EXPIRE:
     case MSG_REQ_REDIS_EXPIREAT:
     case MSG_REQ_REDIS_PEXPIRE:
@@ -876,6 +878,12 @@ redis_parse_req(struct msg *r)
 
                 if (str6icmp(m, 'z', 's', 'c', 'o', 'r', 'e')) {
                     r->type = MSG_REQ_REDIS_ZSCORE;
+                    break;
+                }
+		
+		if (str6icmp(m, 's', 'e', 'l', 'e', 'c', 't')) {
+                    r->type = MSG_REQ_REDIS_SELECT;
+                    r->noforward = 1;
                     break;
                 }
 
@@ -2682,6 +2690,7 @@ redis_reply(struct msg *r)
 {
     struct conn *c_conn;
     struct msg *response = r->peer;
+    struct server_pool *pool;
 
     ASSERT(response != NULL && response->owner != NULL);
 
@@ -2697,7 +2706,11 @@ redis_reply(struct msg *r)
     switch (r->type) {
     case MSG_REQ_REDIS_PING:
         return msg_append(response, rsp_pong.data, rsp_pong.len);
-
+    case MSG_REQ_REDIS_SELECT:
+        pool = (struct server_pool *)c_conn->owner;
+	if (pool->redis_ignore_select) {
+            return msg_append(response, rsp_ok.data, rsp_ok.len);
+	}
     default:
         NOT_REACHED();
         return NC_ERROR;

@@ -187,3 +187,8 @@ client_close(struct context *ctx, struct conn *conn)
 
     conn_put(conn);
 }
+
+void
+client_restore(struct context *ctx, struct conn *conn)
+{
+}

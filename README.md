@@ -100,6 +100,7 @@ Twemproxy can be configured through a YAML file specified by the -c or --conf-fi
  + ketama
  + modula
  + random
+ + redisarray (implementation compatible with phpredis [redisArray](https://github.com/phpredis/phpredis/blob/master/arrays.markdown) )
 + **timeout**: The timeout value in msec that we wait for to establish a connection to the server or receive a response from a server. By default, we wait indefinitely.
 + **backlog**: The TCP backlog argument. Defaults to 512.
 + **preconnect**: A boolean value that controls if twemproxy should preconnect to all the servers in this pool on process start. Defaults to false.

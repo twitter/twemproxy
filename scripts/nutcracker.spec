@@ -37,19 +37,38 @@ autoreconf -fvi
 %makeinstall PREFIX=%{buildroot}
 
 #Install init script
+%if 0%{?rhel} == 6
 %{__install} -p -D -m 0755 scripts/%{name}.init %{buildroot}%{_initrddir}/%{name}
-
+%endif
+%if 0%{?rhel} == 7
+%{__install} -p -D -m 0644 scripts/%{name}.service %{buildroot}%{_unitdir}/%{name}.service
+%{__install} -p -D -m 0644 scripts/%{name}.defaults %{buildroot}%{_sysconfdir}/default/%{name}
+%endif
 #Install example config file
 %{__install} -p -D -m 0644 conf/%{name}.yml %{buildroot}%{_sysconfdir}/%{name}/%{name}.yml
 
 %post
+%if 0%{?rhel} == 6
 /sbin/chkconfig --add %{name}
+%endif
+
+%if 0%{?rhel} == 7
+/usr/bin/systemctl enable %{name} > /dev/null 2>&1
+%endif
 
 %preun
+%if 0%{?rhel} == 6
 if [ $1 = 0 ]; then
  /sbin/service %{name} stop > /dev/null 2>&1
  /sbin/chkconfig --del %{name}
 fi
+%endif
+%if 0%{?rhel} == 7
+if [ $1 = 0 ]; then
+ /usr/bin/systemctl stop %{name} > /dev/null 2>&1
+ /usr/bin/systemctl disable %{name} > /dev/null 2>&1
+fi
+%endif
 
 %clean
 [ %{buildroot} != "/" ] && rm -rf %{buildroot}
@@ -58,10 +77,19 @@ fi
 %defattr(-,root,root,-)
 %if 0%{?rhel} >= 6
 /usr/sbin/nutcracker
+%endif
+%if 0%{?rhel} == 7
+/usr/sbin/nutcracker
 %else
 /usr/bin/nutcracker
 %endif
+%if 0%{?rhel} == 6
 %{_initrddir}/%{name}
+%endif
+%if 0%{?rhel} == 7
+%{_unitdir}/%{name}.service
+%{_sysconfdir}/default/%{name}
+%endif
 %{_mandir}/man8/nutcracker.8.gz
 %config(noreplace)%{_sysconfdir}/%{name}/%{name}.yml
 

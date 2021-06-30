@@ -10,10 +10,10 @@ usage
 1. install dependency::
 
     pip install nose
-    pip install git+https://github.com/andymccurdy/redis-py.git@2.10.3
-    pip install git+https://github.com/idning/python-memcached.git#egg=memcache
+    pip install git+https://github.com/andymccurdy/redis-py.git@2.10.6
+    pip install git+https://github.com/linsomniac/python-memcached.git#egg=memcache
 
-2. copy binarys to _binaries/::
+2. copy binaries to _binaries/::
 
     _binaries/
     |-- nutcracker
@@ -25,9 +25,9 @@ usage
     |-- redis-server
     |-- memcached
 
-3. run::
+3. run with nosetests (or ./nosetests_verbose.sh)::
 
-    $ nosetests -v
+    $ python3 -m nose -v
     test_del.test_multi_delete_on_readonly ... ok
     test_mget.test_mget ... ok
 

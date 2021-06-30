@@ -2489,9 +2489,9 @@ redis_append_key(struct msg *r, uint8_t *key, uint32_t keylen)
 
 /*
  * input a msg, return a msg chain.
- * ncontinuum is the number of backend redis/memcache server
+ * nserver is the number of backend redis/memcache server
  *
- * the original msg will be fragment into at most ncontinuum fragments.
+ * the original msg will be fragmented into at most nserver fragments.
  * all the keys map to the same backend will group into one fragment.
  *
  * frag_id:
@@ -2540,7 +2540,7 @@ redis_append_key(struct msg *r, uint8_t *key, uint32_t keylen)
  *
  */
 static rstatus_t
-redis_fragment_argx(struct msg *r, uint32_t ncontinuum, struct msg_tqh *frag_msgq,
+redis_fragment_argx(struct msg *r, uint32_t nserver, struct msg_tqh *frag_msgq,
                     uint32_t key_step)
 {
     struct mbuf *mbuf;
@@ -2550,7 +2550,7 @@ redis_fragment_argx(struct msg *r, uint32_t ncontinuum, struct msg_tqh *frag_msg
 
     ASSERT(array_n(r->keys) == (r->narg - 1) / key_step);
 
-    sub_msgs = nc_zalloc(ncontinuum * sizeof(*sub_msgs));
+    sub_msgs = nc_zalloc(nserver * sizeof(*sub_msgs));
     if (sub_msgs == NULL) {
         return NC_ENOMEM;
     }
@@ -2582,10 +2582,12 @@ redis_fragment_argx(struct msg *r, uint32_t ncontinuum, struct msg_tqh *frag_msg
     r->nfrag = 0;
     r->frag_owner = r;
 
+    /* Build up the key1 key2 ... to be sent to a given server at index idx */
     for (i = 0; i < array_n(r->keys); i++) {        /* for each key */
         struct msg *sub_msg;
         struct keypos *kpos = array_get(r->keys, i);
         uint32_t idx = msg_backend_idx(r, kpos->start, kpos->end - kpos->start);
+        ASSERT(idx < nserver);
 
         if (sub_msgs[idx] == NULL) {
             sub_msgs[idx] = msg_get(r->owner, r->request, r->redis);
@@ -2622,7 +2624,11 @@ redis_fragment_argx(struct msg *r, uint32_t ncontinuum, struct msg_tqh *frag_msg
         }
     }
 
-    for (i = 0; i < ncontinuum; i++) {     /* prepend mget header, and forward it */
+    /*
+     * prepend mget header, and forward the command (command type+key(s)+suffix)
+     * to the corresponding server(s)
+     */
+    for (i = 0; i < nserver; i++) {
         struct msg *sub_msg = sub_msgs[i];
         if (sub_msg == NULL) {
             continue;
@@ -2658,7 +2664,7 @@ redis_fragment_argx(struct msg *r, uint32_t ncontinuum, struct msg_tqh *frag_msg
 }
 
 rstatus_t
-redis_fragment(struct msg *r, uint32_t ncontinuum, struct msg_tqh *frag_msgq)
+redis_fragment(struct msg *r, uint32_t nserver, struct msg_tqh *frag_msgq)
 {
     if (1 == array_n(r->keys)){
         return NC_OK;
@@ -2667,10 +2673,10 @@ redis_fragment(struct msg *r, uint32_t ncontinuum, struct msg_tqh *frag_msgq)
     switch (r->type) {
     case MSG_REQ_REDIS_MGET:
     case MSG_REQ_REDIS_DEL:
-        return redis_fragment_argx(r, ncontinuum, frag_msgq, 1);
+        return redis_fragment_argx(r, nserver, frag_msgq, 1);
 
     case MSG_REQ_REDIS_MSET:
-        return redis_fragment_argx(r, ncontinuum, frag_msgq, 2);
+        return redis_fragment_argx(r, nserver, frag_msgq, 2);
 
     default:
         return NC_OK;

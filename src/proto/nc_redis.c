@@ -2624,7 +2624,7 @@ redis_fragment_argx(struct msg *r, uint32_t nserver, struct msg_tqh *frag_msgq,
         }
     }
 
-    /**
+    /*
      * prepend mget header, and forward the command (command type+key(s)+suffix)
      * to the corresponding server(s)
      */

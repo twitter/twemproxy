@@ -106,7 +106,7 @@ memcache_should_fragment(struct msg *r)
     switch (r->type) {
     case MSG_REQ_MC_GET:
     case MSG_REQ_MC_GETS:
-        /**
+        /*
          * A memcache get for a single key is only sent to one server.
          * Fragmenting it would work but be less efficient.
          */
@@ -1306,7 +1306,7 @@ memcache_fragment_retrieval(struct msg *r, uint32_t nserver,
     r->nfrag = 0;
     r->frag_owner = r;
 
-    /** Build up the key1 key2 ... to be sent to a given server at index idx */
+    /* Build up the key1 key2 ... to be sent to a given server at index idx */
     for (i = 0; i < array_n(r->keys); i++) {        /* for each  key */
         struct msg *sub_msg;
         struct keypos *kpos = array_get(r->keys, i);

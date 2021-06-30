@@ -1474,6 +1474,7 @@ conf_set_listen(struct conf *cf, struct command *cmd, void *conf)
             /* no permissions field, so use defaults */
             name = value->data;
             namelen = value->len;
+            field->perm = (mode_t)0;
         } else {
             perm = q + 1;
             permlen = (uint32_t)(p - perm + 1);

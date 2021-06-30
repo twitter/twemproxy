@@ -578,6 +578,21 @@ req_forward(struct context *ctx, struct conn *c_conn, struct msg *msg)
 
     s_conn = server_pool_conn(ctx, c_conn->owner, key, keylen);
     if (s_conn == NULL) {
+        /*
+         * Handle a failure to establish a new connection to a server,
+         * e.g. due to dns resolution errors.
+         *
+         * If this is a fragmented request sent to multiple servers such as
+         * a memcache get(multiget),
+         * mark the fragment for this request to the server as done.
+         *
+         * Normally, this would be done when the request was forwarded to the
+         * server, but due to failing to connect to the server this check is
+         * repeated here.
+         */
+        if (msg->frag_owner != NULL) {
+            msg->frag_owner->nfrag_done++;
+        }
         req_forward_error(ctx, c_conn, msg);
         return;
     }

@@ -5,13 +5,13 @@ FROM centos:7
 
 ENV LAST_MODIFIED_DATE 2021-04-09
 
-# socat Allow tests to open log files
-# which (used below)
-# python-setuptools for pip
 RUN yum install -y \
         https://repo.ius.io/ius-release-el7.rpm \
         https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
 
+# socat Allow tests to open log files
+# which (used below)
+# python-setuptools for pip
 RUN yum install -y \
         tar git gcc make tcl \
         autoconf automake libtool wget \
@@ -23,8 +23,19 @@ RUN yum install -y \
 
 # Install nosetest dependencies
 RUN pip3.6 install nose && \
-        pip3.6 install 'git+https://github.com/andymccurdy/redis-py.git@2.10.6' && \
+        pip3.6 install 'git+https://github.com/andymccurdy/redis-py.git@3.5.3' && \
         pip3.6 install 'git+https://github.com/linsomniac/python-memcached.git@1.58'
+# I can't install redis or redis-server in centos:7 (didn't add package), adding to centos 6
+# Install redis and redis sentinel, needed for unit tests
+# RUN yum install -y redis redis-sentinel
+
+ARG REDIS_VER=3.2.11
+RUN wget https://github.com/antirez/redis/archive/$REDIS_VER.tar.gz && \
+	tar zxvf $REDIS_VER.tar.gz && \
+	pushd redis-$REDIS_VER && \
+		make install && \
+	popd && \
+	rm -r redis-*
 
 # This will build and twemproxy 0.4.1 (with sflow)
 # Annoyingly, can't add multiple directories at once.
@@ -48,18 +59,6 @@ ADD tests /usr/src/twemproxy/tests
 
 # Not installing redis utilities, since we're not running those tests.
 RUN mkdir tests/_binaries -p
-
-# I can't install redis or redis-server in centos:7 (didn't add package), adding to centos 6
-# Install redis and redis sentinel, needed for unit tests
-# RUN yum install -y redis redis-sentinel
-
-ARG REDIS_VER=3.2.13
-RUN wget https://github.com/antirez/redis/archive/$REDIS_VER.tar.gz && \
-	tar zxvf $REDIS_VER.tar.gz && \
-	pushd redis-$REDIS_VER && \
-		make install && \
-	popd && \
-	rm -r redis-*
 
 RUN ln -nsf $PWD/src/nutcracker tests/_binaries/nutcracker && \
     cp `which redis-server` tests/_binaries/redis-server && \

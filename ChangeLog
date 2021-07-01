@@ -1,3 +1,24 @@
+ 2021-??-??  Tyson Andre
+    * twemproxy: version 0.4.2 release (dev)
+	  Fix parsing of redis error response for error type with no space,
+	  add tests (tyson, tom dalton)
+	  Update integration tests, add C unit test suite for 'make check' (tyson)
+	  Increase the maximum host length+port+identifier to 273
+	  in ketama_update (李广博)
+	  Always initialize file permissions field when listening on a unix domain
+	  socket (tyson)
+	  Use number of servers instead of number of points on the continuum when
+	  sharding requests to backend services to improve sharding performance
+	  and fix potential invalid memory access when all hosts were ejected
+	  from a pool. (tyson)
+	  Don't fragment memcache/redis get commands when they only have a single
+	  key (improves performance and error handling of single key case) (tyson)
+	  Don't let requests hang when there is a dns error when processing a
+	  fragmented request (e.g. multiget with multiple keys) (tyson)
+	  Allow extra parameters for redis spop (charsyam)
+	  Update documentation and README (various)
+	  Fix memory leak bug for redis mset (deep011)
+
  2015-22-06  Manju Rajashekhar  <manj@cs.stanford.edu>
     * twemproxy: version 0.4.1 release
       backend server hostnames are resolved lazily

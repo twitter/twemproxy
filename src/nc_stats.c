@@ -516,7 +516,7 @@ stats_add_header(struct stats *st)
         return status;
     }
 
-    status = stats_add_num(st, &st->ntotal_conn_str, conn_ntotal_conn());
+    status = stats_add_num(st, &st->ntotal_conn_str, (int64_t)conn_ntotal_conn());
     if (status != NC_OK) {
         return status;
     }

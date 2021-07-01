@@ -42,8 +42,6 @@ def test_pingpong():
 
 # twemproxy for redis doesn't appear to have any code to send +OK\r\n, it just disconnects.
 def test_quit():
-    if nc.version() < '0.4.2':
-        return
     req = b'*1\r\n$4\r\nQUIT\r\n'
     # NOTE: Nutcracker doesn't appear to have any code to send +OK\r\n, it just disconnects.
     # +OK\r\n would also be valid.
@@ -53,8 +51,6 @@ def test_quit():
 # twemproxy for redis doesn't appear to have any code to send +OK\r\n, it just disconnects.
 # If it doesn't try to send anything, there's no client_err.
 def test_quit_without_recv():
-    if nc.version() < '0.4.2':
-        return
     req = b'*1\r\n$4\r\nQUIT\r\n'
     resp = b'+OK\r\n'
     s = get_conn()

@@ -37,9 +37,12 @@ def setup():
         r.start()
 
 def teardown():
+    all_alive = True
     for r in all_redis + [nc]:
-        assert(r._alive())
+        if not r._alive():
+            all_alive = False
         r.stop()
+    assert(all_alive)
 
 default_kv = {b'kkk-%d' % i : b'vvv-%d' % i for i in range(10)}
 

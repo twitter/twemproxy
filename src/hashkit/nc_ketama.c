@@ -27,7 +27,7 @@
 #define KETAMA_POINTS_PER_SERVER    160 /* 40 points per hash */
 #define KETAMA_MAX_HOSTLEN          273 /* 273 is 255(domain or ip)+1(:)+5(port)+1(-)+10(uint32)+1(\0) */
 
-static uint32_t
+uint32_t
 ketama_hash(const char *key, size_t key_length, uint32_t alignment)
 {
     unsigned char results[16];

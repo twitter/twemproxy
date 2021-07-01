@@ -1296,7 +1296,7 @@ conf_post_validate(struct conf *cf)
 
     npool = array_n(&cf->pool);
     if (npool == 0) {
-        log_error("conf: '%.*s' has no pools", cf->fname);
+        log_error("conf: '%s' has no pools", cf->fname);
         return NC_ERROR;
     }
 
@@ -1463,8 +1463,6 @@ conf_set_listen(struct conf *cf, struct command *cmd, void *conf)
 
     if (value->data[0] == '/') {
         uint8_t *q, *start, *perm;
-        uint32_t permlen;
-
 
         /* parse "socket_path permissions" from the end */
         p = value->data + value->len -1;
@@ -1477,7 +1475,6 @@ conf_set_listen(struct conf *cf, struct command *cmd, void *conf)
             field->perm = (mode_t)0;
         } else {
             perm = q + 1;
-            permlen = (uint32_t)(p - perm + 1);
 
             p = q - 1;
             name = start;

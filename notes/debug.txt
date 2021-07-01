@@ -1,7 +1,7 @@
 - strace
   strace -o strace.txt -ttT -s 1024 -p `pgrep nutcracker`
 
-- libyaml (yaml-0.1.4)
+- libyaml (yaml-0.2.5)
 
   - yaml tokens:
 

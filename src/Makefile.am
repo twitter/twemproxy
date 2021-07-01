@@ -7,7 +7,7 @@ endif
 AM_CPPFLAGS += -I $(top_srcdir)/src/hashkit
 AM_CPPFLAGS += -I $(top_srcdir)/src/proto
 AM_CPPFLAGS += -I $(top_srcdir)/src/event
-AM_CPPFLAGS += -I $(top_srcdir)/contrib/yaml-0.1.4/include
+AM_CPPFLAGS += -I $(top_srcdir)/contrib/yaml-0.2.5/include
 
 AM_CFLAGS =
 # about -fno-strict-aliasing: https://github.com/twitter/twemproxy/issues/276
@@ -19,6 +19,7 @@ AM_CFLAGS += -Wunused-function -Wunused-variable -Wunused-value
 AM_CFLAGS += -Wno-unused-parameter -Wno-unused-value
 AM_CFLAGS += -Wconversion -Wsign-compare
 AM_CFLAGS += -Wstrict-prototypes -Wmissing-prototypes -Wredundant-decls -Wmissing-declarations
+AM_CFLAGS += -Wno-format-zero-length
 
 AM_LDFLAGS =
 AM_LDFLAGS += -lm -lpthread -rdynamic
@@ -57,7 +58,7 @@ nutcracker_SOURCES =			\
 nutcracker_LDADD = $(top_builddir)/src/hashkit/libhashkit.a
 nutcracker_LDADD += $(top_builddir)/src/proto/libproto.a
 nutcracker_LDADD += $(top_builddir)/src/event/libevent.a
-nutcracker_LDADD += $(top_builddir)/contrib/yaml-0.1.4/src/.libs/libyaml.a
+nutcracker_LDADD += $(top_builddir)/contrib/yaml-0.2.5/src/.libs/libyaml.a
 
 TESTS = test_all
 bin_PROGRAMS = test_all
@@ -85,4 +86,4 @@ test_all_SOURCES = test_all.c \
 test_all_LDADD = $(top_builddir)/src/hashkit/libhashkit.a
 test_all_LDADD += $(top_builddir)/src/proto/libproto.a
 test_all_LDADD += $(top_builddir)/src/event/libevent.a
-test_all_LDADD += $(top_builddir)/contrib/yaml-0.1.4/src/.libs/libyaml.a
+test_all_LDADD += $(top_builddir)/contrib/yaml-0.2.5/src/.libs/libyaml.a

@@ -423,7 +423,7 @@ msg_dump(struct msg *msg, int level)
 void
 msg_init(void)
 {
-    log_debug(LOG_DEBUG, "msg size %d", sizeof(struct msg));
+    log_debug(LOG_DEBUG, "msg size %d", (int)sizeof(struct msg));
     msg_id = 0;
     frag_id = 0;
     nfree_msgq = 0;

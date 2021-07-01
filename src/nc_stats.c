@@ -773,7 +773,7 @@ stats_send_rsp(struct stats *st)
         return NC_ERROR;
     }
 
-    log_debug(LOG_VERB, "send stats on sd %d %d bytes", sd, st->buf.len);
+    log_debug(LOG_VERB, "send stats on sd %d %zu bytes", sd, st->buf.len);
 
     n = nc_sendn(sd, st->buf.data, st->buf.len);
     if (n < 0) {

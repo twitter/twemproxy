@@ -397,8 +397,8 @@ nc_get_options(int argc, char **argv, struct instance *nci)
             }
 
             if (value < NC_MBUF_MIN_SIZE || value > NC_MBUF_MAX_SIZE) {
-                log_stderr("nutcracker: mbuf chunk size must be between %zu and"
-                           " %zu bytes", NC_MBUF_MIN_SIZE, NC_MBUF_MAX_SIZE);
+                log_stderr("nutcracker: mbuf chunk size must be between %d and"
+                           " %d bytes", NC_MBUF_MIN_SIZE, NC_MBUF_MAX_SIZE);
                 return NC_ERROR;
             }
 

@@ -69,3 +69,8 @@ Makefile.in
 
 # The .clang-format.example file may be copied here for use with -style=file
 .clang-format
+
+test_all
+*.trs
+tags
+

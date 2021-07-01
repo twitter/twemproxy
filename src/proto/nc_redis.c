@@ -466,17 +466,23 @@ redis_parse_req(struct msg *r)
         switch (state) {
 
         case SW_START:
+            ASSERT(r->token == NULL);
+            if (ch != '*') {
+                /* redis commands are always arrays */
+                goto error;
+            }
+            r->token = p;
+            /* req_start <- p */
+            r->narg_start = p;
+            r->rnarg = 0;
+            state = SW_NARG;
+
+            break;
+
         case SW_NARG:
-            if (r->token == NULL) {
-                if (ch != '*') {
-                    goto error;
-                }
-                r->token = p;
-                /* req_start <- p */
-                r->narg_start = p;
-                r->rnarg = 0;
-                state = SW_NARG;
-            } else if (isdigit(ch)) {
+            /* SW_NARG: The number of arguments in the redis command array */
+            ASSERT(r->token != NULL);
+            if (isdigit(ch)) {
                 r->rnarg = r->rnarg * 10 + (uint32_t)(ch - '0');
             } else if (ch == CR) {
                 if (r->rnarg == 0) {
@@ -1318,11 +1324,11 @@ redis_parse_req(struct msg *r)
             }
 
             if (r->type == MSG_UNKNOWN) {
-                log_error("parsed unsupported command '%.*s'", p - m, m);
+                log_error("parsed unsupported command '%.*s'", (int)(p - m), m);
                 goto error;
             }
 
-            log_debug(LOG_VERB, "parsed command '%.*s'", p - m, m);
+            log_debug(LOG_VERB, "parsed command '%.*s'", (int)(p - m), m);
 
             state = SW_REQ_TYPE_LF;
             break;
@@ -1331,6 +1337,10 @@ redis_parse_req(struct msg *r)
             switch (ch) {
             case LF:
                 if (redis_argz(r)) {
+                    if (r->narg != 1) {
+                        /* It's an error to provide more than one argument. */
+                        goto error;
+                    }
                     goto done;
                 } else if (r->narg == 1) {
                     goto error;
@@ -1360,7 +1370,7 @@ redis_parse_req(struct msg *r)
                 if (r->rlen >= mbuf_data_size()) {
                     log_error("parsed bad req %"PRIu64" of type %d with key "
                               "length %d that greater than or equal to maximum"
-                              " redis key length of %d", r->id, r->type,
+                              " redis key length of %zu", r->id, r->type,
                               r->rlen, mbuf_data_size());
                     goto error;
                 }
@@ -1874,7 +1884,7 @@ redis_parse_req(struct msg *r)
 
     log_hexdump(LOG_VERB, b->pos, mbuf_length(b), "parsed req %"PRIu64" res %d "
                 "type %d state %d rpos %d of %d", r->id, r->result, r->type,
-                r->state, r->pos - b->pos, b->last - b->pos);
+                r->state, (int)(r->pos - b->pos), (int)(b->last - b->pos));
     return;
 
 done:
@@ -1887,7 +1897,7 @@ done:
 
     log_hexdump(LOG_VERB, b->pos, mbuf_length(b), "parsed req %"PRIu64" res %d "
                 "type %d state %d rpos %d of %d", r->id, r->result, r->type,
-                r->state, r->pos - b->pos, b->last - b->pos);
+                r->state, (int)(r->pos - b->pos), (int)(b->last - b->pos));
     return;
 
 enomem:
@@ -1943,7 +1953,6 @@ redis_parse_rsp(struct msg *r)
     struct mbuf *b;
     uint8_t *p, *m;
     uint8_t ch;
-    int depth;
 
     enum {
         SW_START,
@@ -1985,6 +1994,9 @@ redis_parse_rsp(struct msg *r)
         switch (state) {
         case SW_START:
             r->type = MSG_UNKNOWN;
+            r->rnarg = 1;
+            r->is_top_level = 1;
+
             switch (ch) {
             case '+':
                 p = p - 1; /* go back by 1 byte */
@@ -2162,8 +2174,8 @@ redis_parse_rsp(struct msg *r)
 
         case SW_SIMPLE:
             if (ch == CR) {
+                ASSERT(r->rnarg > 0);
                 r->rnarg--;
-                r->stack[r->nested_depth-1]--;
                 state = SW_MULTIBULK_ARGN_LF;
             }
             break;
@@ -2205,6 +2217,11 @@ redis_parse_rsp(struct msg *r)
             break;
 
         case SW_BULK:
+            /*
+             * SW_BULK is used for top-level bulk string replies.
+             * Within an array, SW_MULTIBULK_ARG... helpers are used
+             * to parse bulk strings instead.
+             */
             if (r->token == NULL) {
                 if (ch != '$') {
                     goto error;
@@ -2277,34 +2294,42 @@ redis_parse_rsp(struct msg *r)
                 if (ch != '*') {
                     goto error;
                 }
+                r->vlen = 0;
                 r->token = p;
                 /* rsp_start <- p */
-                r->narg_start = p;
-                r->rnarg = 0;
-                r->nested_depth++;
-
-                if (r->nested_depth > MAXDEPTH) {
-                    log_debug(LOG_ERR, "only support %d levels of multibulk", MAXDEPTH);
-                    goto error;
+                if (r->is_top_level) {
+                    r->narg_start = p;
                 }
             } else if (ch == '-') {
                 p = p-1;
                 r->token = NULL;
-                r->rnarg = 1;
-                r->stack[r->nested_depth-1] = r->rnarg;
+                /*
+                 * This is a null array (e.g. from BLPOP). Don't increment rnarg
+                 * https://redis.io/topics/protocol
+                 */
+                r->vlen = 1;
                 state = SW_MULTIBULK_ARGN_LEN;
             } else if (isdigit(ch)) {
-                r->rnarg = r->rnarg * 10 + (uint32_t)(ch - '0');
+                r->vlen = r->vlen * 10 + (uint32_t)(ch - '0');
             } else if (ch == CR) {
                 if ((p - r->token) <= 1) {
                     goto error;
                 }
 
-                r->narg = r->rnarg;
-                r->narg_end = p;
+                if (r->is_top_level) {
+                    /* For multiget responses, we may need to know the number of responses to combine them. */
+                    r->narg = r->vlen;
+                    r->narg_end = p;
+                }
+                r->is_top_level = 0;
+                ASSERT(r->rnarg > 0);
+                r->rnarg += r->vlen - 1;
                 r->token = NULL;
 
-                r->stack[r->nested_depth-1] = r->narg;
+                /*
+                 * The stack is always initialized before transitioning
+                 * to another state.
+                 */
                 state = SW_MULTIBULK_NARG_LF;
             } else {
                 goto error;
@@ -2317,17 +2342,7 @@ redis_parse_rsp(struct msg *r)
             case LF:
                 if (r->rnarg == 0) {
                     /* response is '*0\r\n' */
-                    if (r->nested_depth == 1) {
-                        goto done;
-                    } else {
-                        log_debug(LOG_VVVERB,
-                            "multibulk support@end of a nested empty bulk %d %d %s",
-                            r->nested_depth, r->stack[r->nested_depth-1], p);
-
-                        p = p - 1;
-                        state = SW_MULTIBULK_ARGN_LF;
-                        break;
-                    }
+                    goto done;
                 }
 
                 state = SW_MULTIBULK_ARGN_LEN;
@@ -2399,9 +2414,9 @@ redis_parse_rsp(struct msg *r)
                 } else {
                     state = SW_MULTIBULK_ARGN_LEN_LF;
                 }
+                ASSERT(r->rnarg > 0);
                 r->rnarg--;
                 r->token = NULL;
-                r->stack[r->nested_depth-1]--;
             } else {
                 goto error;
             }
@@ -2443,23 +2458,7 @@ redis_parse_rsp(struct msg *r)
         case SW_MULTIBULK_ARGN_LF:
             switch (ch) {
             case LF:
-                log_debug(LOG_VVVERB,
-                    "multibulk support@the end of the bulk: %d %d %s",
-                    r->nested_depth, r->stack[r->nested_depth-1], p);
-
-                depth = r->nested_depth;
-                while (depth > 1 && r->stack[depth-1] == 0) {
-                    depth--;
-                    r->stack[depth-1]--;
-                    r->nested_depth = depth;
-                    r->rnarg = r->stack[depth-1];
-
-                    log_debug(LOG_VVVERB,
-                        "multibulk support@the end of a nested multibulk: %d %d %s",
-                        r->nested_depth, r->stack[r->nested_depth-1], p);
-                }
-
-                if (r->stack[0] == 0) {
+                if (r->rnarg == 0) {
                     goto done;
                 }
 
@@ -2493,7 +2492,7 @@ redis_parse_rsp(struct msg *r)
 
     log_hexdump(LOG_VERB, b->pos, mbuf_length(b), "parsed rsp %"PRIu64" res %d "
                 "type %d state %d rpos %d of %d", r->id, r->result, r->type,
-                r->state, r->pos - b->pos, b->last - b->pos);
+                r->state, (int)(r->pos - b->pos), (int)(b->last - b->pos));
     return;
 
 done:
@@ -2506,7 +2505,7 @@ done:
 
     log_hexdump(LOG_VERB, b->pos, mbuf_length(b), "parsed rsp %"PRIu64" res %d "
                 "type %d state %d rpos %d of %d", r->id, r->result, r->type,
-                r->state, r->pos - b->pos, b->last - b->pos);
+                r->state, (int)(r->pos - b->pos), (int)(b->last - b->pos));
     return;
 
 error:
@@ -2677,7 +2676,7 @@ redis_pre_coalesce(struct msg *r)
         /*
          * Muti-bulk reply can span over multiple mbufs and in each reply
          * we should skip over the narg token. Our response parser
-         * guarantees thaat the narg token and the immediately following
+         * guarantees that the narg token and the immediately following
          * '\r\n' will exist in a contiguous region in the first mbuf
          */
         ASSERT(r->narg_start == mbuf->pos);

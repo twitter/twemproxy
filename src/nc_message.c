@@ -255,9 +255,11 @@ done:
     msg->narg_end = NULL;
     msg->narg = 0;
     msg->rnarg = 0;
-    memset(msg->stack, 0, sizeof(msg->stack));
-    msg->nested_depth = 0;
     msg->rlen = 0;
+    /*
+     * This is used for both parsing redis responses
+     * and as a counter for coalescing responses such as DEL
+     */
     msg->integer = 0;
 
     msg->err = 0;

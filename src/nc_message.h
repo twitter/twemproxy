@@ -275,12 +275,11 @@ struct msg {
 
     uint8_t              *narg_start;     /* narg start (redis) */
     uint8_t              *narg_end;       /* narg end (redis) */
-    uint32_t             narg;            /* # arguments (redis) */
+    uint32_t             narg;            /* # arguments (redis, memcache) */
     uint32_t             rnarg;           /* running # arg used by parsing fsa (redis) */
-    uint32_t             stack[MAXDEPTH]; /* stack to save rnarg of nesting multibulks */
-    uint8_t              nested_depth;    /* the depth of the current nested multibulk */
     uint32_t             rlen;            /* running length in parsing fsa (redis) */
     uint32_t             integer;         /* integer reply value (redis) */
+    uint32_t             is_top_level;    /* is this top level (redis) */
 
     struct msg           *frag_owner;     /* owner of fragment message */
     uint32_t             nfrag;           /* # fragment */

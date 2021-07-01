@@ -19,8 +19,7 @@
 #define _NC_MESSAGE_H_
 
 #include <nc_core.h>
-
-#define MAXDEPTH 4
+#include <proto/nc_proto.h>
 
 typedef void (*msg_parse_t)(struct msg *);
 typedef rstatus_t (*msg_add_auth_t)(struct context *ctx, struct conn *c_conn, struct conn *s_conn);
@@ -120,9 +119,6 @@ typedef enum msg_parse_result {
     ACTION( REQ_REDIS_HSCAN)                                                                        \
     ACTION( REQ_REDIS_HSTRLEN)                                                                      \
     ACTION( REQ_REDIS_HVALS )                                                                       \
-    ACTION( REQ_REDIS_BLPOP )                 /* redis requests - lists (blocking) */               \
-    ACTION( REQ_REDIS_BRPOP )                                                                       \
-    ACTION( REQ_REDIS_BRPOPLPUSH )                                                                  \
     ACTION( REQ_REDIS_LINDEX )                 /* redis requests - lists */                         \
     ACTION( REQ_REDIS_LINSERT )                                                                     \
     ACTION( REQ_REDIS_LLEN )                                                                        \
@@ -158,8 +154,6 @@ typedef enum msg_parse_result {
     ACTION( REQ_REDIS_SUNION )                                                                      \
     ACTION( REQ_REDIS_SUNIONSTORE )                                                                 \
     ACTION( REQ_REDIS_SSCAN)                                                                        \
-    ACTION( REQ_REDIS_BZPOPMIN )               /* redis requests - sorted sets (blocking) */        \
-    ACTION( REQ_REDIS_BZPOPMAX )                                                                    \
     ACTION( REQ_REDIS_ZADD )                   /* redis requests - sorted sets */                   \
     ACTION( REQ_REDIS_ZCARD )                                                                       \
     ACTION( REQ_REDIS_ZCOUNT )                                                                      \
@@ -204,6 +198,8 @@ typedef enum msg_parse_result {
     ACTION( REQ_REDIS_QUIT)                                                                         \
     ACTION( REQ_REDIS_AUTH)                                                                         \
     ACTION( REQ_REDIS_SELECT)                  /* only during init */                               \
+    ACTION( REQ_REDIS_COMMAND)                 /* Sent to random server for redis-cli completions*/ \
+    ACTION( REQ_REDIS_LOLWUT)                  /* Vitally important */                              \
     ACTION( RSP_REDIS_STATUS )                 /* redis response */                                 \
     ACTION( RSP_REDIS_ERROR )                                                                       \
     ACTION( RSP_REDIS_ERROR_ERR )                                                                   \
@@ -236,6 +232,10 @@ struct keypos {
     uint8_t             *end;             /* key end pos */
 };
 
+/*
+ * This represents a message with a list of mbufs
+ * that can be a redis/memcache request/response/error response.
+ */
 struct msg {
     TAILQ_ENTRY(msg)     c_tqe;           /* link in client q */
     TAILQ_ENTRY(msg)     s_tqe;           /* link in server q */
@@ -279,7 +279,7 @@ struct msg {
     uint32_t             rnarg;           /* running # arg used by parsing fsa (redis) */
     uint32_t             rlen;            /* running length in parsing fsa (redis) */
     uint32_t             integer;         /* integer reply value (redis) */
-    uint32_t             is_top_level;    /* is this top level (redis) */
+    uint8_t             is_top_level;     /* is this top level (redis) */
 
     struct msg           *frag_owner;     /* owner of fragment message */
     uint32_t             nfrag;           /* # fragment */

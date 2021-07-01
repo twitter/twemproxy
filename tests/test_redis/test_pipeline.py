@@ -7,8 +7,8 @@ def test_pipeline():
 
     pipe = r.pipeline(transaction = False)
 
-    pipe.set('a', 'a1').get('a').zadd('z', z1=1).zadd('z', z2=4)
-    pipe.zincrby('z', 'z1').zrange('z', 0, 5, withscores=True)
+    pipe.set('a', 'a1').get('a').zadd('z', {'z1': 1}).zadd('z', {'z2': 4})
+    pipe.zincrby('z', 1, 'z1').zrange('z', 0, 5, withscores=True)
 
     assert_equal(
         [

@@ -18,6 +18,8 @@ from server_modules import *
 from utils import *
 from nose import with_setup
 
+# Reload support with SIGUSR1 was at one planned to be added in 0.4.2 of twitter/twemproxy but has not actually been added.
+VERSION_SUPPORTING_RELOAD = '99.99.99'
 CLUSTER_NAME = 'ntest'
 nc_verbose = int(getenv('T_VERBOSE', 5))
 mbuf = int(getenv('T_MBUF', 512))
@@ -58,7 +60,7 @@ def send_cmd(s, req, resp):
 
 @with_setup(_setup, _teardown)
 def test_reload_with_old_conf():
-    if nc.version() < '0.4.2':
+    if nc.version() < VERSION_SUPPORTING_RELOAD:
         print('Ignore test_reload for version %s' % nc.version())
         return
     pid = nc.pid()
@@ -98,7 +100,7 @@ def test_reload_with_old_conf():
 
 @with_setup(_setup, _teardown)
 def test_new_port():
-    if nc.version() < '0.4.2':
+    if nc.version() < VERSION_SUPPORTING_RELOAD:
         print('Ignore test_reload for version %s' % nc.version())
         return
     r = redis.Redis(nc.host(), nc.port())
@@ -127,7 +129,7 @@ reload_test:
 
 @with_setup(_setup, _teardown)
 def test_pool_add_del():
-    if nc.version() < '0.4.2':
+    if nc.version() < VERSION_SUPPORTING_RELOAD:
         print('Ignore test_reload for version %s' % nc.version())
         return
 

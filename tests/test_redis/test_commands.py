@@ -13,6 +13,13 @@ def test_linsert():
     rst = r.lrange('mylist', 0, -1)
     assert_equal([b'Hello', b'There', b'World'], rst)
 
+def test_exists():
+    r = getconn()
+
+    r.set('exists1', 'foo')
+    assert_equal(1, r.exists('exists1'))
+    assert_equal(0, r.exists('doesnotexist'))
+
 def test_lpush_lrange():
     r = getconn()
 
@@ -71,7 +78,7 @@ def test_hscan_large():
 def test_zscan():
     r = getconn()
 
-    r.zadd('a', 'a', 1, 'b', 2, 'c', 3)
+    r.zadd('a', {'a': 1, 'b': 2, 'c': 3})
 
     cursor, pairs = r.zscan('a')
     assert_equal(0, cursor)

@@ -74,5 +74,6 @@ rstatus_t modula_update(struct server_pool *pool);
 uint32_t modula_dispatch(struct continuum *continuum, uint32_t ncontinuum, uint32_t hash);
 rstatus_t random_update(struct server_pool *pool);
 uint32_t random_dispatch(struct continuum *continuum, uint32_t ncontinuum, uint32_t hash);
+uint32_t ketama_hash(const char *key, size_t key_length, uint32_t alignment);
 
 #endif

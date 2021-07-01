@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 #coding: utf-8
 #file   : server_modules.py
 #author : ning
@@ -44,7 +44,7 @@ class Base:
                       mkdir -p $path/conf && \
                       mkdir -p $path/log &&  \
                       mkdir -p $path/data',
-                self.args))
+                     self.args))
 
         self._pre_deploy()
         self._gen_control_script()
@@ -62,7 +62,7 @@ class Base:
 
     def start(self):
         if self._alive():
-            logging.warn('%s already running' %(self) )
+            logging.warning('%s already running' % (self))
             return
 
         logging.debug('starting %s' % self)
@@ -77,15 +77,15 @@ class Base:
             if sleeptime < 5:
                 sleeptime *= 2
             else:
-                sleeptime = 5
-                logging.warn('%s still not alive' % self)
+                sleeptime = 5.0
+                logging.warning('%s still not alive' % self)
 
         t2 = time.time()
-        logging.info('%s start ok in %.2f seconds' %(self, t2-t1) )
+        logging.info('%s start ok in %.2f seconds' %(self, t2-t1))
 
     def stop(self):
         if not self._alive():
-            logging.warn('%s already stop' %(self) )
+            logging.warning('%s already stop' %(self))
             return
 
         cmd = TT("cd $path && ./${name}_control stop", self.args)
@@ -95,21 +95,21 @@ class Base:
         while self._alive():
             lets_sleep()
         t2 = time.time()
-        logging.info('%s stop ok in %.2f seconds' %(self, t2-t1) )
+        logging.info('%s stop ok in %.2f seconds' %(self, t2-t1))
 
     def pid(self):
         cmd = TT("pgrep -f '^$runcmd'", self.args)
         return self._run(cmd)
 
     def status(self):
-        logging.warn("status: not implement")
+        logging.warning("status: not implement")
 
     def _alive(self):
-        logging.warn("_alive: not implement")
+        logging.warning("_alive: not implement")
 
-    def _run(self, raw_cmd, allow_failure = False):
-        ret = system(raw_cmd, logging.debug, allow_failure = allow_failure)
-        logging.debug('return : [%d] [%s] ' % (len(ret), shorten(ret)) )
+    def _run(self, raw_cmd):
+        ret = system(raw_cmd, logging.debug)
+        logging.debug('return : [%d] [%s] ' % (len(ret), shorten(ret)))
         return ret
 
     def clean(self):
@@ -127,7 +127,7 @@ class RedisServer(Base):
         Base.__init__(self, 'redis', host, port, path)
 
         self.args['startcmd']     = TT('bin/redis-server conf/redis.conf', self.args)
-        self.args['runcmd']       = TT('redis-server \*:$port', self.args)
+        self.args['runcmd']       = TT('redis-server \\*:$port', self.args)
         self.args['conf']         = TT('$path/conf/redis.conf', self.args)
         self.args['pidfile']      = TT('$path/log/redis.pid', self.args)
         self.args['logfile']      = TT('$path/log/redis.log', self.args)
@@ -153,7 +153,7 @@ class RedisServer(Base):
         cmd = TT('$REDIS_CLI -h $host -p $port PING', self.args)
         if self.args['auth']:
             cmd = TT('$REDIS_CLI -h $host -p $port -a $auth PING', self.args)
-        return self._run(cmd, allow_failure = True)
+        return self._run(cmd)
 
     def _alive(self):
         return strstr(self._ping(), 'PONG')
@@ -207,7 +207,7 @@ class RedisSentinel(RedisServer):
         self.down_time = down_time
 
         self.args['startcmd']     = TT('bin/redis-sentinel conf/sentinel.conf', self.args)
-        self.args['runcmd']       = TT('redis-sentinel \*:$port', self.args)
+        self.args['runcmd']       = TT('redis-sentinel \\*:$port', self.args)
         self.args['conf']         = TT('$path/conf/sentinel.conf', self.args)
         self.args['pidfile']      = TT('$path/log/sentinel.pid', self.args)
         self.args['logfile']      = TT('$path/log/sentinel.log', self.args)
@@ -253,12 +253,12 @@ class Memcached(Base):
 
     def _alive(self):
         cmd = TT('echo "stats" | socat - TCP:$host:$port', self.args)
-        ret = self._run(cmd, allow_failure = True)
+        ret = self._run(cmd)
         return strstr(ret, 'END')
 
     def _pre_deploy(self):
         self.args['BINS'] = conf.BINARYS['MEMCACHED_BINS']
-        self._run(TT('cp $BINS $path/bin/', self.args), allow_failure = True)
+        self._run(TT('cp $BINS $path/bin/', self.args))
 
 class NutCracker(Base):
     def __init__(self, host, port, path, cluster_name, masters, mbuf=512,

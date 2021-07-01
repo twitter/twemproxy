@@ -30,10 +30,29 @@ docker build -f ci/Dockerfile \
    --build-arg=REDIS_VER=$REDIS_VER \
    .
 
+# Run c unit tests
+UNIT_TEST_FAIL=no
+if ! docker run \
+   --rm \
+   -e REDIS_VER=$REDIS_VER \
+   --workdir=/usr/src/twemproxy/src \
+   --name=$DOCKER_IMG_NAME \
+   --entrypoint=/bin/sh \
+   $DOCKER_TAG \
+   -c 'make test_all && ./test_all'; then
+
+    UNIT_TEST_FAIL=yes
+fi
+
 # Run nose tests
 docker run \
    --rm \
    -e REDIS_VER=$REDIS_VER \
    --name=$DOCKER_IMG_NAME \
    $DOCKER_TAG \
-   nosetests -v test_memcache test_system test_redis
+   nosetests -v test_redis test_memcache test_system
+
+if [ $UNIT_TEST_FAIL = yes ]; then
+    echo "See earlier output, unit tests failed" 1>&2
+    exit 1
+fi

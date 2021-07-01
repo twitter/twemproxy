@@ -83,11 +83,9 @@ def json_decode(j):
     return json.loads(j)
 
 #commands does not work on windows..
-def system(cmd, log_fun=logging.info, allow_failure = False):
+def system(cmd, log_fun=logging.info):
     if log_fun: log_fun(cmd)
-    exitcode, r = subprocess.getstatusoutput(cmd)
-    if exitcode and not allow_failure:
-        raise Exception("'{0}' failed with exit code {1}: {2}".format(cmd, exitcode, r))
+    r = subprocess.getoutput(cmd)
     return r
 
 def shorten(s, l=80):

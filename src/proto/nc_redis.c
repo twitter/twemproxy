@@ -43,8 +43,10 @@ static bool
 redis_argz(struct msg *r)
 {
     switch (r->type) {
+    /* TODO: PING has an optional argument, emulate that? */
     case MSG_REQ_REDIS_PING:
     case MSG_REQ_REDIS_QUIT:
+    case MSG_REQ_REDIS_COMMAND:
         return true;
 
     default:
@@ -163,7 +165,6 @@ redis_arg2(struct msg *r)
     case MSG_REQ_REDIS_LTRIM:
 
     case MSG_REQ_REDIS_SMOVE:
-    case MSG_REQ_REDIS_BRPOPLPUSH:
 
     case MSG_REQ_REDIS_ZCOUNT:
     case MSG_REQ_REDIS_ZLEXCOUNT:
@@ -226,8 +227,6 @@ redis_argn(struct msg *r)
     case MSG_REQ_REDIS_HSET:
     case MSG_REQ_REDIS_HRANDFIELD:
 
-    case MSG_REQ_REDIS_BLPOP:
-    case MSG_REQ_REDIS_BRPOP:
     case MSG_REQ_REDIS_LPUSH:
     case MSG_REQ_REDIS_LPUSHX:
     case MSG_REQ_REDIS_RPUSH:
@@ -252,9 +251,6 @@ redis_argn(struct msg *r)
     case MSG_REQ_REDIS_PFADD:
     case MSG_REQ_REDIS_PFMERGE:
     case MSG_REQ_REDIS_PFCOUNT:
-
-    case MSG_REQ_REDIS_BZPOPMAX:
-    case MSG_REQ_REDIS_BZPOPMIN:
 
     case MSG_REQ_REDIS_ZADD:
     case MSG_REQ_REDIS_ZDIFF:
@@ -356,6 +352,20 @@ redis_argeval(struct msg *r)
     return false;
 }
 
+static bool
+redis_nokey(struct msg *r)
+{
+    switch (r->type) {
+    case MSG_REQ_REDIS_LOLWUT:
+        return true;
+
+    default:
+        break;
+    }
+
+    return false;
+}
+
 /*
  * Return true, if the redis response is an error response i.e. a simple
  * string whose first character is '-', otherwise return false.
@@ -385,6 +395,24 @@ redis_error(struct msg *r)
     }
 
     return false;
+}
+
+/*
+ * Set a placeholder key for a command with no key that is forwarded to an
+ * arbitrary backend.
+ */
+static bool
+set_placeholder_key(struct msg *r)
+{
+    struct keypos *kpos;
+    ASSERT(array_n(r->keys) == 0);
+    kpos = array_push(r->keys);
+    if (kpos == NULL) {
+        return false;
+    }
+    kpos->start = (uint8_t *)"placeholder";
+    kpos->end = kpos->start + sizeof("placeholder") - 1;
+    return true;
 }
 
 /*
@@ -853,16 +881,6 @@ redis_parse_req(struct msg *r)
                     break;
                 }
 
-                if (str5icmp(m, 'b', 'l', 'p', 'o', 'p')) {
-                    r->type = MSG_REQ_REDIS_BLPOP;
-                    break;
-                }
-
-                if (str5icmp(m, 'b', 'r', 'p', 'o', 'p')) {
-                    r->type = MSG_REQ_REDIS_BRPOP;
-                    break;
-                }
-
                 break;
 
             case 6:
@@ -1001,6 +1019,14 @@ redis_parse_req(struct msg *r)
                     break;
                 }
 
+                if (str6icmp(m, 'l', 'o', 'l', 'w', 'u', 't')) {
+                    r->type = MSG_REQ_REDIS_LOLWUT;
+                    if (!set_placeholder_key(r)) {
+                        goto enomem;
+                    }
+                    break;
+                }
+
                 break;
 
             case 7:
@@ -1089,6 +1115,14 @@ redis_parse_req(struct msg *r)
                     break;
                 }
 
+                if (str7icmp(m, 'c', 'o', 'm', 'm', 'a', 'n', 'd')) {
+                    r->type = MSG_REQ_REDIS_COMMAND;
+                    if (!set_placeholder_key(r)) {
+                        goto enomem;
+                    }
+                    break;
+                }
+
                 break;
 
             case 8:
@@ -1124,16 +1158,6 @@ redis_parse_req(struct msg *r)
 
                 if (str8icmp(m, 'b', 'i', 't', 'f', 'i', 'e', 'l', 'd')) {
                     r->type = MSG_REQ_REDIS_BITFIELD;
-                    break;
-                }
-
-                if (str8icmp(m, 'b', 'z', 'p', 'o', 'p', 'm', 'i', 'n')) {
-                    r->type = MSG_REQ_REDIS_BZPOPMIN;
-                    break;
-                }
-
-                if (str8icmp(m, 'b', 'z', 'p', 'o', 'p', 'm', 'a', 'x')) {
-                    r->type = MSG_REQ_REDIS_BZPOPMAX;
                     break;
                 }
 
@@ -1198,10 +1222,6 @@ redis_parse_req(struct msg *r)
                     break;
                 }
 
-                if (str10icmp(m, 'b', 'r', 'p', 'o', 'p', 'l', 'p', 'u', 's', 'h')) {
-                    r->type = MSG_REQ_REDIS_BRPOPLPUSH;
-                    break;
-                }
 
                 break;
 
@@ -1248,11 +1268,6 @@ redis_parse_req(struct msg *r)
 
                 if (str11icmp(m, 'z', 'r', 'a', 'n', 'g', 'e', 's', 't', 'o', 'r', 'e')) {
                     r->type = MSG_REQ_REDIS_ZRANGESTORE;
-                    break;
-                }
-
-                if (str11icmp(m, 'z', 'r', 'a', 'n', 'd', 'm', 'e', 'm', 'b', 'e', 'r')) {
-                    r->type = MSG_REQ_REDIS_ZRANDMEMBER;
                     break;
                 }
 
@@ -1342,6 +1357,11 @@ redis_parse_req(struct msg *r)
                         goto error;
                     }
                     goto done;
+                } else if (redis_nokey(r)) {
+                    if (r->narg == 1) {
+                        goto done;
+                    }
+                    state = SW_ARGN_LEN;
                 } else if (r->narg == 1) {
                     goto error;
                 } else if (redis_argeval(r)) {
@@ -1846,7 +1866,7 @@ redis_parse_req(struct msg *r)
         case SW_ARGN_LF:
             switch (ch) {
             case LF:
-                if (redis_argn(r) || redis_argeval(r)) {
+                if (redis_argn(r) || redis_argeval(r) || redis_nokey(r)) {
                     if (r->rnarg == 0) {
                         goto done;
                     }
@@ -2815,8 +2835,9 @@ redis_fragment_argx(struct msg *r, uint32_t nserver, struct msg_tqh *frag_msgq,
     struct msg **sub_msgs;
     uint32_t i;
     rstatus_t status;
+    struct array *keys = r->keys;
 
-    ASSERT(array_n(r->keys) == (r->narg - 1) / key_step);
+    ASSERT(array_n(keys) == (r->narg - 1) / key_step);
 
     sub_msgs = nc_zalloc(nserver * sizeof(*sub_msgs));
     if (sub_msgs == NULL) {
@@ -2824,7 +2845,7 @@ redis_fragment_argx(struct msg *r, uint32_t nserver, struct msg_tqh *frag_msgq,
     }
 
     ASSERT(r->frag_seq == NULL);
-    r->frag_seq = nc_alloc(array_n(r->keys) * sizeof(*r->frag_seq));
+    r->frag_seq = nc_alloc(array_n(keys) * sizeof(*r->frag_seq));
     if (r->frag_seq == NULL) {
         nc_free(sub_msgs);
         return NC_ENOMEM;
@@ -2851,9 +2872,9 @@ redis_fragment_argx(struct msg *r, uint32_t nserver, struct msg_tqh *frag_msgq,
     r->frag_owner = r;
 
     /* Build up the key1 key2 ... to be sent to a given server at index idx */
-    for (i = 0; i < array_n(r->keys); i++) {        /* for each key */
+    for (i = 0; i < array_n(keys); i++) {        /* for each key */
         struct msg *sub_msg;
-        struct keypos *kpos = array_get(r->keys, i);
+        struct keypos *kpos = array_get(keys, i);
         uint32_t idx = msg_backend_idx(r, kpos->start, kpos->end - kpos->start);
         ASSERT(idx < nserver);
 

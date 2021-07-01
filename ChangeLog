@@ -18,6 +18,8 @@
 	  Allow extra parameters for redis spop (charsyam)
 	  Update documentation and README (various)
 	  Fix memory leak bug for redis mset (deep011)
+	  Support arbitrarily deep nested redis multi-bulk
+	  responses (nested arrays) (qingping209, tyson)
 
  2015-22-06  Manju Rajashekhar  <manj@cs.stanford.edu>
     * twemproxy: version 0.4.1 release

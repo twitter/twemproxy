@@ -20,6 +20,8 @@
 
 #include <nc_core.h>
 
+#define MAXDEPTH 4
+
 typedef void (*msg_parse_t)(struct msg *);
 typedef rstatus_t (*msg_add_auth_t)(struct context *ctx, struct conn *c_conn, struct conn *s_conn);
 typedef rstatus_t (*msg_fragment_t)(struct msg *, uint32_t, struct msg_tqh *);
@@ -273,10 +275,11 @@ struct msg {
 
     uint8_t              *narg_start;     /* narg start (redis) */
     uint8_t              *narg_end;       /* narg end (redis) */
-    uint32_t             narg;            /* # arguments (redis) */
+    uint32_t             narg;            /* # arguments (redis, memcache) */
     uint32_t             rnarg;           /* running # arg used by parsing fsa (redis) */
     uint32_t             rlen;            /* running length in parsing fsa (redis) */
     uint32_t             integer;         /* integer reply value (redis) */
+    uint32_t             is_top_level;    /* is this top level (redis) */
 
     struct msg           *frag_owner;     /* owner of fragment message */
     uint32_t             nfrag;           /* # fragment */

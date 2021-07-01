@@ -57,7 +57,7 @@ static void test_redis_parse_req_success_case(char* data, int expected_type) {
     struct msg *req = msg_get(&fake_client, 1, 1);
     req->state = SW_START;
     req->token = NULL;
-    const size_t datalen = (int)strlen(data);
+    const size_t datalen = strlen(data);
 
     /* Copy data into the message */
     mbuf_copy(m, (uint8_t*)data, datalen);

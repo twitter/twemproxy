@@ -168,6 +168,13 @@ struct qm_trace {
     (head)->trace.lastfile = __FILE__;                                  \
 } while (0)
 
+#define QMD_TRACE_HEAD_INIT(head) do {                                  \
+    (head)->trace.prevline = __LINE__;                                  \
+    (head)->trace.prevfile = __FILE__;                                  \
+    (head)->trace.lastline = __LINE__;                                  \
+    (head)->trace.lastfile = __FILE__;                                  \
+} while (0)
+
 #define QMD_TRACE_ELEM(elem) do {                                       \
     (elem)->trace.prevline = (elem)->trace.lastline;                    \
     (elem)->trace.prevfile = (elem)->trace.lastfile;                    \
@@ -179,6 +186,7 @@ struct qm_trace {
 
 #define QMD_TRACE_ELEM(elem)
 #define QMD_TRACE_HEAD(head)
+#define QMD_TRACE_HEAD_INIT(head)
 #define TRACEBUF
 
 #endif /* QUEUE_MACRO_TRACE */
@@ -595,7 +603,7 @@ struct {                                                                \
 #define TAILQ_INIT(head) do {                                           \
     TAILQ_FIRST((head)) = NULL;                                         \
     (head)->tqh_last = &TAILQ_FIRST((head));                            \
-    QMD_TRACE_HEAD(head);                                               \
+    QMD_TRACE_HEAD_INIT(head);                                               \
 } while (0)
 
 #define TAILQ_INSERT_AFTER(head, listelm, elm, field) do {              \

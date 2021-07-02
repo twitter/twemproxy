@@ -245,9 +245,8 @@ conn_get(void *owner, bool client, bool redis)
 }
 
 struct conn *
-conn_get_proxy(void *owner)
+conn_get_proxy(struct server_pool *pool)
 {
-    struct server_pool *pool = owner;
     struct conn *conn;
 
     conn = _conn_get();
@@ -278,7 +277,7 @@ conn_get_proxy(void *owner)
     conn->enqueue_outq = NULL;
     conn->dequeue_outq = NULL;
 
-    conn->ref(conn, owner);
+    conn->ref(conn, pool);
 
     log_debug(LOG_VVERB, "get conn %p proxy %d", conn, conn->proxy);
 
@@ -382,7 +381,7 @@ conn_recv(struct conn *conn, void *buf, size_t size)
 }
 
 ssize_t
-conn_sendv(struct conn *conn, struct array *sendv, size_t nsend)
+conn_sendv(struct conn *conn, const struct array *sendv, size_t nsend)
 {
     ssize_t n;
 
@@ -453,7 +452,7 @@ conn_ncurr_cconn(void)
  * authentication, otherwise return false
  */
 bool
-conn_authenticated(struct conn *conn)
+conn_authenticated(const struct conn *conn)
 {
     struct server_pool *pool;
 

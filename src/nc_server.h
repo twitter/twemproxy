@@ -126,7 +126,7 @@ struct server_pool {
 void server_ref(struct conn *conn, void *owner);
 void server_unref(struct conn *conn);
 int server_timeout(struct conn *conn);
-bool server_active(struct conn *conn);
+bool server_active(const struct conn *conn);
 rstatus_t server_init(struct array *server, struct array *conf_server, struct server_pool *sp);
 void server_deinit(struct array *server);
 struct conn *server_conn(struct server *server);

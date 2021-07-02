@@ -92,7 +92,7 @@ server_timeout(struct conn *conn)
 }
 
 bool
-server_active(struct conn *conn)
+server_active(const struct conn *conn)
 {
     ASSERT(!conn->client && !conn->proxy);
 

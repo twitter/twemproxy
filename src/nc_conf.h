@@ -98,7 +98,7 @@ struct conf_pool {
 };
 
 struct conf {
-    char          *fname;           /* file name (ref in argv[]) */
+    const char    *fname;           /* file name (ref in argv[]) */
     FILE          *fh;              /* file handle */
     struct array  arg;              /* string[] (parsed {key, value} pairs) */
     struct array  pool;             /* conf_pool[] (parsed pools) */
@@ -135,7 +135,7 @@ char *conf_set_hashtag(struct conf *cf, struct command *cmd, void *conf);
 rstatus_t conf_server_each_transform(void *elem, void *data);
 rstatus_t conf_pool_each_transform(void *elem, void *data);
 
-struct conf *conf_create(char *filename);
+struct conf *conf_create(const char *filename);
 void conf_destroy(struct conf *cf);
 
 #endif

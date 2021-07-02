@@ -750,7 +750,7 @@ conf_parse(struct conf *cf)
 }
 
 static struct conf *
-conf_open(char *filename)
+conf_open(const char *filename)
 {
     rstatus_t status;
     struct conf *cf;
@@ -1354,7 +1354,7 @@ conf_post_validate(struct conf *cf)
 }
 
 struct conf *
-conf_create(char *filename)
+conf_create(const char *filename)
 {
     rstatus_t status;
     struct conf *cf;

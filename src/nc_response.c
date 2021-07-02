@@ -171,7 +171,7 @@ rsp_filter(struct context *ctx, struct conn *conn, struct msg *msg)
          * We handle this stray packet scenario in nutcracker by closing the
          * server connection which would end up sending SERVER_ERROR to all
          * clients that have requests pending on this server connection. The
-         * fix is aggresive, but not doing so would lead to clients getting
+         * fix is aggressive, but not doing so would lead to clients getting
          * out of sync with the server and as a result clients end up getting
          * responses that don't correspond to the right request.
          *
@@ -184,7 +184,28 @@ rsp_filter(struct context *ctx, struct conn *conn, struct msg *msg)
     ASSERT(pmsg->peer == NULL);
     ASSERT(pmsg->request && !pmsg->done);
 
+    /*
+     * If the response from a server suggests a protocol level transient
+     * failure, close the server connection and send back a generic error
+     * response to the client.
+     *
+     * If auto_eject_host is enabled, this will also update the failure_count
+     * and eject the server if it exceeds the failure_limit
+     */
+    if (msg->failure(msg)) {
+        log_debug(LOG_INFO, "server failure rsp %"PRIu64" len %"PRIu32" "
+                  "type %d on s %d", msg->id, msg->mlen, msg->type, conn->sd);
+        rsp_put(msg);
+
+        conn->err = EINVAL;
+        conn->done = 1;
+
+        return true;
+    }
+
     if (pmsg->swallow) {
+        conn->swallow_msg(conn, pmsg, msg);
+
         conn->dequeue_outq(ctx, conn, pmsg);
         pmsg->done = 1;
 
@@ -201,12 +222,12 @@ rsp_filter(struct context *ctx, struct conn *conn, struct msg *msg)
 }
 
 static void
-rsp_forward_stats(struct context *ctx, struct server *server, struct msg *msg)
+rsp_forward_stats(struct context *ctx, struct server *server, struct msg *msg, uint32_t msgsize)
 {
     ASSERT(!msg->request);
 
     stats_server_incr(ctx, server, responses);
-    stats_server_incr_by(ctx, server, response_bytes, msg->mlen);
+    stats_server_incr_by(ctx, server, response_bytes, msgsize);
 }
 
 static void
@@ -215,8 +236,10 @@ rsp_forward(struct context *ctx, struct conn *s_conn, struct msg *msg)
     rstatus_t status;
     struct msg *pmsg;
     struct conn *c_conn;
+    uint32_t msgsize;
 
     ASSERT(!s_conn->client && !s_conn->proxy);
+    msgsize = msg->mlen;
 
     /* response from server implies that server is ok and heartbeating */
     server_ok(ctx, s_conn);
@@ -245,7 +268,7 @@ rsp_forward(struct context *ctx, struct conn *s_conn, struct msg *msg)
         }
     }
 
-    rsp_forward_stats(ctx, s_conn->owner, msg);
+    rsp_forward_stats(ctx, s_conn->owner, msg, msgsize);
 }
 
 void

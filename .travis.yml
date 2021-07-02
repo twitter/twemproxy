@@ -1,3 +1,0 @@
-language: c
-script: CFLAGS="-ggdb3 -O0" autoreconf -fvi && ./configure --enable-debug=log && make && sudo make install
-

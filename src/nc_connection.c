@@ -156,23 +156,12 @@ _conn_get(void)
     conn->eof = 0;
     conn->done = 0;
     conn->redis = 0;
-    conn->need_auth = 0;
+    conn->authenticated = 0;
 
     ntotal_conn++;
     ncurr_conn++;
 
     return conn;
-}
-
-static bool
-conn_need_auth(void *owner, bool redis) {
-    struct server_pool *pool = (struct server_pool *)(owner);
-
-    if (redis && pool->redis_auth.len > 0) {
-        return true;
-    }
-
-    return false;
 }
 
 struct conn *
@@ -208,12 +197,13 @@ conn_get(void *owner, bool client, bool redis)
 
         conn->ref = client_ref;
         conn->unref = client_unref;
-        conn->need_auth = conn_need_auth(owner, redis);
 
         conn->enqueue_inq = NULL;
         conn->dequeue_inq = NULL;
         conn->enqueue_outq = req_client_enqueue_omsgq;
         conn->dequeue_outq = req_client_dequeue_omsgq;
+        conn->post_connect = NULL;
+        conn->swallow_msg = NULL;
 
         ncurr_cconn++;
     } else {
@@ -221,8 +211,6 @@ conn_get(void *owner, bool client, bool redis)
          * server receives a response, possibly parsing it, and sends a
          * request upstream.
          */
-        struct server *server = (struct server *)owner;
-
         conn->recv = msg_recv;
         conn->recv_next = rsp_recv_next;
         conn->recv_done = rsp_recv_done;
@@ -237,12 +225,17 @@ conn_get(void *owner, bool client, bool redis)
         conn->ref = server_ref;
         conn->unref = server_unref;
 
-        conn->need_auth = conn_need_auth(server->owner, redis);
-
         conn->enqueue_inq = req_server_enqueue_imsgq;
         conn->dequeue_inq = req_server_dequeue_imsgq;
         conn->enqueue_outq = req_server_enqueue_omsgq;
         conn->dequeue_outq = req_server_dequeue_omsgq;
+        if (redis) {
+          conn->post_connect = redis_post_connect;
+          conn->swallow_msg = redis_swallow_msg;
+        } else {
+          conn->post_connect = memcache_post_connect;
+          conn->swallow_msg = memcache_swallow_msg;
+        }
     }
 
     conn->ref(conn, owner);
@@ -319,7 +312,7 @@ conn_put(struct conn *conn)
 void
 conn_init(void)
 {
-    log_debug(LOG_DEBUG, "conn size %d", sizeof(struct conn));
+    log_debug(LOG_DEBUG, "conn size %d", (int)sizeof(struct conn));
     nfree_connq = 0;
     TAILQ_INIT(&free_connq);
 }
@@ -453,4 +446,28 @@ uint32_t
 conn_ncurr_cconn(void)
 {
     return ncurr_cconn;
+}
+
+/*
+ * Returns true if the connection is authenticated or doesn't require
+ * authentication, otherwise return false
+ */
+bool
+conn_authenticated(struct conn *conn)
+{
+    struct server_pool *pool;
+
+    ASSERT(!conn->proxy);
+
+    pool = conn->client ? conn->owner : ((struct server *)conn->owner)->owner;
+
+    if (!pool->require_auth) {
+        return true;
+    }
+
+    if (!conn->authenticated) {
+        return false;
+    }
+
+    return true;
 }

@@ -70,13 +70,12 @@ struct server {
     uint32_t           idx;           /* server index */
     struct server_pool *owner;        /* owner pool */
 
-    struct string      pname;         /* name:port:weight (ref in conf_server) */
-    struct string      name;          /* name (ref in conf_server) */
+    struct string      pname;         /* hostname:port:weight (ref in conf_server) */
+    struct string      name;          /* hostname:port or [name] (ref in conf_server) */
+    struct string      addrstr;       /* hostname (ref in conf_server) */
     uint16_t           port;          /* port */
     uint32_t           weight;        /* weight */
-    int                family;        /* socket family */
-    socklen_t          addrlen;       /* socket length */
-    struct sockaddr    *addr;         /* socket address (ref in conf_server) */
+    struct sockinfo    info;          /* server socket info */
 
     uint32_t           ns_conn_q;     /* # server connection */
     struct conn_tqh    s_conn_q;      /* server connection q */
@@ -101,25 +100,27 @@ struct server_pool {
     int64_t            next_rebuild;         /* next distribution rebuild time in usec */
 
     struct string      name;                 /* pool name (ref in conf_pool) */
-    struct string      addrstr;              /* pool address (ref in conf_pool) */
-    struct string      redis_auth;           /* redis_auth password */
+    struct string      addrstr;              /* pool address - hostname:port (ref in conf_pool) */
     uint16_t           port;                 /* port */
-    int                family;               /* socket family */
-    socklen_t          addrlen;              /* socket length */
-    struct sockaddr    *addr;                /* socket address (ref in conf_pool) */
+    struct sockinfo    info;                 /* listen socket info */
+    mode_t             perm;                 /* socket permission */
     int                dist_type;            /* distribution type (dist_type_t) */
     int                key_hash_type;        /* key hash type (hash_type_t) */
     hash_t             key_hash;             /* key hasher */
     struct string      hash_tag;             /* key hash tag (ref in conf_pool) */
     int                timeout;              /* timeout in msec */
     int                backlog;              /* listen backlog */
+    int                redis_db;             /* redis database to connect to */
     uint32_t           client_connections;   /* maximum # client connection */
     uint32_t           server_connections;   /* maximum # server connection */
     int64_t            server_retry_timeout; /* server retry timeout in usec */
     uint32_t           server_failure_limit; /* server failure limit */
+    struct string      redis_auth;           /* redis_auth password (matches requirepass on redis) */
+    unsigned           require_auth;         /* require_auth? */
     unsigned           auto_eject_hosts:1;   /* auto_eject_hosts? */
     unsigned           preconnect:1;         /* preconnect? */
     unsigned           redis:1;              /* redis? */
+    unsigned           tcpkeepalive:1;       /* tcpkeepalive? */
 };
 
 void server_ref(struct conn *conn, void *owner);

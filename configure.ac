@@ -1,7 +1,7 @@
 # Define the package version numbers and the bug reporting address
 m4_define([NC_MAJOR], 0)
 m4_define([NC_MINOR], 4)
-m4_define([NC_PATCH], 0)
+m4_define([NC_PATCH], 1)
 m4_define([NC_BUGS], [manj@cs.stanford.edu])
 
 # Initialize autoconf
@@ -158,6 +158,7 @@ AS_IF([test "x$ac_cv_epoll_works" = "xno" &&
 AM_CONDITIONAL([OS_LINUX], [test "x$ac_cv_epoll_works" = "xyes"])
 AM_CONDITIONAL([OS_BSD], [test "x$ac_cv_kqueue_works" = "xyes"])
 AM_CONDITIONAL([OS_SOLARIS], [test "x$ac_cv_evports_works" = "xyes"])
+AM_CONDITIONAL([OS_FREEBSD], [test "$(uname -v | cut -c 1-10)" == "FreeBSD 10"])
 
 # Package options
 AC_MSG_CHECKING([whether to enable debug logs and asserts])
@@ -195,11 +196,11 @@ AS_IF([test "x$disable_stats" = xyes],
   [AC_DEFINE([HAVE_STATS], [1], [Define to 1 if stats is not disabled])])
 AC_MSG_RESULT($disable_stats)
 
-# Untar the yaml-0.1.4 in contrib/ before config.status is rerun
-AC_CONFIG_COMMANDS_PRE([tar xvfz contrib/yaml-0.1.4.tar.gz -C contrib])
+# Untar the yaml-0.2.5 in contrib/ before config.status is rerun
+AC_CONFIG_COMMANDS_PRE([tar xvfz contrib/yaml-0.2.5.tar.gz -C contrib])
 
-# Call yaml-0.1.4 ./configure recursively
-AC_CONFIG_SUBDIRS([contrib/yaml-0.1.4])
+# Call yaml-0.2.5 ./configure recursively
+AC_CONFIG_SUBDIRS([contrib/yaml-0.2.5])
 
 # Define Makefiles
 AC_CONFIG_FILES([Makefile

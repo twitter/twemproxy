@@ -256,6 +256,10 @@ done:
     msg->narg = 0;
     msg->rnarg = 0;
     msg->rlen = 0;
+    /*
+     * This is used for both parsing redis responses
+     * and as a counter for coalescing responses such as DEL
+     */
     msg->integer = 0;
 
     msg->err = 0;
@@ -293,10 +297,10 @@ msg_get(struct conn *conn, bool request, bool redis)
         } else {
             msg->parser = redis_parse_rsp;
         }
-
-        msg->add_auth = redis_add_auth_packet;
+        msg->add_auth = redis_add_auth;
         msg->fragment = redis_fragment;
         msg->reply = redis_reply;
+        msg->failure = redis_failure;
         msg->pre_coalesce = redis_pre_coalesce;
         msg->post_coalesce = redis_post_coalesce;
     } else {
@@ -305,8 +309,9 @@ msg_get(struct conn *conn, bool request, bool redis)
         } else {
             msg->parser = memcache_parse_rsp;
         }
-        msg->add_auth = memcache_add_auth_packet;
+        msg->add_auth = memcache_add_auth;
         msg->fragment = memcache_fragment;
+        msg->failure = memcache_failure;
         msg->pre_coalesce = memcache_pre_coalesce;
         msg->post_coalesce = memcache_post_coalesce;
     }
@@ -418,7 +423,7 @@ msg_dump(struct msg *msg, int level)
 void
 msg_init(void)
 {
-    log_debug(LOG_DEBUG, "msg size %d", sizeof(struct msg));
+    log_debug(LOG_DEBUG, "msg size %d", (int)sizeof(struct msg));
     msg_id = 0;
     frag_id = 0;
     nfree_msgq = 0;
@@ -476,11 +481,13 @@ msg_ensure_mbuf(struct msg *msg, size_t len)
     } else {
         mbuf = STAILQ_LAST(&msg->mhdr, mbuf, next);
     }
+
     return mbuf;
 }
 
 /*
- * append small(small than a mbuf) content into msg
+ * Append n bytes of data, with n <= mbuf_size(mbuf)
+ * into mbuf
  */
 rstatus_t
 msg_append(struct msg *msg, uint8_t *pos, size_t n)
@@ -498,11 +505,13 @@ msg_append(struct msg *msg, uint8_t *pos, size_t n)
 
     mbuf_copy(mbuf, pos, n);
     msg->mlen += (uint32_t)n;
+
     return NC_OK;
 }
 
 /*
- * prepend small(small than a mbuf) content into msg
+ * Prepend n bytes of data, with n <= mbuf_size(mbuf)
+ * into mbuf
  */
 rstatus_t
 msg_prepend(struct msg *msg, uint8_t *pos, size_t n)
@@ -520,17 +529,20 @@ msg_prepend(struct msg *msg, uint8_t *pos, size_t n)
     msg->mlen += (uint32_t)n;
 
     STAILQ_INSERT_HEAD(&msg->mhdr, mbuf, next);
+
     return NC_OK;
 }
 
 /*
- * prepend small(small than a mbuf) content into msg
+ * Prepend a formatted string into msg. Returns an error if the formatted
+ * string does not fit in a single mbuf.
  */
 rstatus_t
 msg_prepend_format(struct msg *msg, const char *fmt, ...)
 {
     struct mbuf *mbuf;
-    int32_t n;
+    int n;
+    uint32_t size;
     va_list args;
 
     mbuf = mbuf_get();
@@ -538,15 +550,19 @@ msg_prepend_format(struct msg *msg, const char *fmt, ...)
         return NC_ENOMEM;
     }
 
+    size = mbuf_size(mbuf);
+
     va_start(args, fmt);
-    n = nc_vscnprintf(mbuf->last, mbuf_size(mbuf), fmt, args);
+    n = nc_vsnprintf(mbuf->last, size, fmt, args);
     va_end(args);
+    if (n <= 0 || n >= (int)size) {
+        return NC_ERROR;
+    }
 
     mbuf->last += n;
     msg->mlen += (uint32_t)n;
-
-    ASSERT(mbuf_size(mbuf) >= 0);
     STAILQ_INSERT_HEAD(&msg->mhdr, mbuf, next);
+
     return NC_OK;
 }
 

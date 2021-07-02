@@ -1,0 +1,57 @@
+Dockerfile*
+**/Dockerfile*
+*.gz
+src/nutredis
+src/nutcracker
+tests/_binaries/*
+
+### Entries copied from .gitignore
+# pyc
+*.pyc
+
+# Compiled Object files
+*.lo
+*.o
+
+# Compiled Dynamic libraries
+*.so
+
+# Compiled Static libraries
+*.la
+*.a
+
+# Compiled misc
+*.dep
+*.gcda
+*.gcno
+*.gcov
+
+# Packages
+*.tar.gz
+*.tar.bz2
+
+# Logs
+*.log
+
+# Temporary
+*.swp
+*.~
+*.project
+*.cproject
+
+# Core and executable
+core*
+nutcracker
+
+# extracted yaml
+!/contrib/yaml-0.2.5.tar.gz
+
+# Autotools
+.deps
+.libs
+
+/aclocal.m4
+/autom4te.cache
+/stamp-h1
+/autoscan.log
+/libtool

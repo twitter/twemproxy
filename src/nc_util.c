@@ -110,6 +110,13 @@ nc_set_linger(int sd, int timeout)
 }
 
 int
+nc_set_tcpkeepalive(int sd)
+{
+    int val = 1;
+    return setsockopt(sd, SOL_SOCKET, SO_KEEPALIVE, &val, sizeof(val));
+}
+
+int
 nc_set_sndbuf(int sd, int size)
 {
     socklen_t len;
@@ -489,8 +496,12 @@ nc_resolve_inet(struct string *name, int port, struct sockinfo *si)
 
     nc_snprintf(service, NC_UINTMAX_MAXLEN, "%d", port);
 
+    /*
+     * getaddrinfo() returns zero on success or one of the error codes listed
+     * in gai_strerror(3) if an error occurs
+     */
     status = getaddrinfo(node, service, &hints, &ai);
-    if (status < 0) {
+    if (status != 0) {
         log_error("address resolution of node '%s' service '%s' failed: %s",
                   node, service, gai_strerror(status));
         return -1;

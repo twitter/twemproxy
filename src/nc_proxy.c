@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+#include <sys/stat.h>
 #include <sys/un.h>
 
 #include <nc_core.h>
@@ -29,9 +30,9 @@ proxy_ref(struct conn *conn, void *owner)
     ASSERT(!conn->client && conn->proxy);
     ASSERT(conn->owner == NULL);
 
-    conn->family = pool->family;
-    conn->addrlen = pool->addrlen;
-    conn->addr = pool->addr;
+    conn->family = pool->info.family;
+    conn->addrlen = pool->info.addrlen;
+    conn->addr = (struct sockaddr *)&pool->info.addr;
 
     pool->p_conn = conn;
 
@@ -146,6 +147,16 @@ proxy_listen(struct context *ctx, struct conn *p)
         log_error("bind on p %d to addr '%.*s' failed: %s", p->sd,
                   pool->addrstr.len, pool->addrstr.data, strerror(errno));
         return NC_ERROR;
+    }
+
+    if (p->family == AF_UNIX && pool->perm) {
+        struct sockaddr_un *un = (struct sockaddr_un *)p->addr;
+        status = chmod(un->sun_path, pool->perm);
+        if (status < 0) {
+            log_error("chmod on p %d on addr '%.*s' failed: %s", p->sd,
+                      pool->addrstr.len, pool->addrstr.data, strerror(errno));
+            return NC_ERROR;
+        }
     }
 
     status = listen(p->sd, pool->backlog);
@@ -263,6 +274,7 @@ proxy_accept(struct context *ctx, struct conn *p)
     rstatus_t status;
     struct conn *c;
     int sd;
+    struct server_pool *pool = p->owner;
 
     ASSERT(p->proxy && !p->client);
     ASSERT(p->sd > 0);
@@ -344,6 +356,14 @@ proxy_accept(struct context *ctx, struct conn *p)
                   strerror(errno));
         c->close(ctx, c);
         return status;
+    }
+
+    if (pool->tcpkeepalive) {
+        status = nc_set_tcpkeepalive(c->sd);
+        if (status < 0) {
+            log_warn("set tcpkeepalive on c %d from p %d failed, ignored: %s",
+                     c->sd, p->sd, strerror(errno));
+        }
     }
 
     if (p->family == AF_INET || p->family == AF_INET6) {

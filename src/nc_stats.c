@@ -887,8 +887,8 @@ stats_stop_aggregator(struct stats *st)
 }
 
 struct stats *
-stats_create(uint16_t stats_port, char *stats_ip, int stats_interval,
-             char *source, struct array *server_pool)
+stats_create(uint16_t stats_port, const char *stats_ip, int stats_interval,
+             const char *source, struct array *server_pool)
 {
     rstatus_t status;
     struct stats *st;

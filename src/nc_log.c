@@ -27,7 +27,7 @@
 static struct logger logger;
 
 int
-log_init(int level, char *name)
+log_init(int level, const char *name)
 {
     struct logger *l = &logger;
 
@@ -202,7 +202,7 @@ _log_stderr(const char *fmt, ...)
  * See -C option in man hexdump
  */
 void
-_log_hexdump(const char *file, int line, char *data, int datalen,
+_log_hexdump(const char *file, int line, const char *data, int datalen,
              const char *fmt, ...)
 {
     struct logger *l = &logger;
@@ -221,7 +221,7 @@ _log_hexdump(const char *file, int line, char *data, int datalen,
     size = 8 * LOG_MAX_LEN;   /* size of output buffer */
 
     while (datalen != 0 && (len < size - 1)) {
-        char *save, *str;
+        const char *save, *str;
         unsigned char c;
         int savelen;
 

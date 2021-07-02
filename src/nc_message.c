@@ -458,7 +458,7 @@ msg_empty(struct msg *msg)
 }
 
 uint32_t
-msg_backend_idx(struct msg *msg, uint8_t *key, uint32_t keylen)
+msg_backend_idx(struct msg *msg, const uint8_t *key, uint32_t keylen)
 {
     struct conn *conn = msg->owner;
     struct server_pool *pool = conn->owner;
@@ -490,7 +490,7 @@ msg_ensure_mbuf(struct msg *msg, size_t len)
  * into mbuf
  */
 rstatus_t
-msg_append(struct msg *msg, uint8_t *pos, size_t n)
+msg_append(struct msg *msg, const uint8_t *pos, size_t n)
 {
     struct mbuf *mbuf;
 
@@ -514,7 +514,7 @@ msg_append(struct msg *msg, uint8_t *pos, size_t n)
  * into mbuf
  */
 rstatus_t
-msg_prepend(struct msg *msg, uint8_t *pos, size_t n)
+msg_prepend(struct msg *msg, const uint8_t *pos, size_t n)
 {
     struct mbuf *mbuf;
 

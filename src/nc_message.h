@@ -228,8 +228,8 @@ typedef enum msg_type {
 #undef DEFINE_ACTION
 
 struct keypos {
-    uint8_t             *start;           /* key start pos */
-    uint8_t             *end;             /* key end pos */
+    uint8_t              *start;           /* key start pos */
+    uint8_t              *end;             /* key end pos */
 };
 
 /*
@@ -279,7 +279,7 @@ struct msg {
     uint32_t             rnarg;           /* running # arg used by parsing fsa (redis) */
     uint32_t             rlen;            /* running length in parsing fsa (redis) */
     uint32_t             integer;         /* integer reply value (redis) */
-    uint8_t             is_top_level;     /* is this top level (redis) */
+    uint8_t              is_top_level;     /* is this top level (redis) */
 
     struct msg           *frag_owner;     /* owner of fragment message */
     uint32_t             nfrag;           /* # fragment */
@@ -318,10 +318,10 @@ void msg_read_line(struct msg* msg, struct mbuf *line_buf, int line_num);
 rstatus_t msg_recv(struct context *ctx, struct conn *conn);
 rstatus_t msg_send(struct context *ctx, struct conn *conn);
 uint64_t msg_gen_frag_id(void);
-uint32_t msg_backend_idx(struct msg *msg, uint8_t *key, uint32_t keylen);
+uint32_t msg_backend_idx(struct msg *msg, const uint8_t *key, uint32_t keylen);
 struct mbuf *msg_ensure_mbuf(struct msg *msg, size_t len);
-rstatus_t msg_append(struct msg *msg, uint8_t *pos, size_t n);
-rstatus_t msg_prepend(struct msg *msg, uint8_t *pos, size_t n);
+rstatus_t msg_append(struct msg *msg, const uint8_t *pos, size_t n);
+rstatus_t msg_prepend(struct msg *msg, const uint8_t *pos, size_t n);
 rstatus_t msg_prepend_format(struct msg *msg, const char *fmt, ...);
 
 struct msg *req_get(struct conn *conn);

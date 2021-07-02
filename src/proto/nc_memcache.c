@@ -1232,13 +1232,13 @@ error:
 }
 
 bool
-memcache_failure(struct msg *r)
+memcache_failure(const struct msg *r)
 {
     return false;
 }
 
 static rstatus_t
-memcache_append_key(struct msg *r, uint8_t *key, uint32_t keylen)
+memcache_append_key(struct msg *r, const uint8_t *key, uint32_t keylen)
 {
     struct mbuf *mbuf;
     struct keypos *kpos;

@@ -627,7 +627,7 @@ server_pool_update(struct server_pool *pool)
 }
 
 static uint32_t
-server_pool_hash(struct server_pool *pool, uint8_t *key, uint32_t keylen)
+server_pool_hash(const struct server_pool *pool, const uint8_t *key, uint32_t keylen)
 {
     ASSERT(array_n(&pool->server) != 0);
     ASSERT(key != NULL);
@@ -644,7 +644,7 @@ server_pool_hash(struct server_pool *pool, uint8_t *key, uint32_t keylen)
 }
 
 uint32_t
-server_pool_idx(struct server_pool *pool, uint8_t *key, uint32_t keylen)
+server_pool_idx(const struct server_pool *pool, const uint8_t *key, uint32_t keylen)
 {
     uint32_t hash, idx;
 
@@ -657,8 +657,8 @@ server_pool_idx(struct server_pool *pool, uint8_t *key, uint32_t keylen)
      * we use the full key
      */
     if (!string_empty(&pool->hash_tag)) {
-        struct string *tag = &pool->hash_tag;
-        uint8_t *tag_start, *tag_end;
+        const struct string *tag = &pool->hash_tag;
+        const uint8_t *tag_start, *tag_end;
 
         tag_start = nc_strchr(key, key + keylen, tag->data[0]);
         if (tag_start != NULL) {

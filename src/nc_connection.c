@@ -91,7 +91,7 @@ static uint32_t ncurr_cconn;       /* current # client connections */
  * Return the context associated with this connection.
  */
 struct context *
-conn_to_ctx(struct conn *conn)
+conn_to_ctx(const struct conn *conn)
 {
     struct server_pool *pool;
 

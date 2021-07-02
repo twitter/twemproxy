@@ -2552,7 +2552,7 @@ error:
  * See issue: https://github.com/twitter/twemproxy/issues/369
  */
 bool
-redis_failure(struct msg *r)
+redis_failure(const struct msg *r)
 {
     ASSERT(!r->request);
 
@@ -2732,7 +2732,7 @@ redis_pre_coalesce(struct msg *r)
 }
 
 static rstatus_t
-redis_append_key(struct msg *r, uint8_t *key, uint32_t keylen)
+redis_append_key(struct msg *r, const uint8_t *key, uint32_t keylen)
 {
     uint32_t len;
     struct mbuf *mbuf;

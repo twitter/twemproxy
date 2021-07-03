@@ -21,27 +21,27 @@
 #include <proto/nc_proto.h>
 
 #define DEFINE_ACTION(_hash, _name) string(#_name),
-static struct string hash_strings[] = {
+static const struct string hash_strings[] = {
     HASH_CODEC( DEFINE_ACTION )
     null_string
 };
 #undef DEFINE_ACTION
 
 #define DEFINE_ACTION(_hash, _name) hash_##_name,
-static hash_t hash_algos[] = {
+static const hash_t hash_algos[] = {
     HASH_CODEC( DEFINE_ACTION )
     NULL
 };
 #undef DEFINE_ACTION
 
 #define DEFINE_ACTION(_dist, _name) string(#_name),
-static struct string dist_strings[] = {
+static const struct string dist_strings[] = {
     DIST_CODEC( DEFINE_ACTION )
     null_string
 };
 #undef DEFINE_ACTION
 
-static struct command conf_commands[] = {
+static const struct command conf_commands[] = {
     { string("listen"),
       conf_set_listen,
       offsetof(struct conf_pool, listen) },
@@ -497,7 +497,7 @@ conf_pop_scalar(struct conf *cf)
 static rstatus_t
 conf_handler(struct conf *cf, void *data)
 {
-    struct command *cmd;
+    const struct command *cmd;
     struct string *key, *value;
     uint32_t narg;
 
@@ -1415,7 +1415,7 @@ conf_destroy(struct conf *cf)
 }
 
 char *
-conf_set_string(struct conf *cf, struct command *cmd, void *conf)
+conf_set_string(struct conf *cf, const struct command *cmd, void *conf)
 {
     rstatus_t status;
     uint8_t *p;
@@ -1439,7 +1439,7 @@ conf_set_string(struct conf *cf, struct command *cmd, void *conf)
 }
 
 char *
-conf_set_listen(struct conf *cf, struct command *cmd, void *conf)
+conf_set_listen(struct conf *cf, const struct command *cmd, void *conf)
 {
     rstatus_t status;
     struct string *value;
@@ -1528,7 +1528,7 @@ conf_set_listen(struct conf *cf, struct command *cmd, void *conf)
 }
 
 char *
-conf_add_server(struct conf *cf, struct command *cmd, void *conf)
+conf_add_server(struct conf *cf, const struct command *cmd, void *conf)
 {
     rstatus_t status;
     struct array *a;
@@ -1668,7 +1668,7 @@ conf_add_server(struct conf *cf, struct command *cmd, void *conf)
 }
 
 char *
-conf_set_num(struct conf *cf, struct command *cmd, void *conf)
+conf_set_num(struct conf *cf, const struct command *cmd, void *conf)
 {
     uint8_t *p;
     int num, *np;
@@ -1694,7 +1694,7 @@ conf_set_num(struct conf *cf, struct command *cmd, void *conf)
 }
 
 char *
-conf_set_bool(struct conf *cf, struct command *cmd, void *conf)
+conf_set_bool(struct conf *cf, const struct command *cmd, void *conf)
 {
     uint8_t *p;
     int *bp;
@@ -1723,11 +1723,12 @@ conf_set_bool(struct conf *cf, struct command *cmd, void *conf)
 }
 
 char *
-conf_set_hash(struct conf *cf, struct command *cmd, void *conf)
+conf_set_hash(struct conf *cf, const struct command *cmd, void *conf)
 {
     uint8_t *p;
     hash_type_t *hp;
-    struct string *value, *hash;
+    struct string *value;
+    const struct string *hash;
 
     p = conf;
     hp = (hash_type_t *)(p + cmd->offset);
@@ -1752,11 +1753,12 @@ conf_set_hash(struct conf *cf, struct command *cmd, void *conf)
 }
 
 char *
-conf_set_distribution(struct conf *cf, struct command *cmd, void *conf)
+conf_set_distribution(struct conf *cf, const struct command *cmd, void *conf)
 {
     uint8_t *p;
     dist_type_t *dp;
-    struct string *value, *dist;
+    struct string *value;
+    const struct string *dist;
 
     p = conf;
     dp = (dist_type_t *)(p + cmd->offset);
@@ -1781,7 +1783,7 @@ conf_set_distribution(struct conf *cf, struct command *cmd, void *conf)
 }
 
 char *
-conf_set_hashtag(struct conf *cf, struct command *cmd, void *conf)
+conf_set_hashtag(struct conf *cf, const struct command *cmd, void *conf)
 {
     rstatus_t status;
     uint8_t *p;

@@ -42,11 +42,11 @@ static struct stats_metric stats_server_codec[] = {
 #undef DEFINE_ACTION
 
 #define DEFINE_ACTION(_name, _type, _desc) { .name = #_name, .desc = _desc },
-static struct stats_desc stats_pool_desc[] = {
+static const struct stats_desc stats_pool_desc[] = {
     STATS_POOL_CODEC( DEFINE_ACTION )
 };
 
-static struct stats_desc stats_server_desc[] = {
+static const struct stats_desc stats_server_desc[] = {
     STATS_SERVER_CODEC( DEFINE_ACTION )
 };
 #undef DEFINE_ACTION

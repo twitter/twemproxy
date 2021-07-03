@@ -47,7 +47,7 @@ static void test_hash_algorithms(void) {
 }
 
 static void test_config_parsing(void) {
-    char* conf_file = "../conf/nutcracker.yml";
+    const char* conf_file = "../conf/nutcracker.yml";
     struct conf * conf = conf_create(conf_file);
     if (conf == NULL) {
         printf("FAIL could not parse %s (this test should be run within src/ folder)\n", conf_file);

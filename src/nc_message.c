@@ -332,8 +332,8 @@ msg_get_error(bool redis, err_t err)
     struct msg *msg;
     struct mbuf *mbuf;
     int n;
-    char *errstr = err ? strerror(err) : "unknown";
-    char *protstr = redis ? "-ERR" : "SERVER_ERROR";
+    const char *errstr = err ? strerror(err) : "unknown";
+    const char *protstr = redis ? "-ERR" : "SERVER_ERROR";
 
     msg = _msg_get();
     if (msg == NULL) {

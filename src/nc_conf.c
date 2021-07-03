@@ -113,6 +113,9 @@ static const struct command conf_commands[] = {
     null_command
 };
 
+static const struct string true_str = string("true");
+static const struct string false_str = string("false");
+
 static void
 conf_server_init(struct conf_server *cs)
 {
@@ -175,7 +178,7 @@ conf_server_each_transform(void *elem, void *data)
 }
 
 static rstatus_t
-conf_pool_init(struct conf_pool *cp, struct string *name)
+conf_pool_init(struct conf_pool *cp, const struct string *name)
 {
     rstatus_t status;
 
@@ -1419,7 +1422,8 @@ conf_set_string(struct conf *cf, const struct command *cmd, void *conf)
 {
     rstatus_t status;
     uint8_t *p;
-    struct string *field, *value;
+    struct string *field;
+    const struct string *value;
 
     p = conf;
     field = (struct string *)(p + cmd->offset);
@@ -1672,7 +1676,7 @@ conf_set_num(struct conf *cf, const struct command *cmd, void *conf)
 {
     uint8_t *p;
     int num, *np;
-    struct string *value;
+    const struct string *value;
 
     p = conf;
     np = (int *)(p + cmd->offset);
@@ -1698,7 +1702,7 @@ conf_set_bool(struct conf *cf, const struct command *cmd, void *conf)
 {
     uint8_t *p;
     int *bp;
-    struct string *value, true_str, false_str;
+    const struct string *value;
 
     p = conf;
     bp = (int *)(p + cmd->offset);
@@ -1708,8 +1712,6 @@ conf_set_bool(struct conf *cf, const struct command *cmd, void *conf)
     }
 
     value = array_top(&cf->arg);
-    string_set_text(&true_str, "true");
-    string_set_text(&false_str, "false");
 
     if (string_compare(value, &true_str) == 0) {
         *bp = 1;
@@ -1727,8 +1729,7 @@ conf_set_hash(struct conf *cf, const struct command *cmd, void *conf)
 {
     uint8_t *p;
     hash_type_t *hp;
-    struct string *value;
-    const struct string *hash;
+    const struct string *value, *hash;
 
     p = conf;
     hp = (hash_type_t *)(p + cmd->offset);
@@ -1757,8 +1758,7 @@ conf_set_distribution(struct conf *cf, const struct command *cmd, void *conf)
 {
     uint8_t *p;
     dist_type_t *dp;
-    struct string *value;
-    const struct string *dist;
+    const struct string *value, *dist;
 
     p = conf;
     dp = (dist_type_t *)(p + cmd->offset);
@@ -1787,7 +1787,8 @@ conf_set_hashtag(struct conf *cf, const struct command *cmd, void *conf)
 {
     rstatus_t status;
     uint8_t *p;
-    struct string *field, *value;
+    struct string *field;
+    const struct string *value;
 
     p = conf;
     field = (struct string *)(p + cmd->offset);

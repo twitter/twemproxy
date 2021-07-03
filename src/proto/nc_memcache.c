@@ -37,7 +37,7 @@
  * return false
  */
 static bool
-memcache_storage(struct msg *r)
+memcache_storage(const struct msg *r)
 {
     switch (r->type) {
     case MSG_REQ_MC_SET:
@@ -60,7 +60,7 @@ memcache_storage(struct msg *r)
  * return false
  */
 static bool
-memcache_cas(struct msg *r)
+memcache_cas(const struct msg *r)
 {
     if (r->type == MSG_REQ_MC_CAS) {
         return true;
@@ -74,7 +74,7 @@ memcache_cas(struct msg *r)
  * return false
  */
 static bool
-memcache_retrieval(struct msg *r)
+memcache_retrieval(const struct msg *r)
 {
     switch (r->type) {
     case MSG_REQ_MC_GET:
@@ -101,7 +101,7 @@ memcache_retrieval(struct msg *r)
  * so avoid them when possible.
  */
 static bool
-memcache_should_fragment(struct msg *r)
+memcache_should_fragment(const struct msg *r)
 {
     switch (r->type) {
     case MSG_REQ_MC_GET:
@@ -124,7 +124,7 @@ memcache_should_fragment(struct msg *r)
  * return false
  */
 static bool
-memcache_arithmetic(struct msg *r)
+memcache_arithmetic(const struct msg *r)
 {
     switch (r->type) {
     case MSG_REQ_MC_INCR:
@@ -143,7 +143,7 @@ memcache_arithmetic(struct msg *r)
  * return false
  */
 static bool
-memcache_delete(struct msg *r)
+memcache_delete(const struct msg *r)
 {
     if (r->type == MSG_REQ_MC_DELETE) {
         return true;
@@ -157,7 +157,7 @@ memcache_delete(struct msg *r)
  * return false
  */
 static bool
-memcache_touch(struct msg *r)
+memcache_touch(const struct msg *r)
 {
     if (r->type == MSG_REQ_MC_TOUCH) {
         return true;
@@ -1258,7 +1258,7 @@ memcache_append_key(struct msg *r, const uint8_t *key, uint32_t keylen)
     mbuf_copy(mbuf, key, keylen);
     r->mlen += keylen;
 
-    mbuf_copy(mbuf, (uint8_t *)" ", 1);
+    mbuf_copy(mbuf, (const uint8_t *)" ", 1);
     r->mlen += 1;
     return NC_OK;
 }

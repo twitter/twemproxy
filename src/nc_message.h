@@ -26,7 +26,7 @@ typedef rstatus_t (*msg_add_auth_t)(struct context *ctx, struct conn *c_conn, st
 typedef rstatus_t (*msg_fragment_t)(struct msg *, uint32_t, struct msg_tqh *);
 typedef void (*msg_coalesce_t)(struct msg *r);
 typedef rstatus_t (*msg_reply_t)(struct msg *r);
-typedef bool (*msg_failure_t)(struct msg *r);
+typedef bool (*msg_failure_t)(const struct msg *r);
 
 typedef enum msg_parse_result {
     MSG_PARSE_OK,                         /* parsing ok */
@@ -318,7 +318,7 @@ void msg_read_line(struct msg* msg, struct mbuf *line_buf, int line_num);
 rstatus_t msg_recv(struct context *ctx, struct conn *conn);
 rstatus_t msg_send(struct context *ctx, struct conn *conn);
 uint64_t msg_gen_frag_id(void);
-uint32_t msg_backend_idx(struct msg *msg, const uint8_t *key, uint32_t keylen);
+uint32_t msg_backend_idx(const struct msg *msg, const uint8_t *key, uint32_t keylen);
 struct mbuf *msg_ensure_mbuf(struct msg *msg, size_t len);
 rstatus_t msg_append(struct msg *msg, const uint8_t *pos, size_t n);
 rstatus_t msg_prepend(struct msg *msg, const uint8_t *pos, size_t n);
@@ -326,8 +326,8 @@ rstatus_t msg_prepend_format(struct msg *msg, const char *fmt, ...);
 
 struct msg *req_get(struct conn *conn);
 void req_put(struct msg *msg);
-bool req_done(struct conn *conn, struct msg *msg);
-bool req_error(struct conn *conn, struct msg *msg);
+bool req_done(const struct conn *conn, struct msg *msg);
+bool req_error(const struct conn *conn, struct msg *msg);
 void req_server_enqueue_imsgq(struct context *ctx, struct conn *conn, struct msg *msg);
 void req_server_enqueue_imsgq_head(struct context *ctx, struct conn *conn, struct msg *msg);
 void req_server_dequeue_imsgq(struct context *ctx, struct conn *conn, struct msg *msg);

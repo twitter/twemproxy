@@ -640,7 +640,7 @@ server_pool_hash(const struct server_pool *pool, const uint8_t *key, uint32_t ke
         return 0;
     }
 
-    return pool->key_hash((char *)key, keylen);
+    return pool->key_hash((const char *)key, keylen);
 }
 
 uint32_t
@@ -694,7 +694,7 @@ server_pool_idx(const struct server_pool *pool, const uint8_t *key, uint32_t key
 }
 
 static struct server *
-server_pool_server(struct server_pool *pool, uint8_t *key, uint32_t keylen)
+server_pool_server(struct server_pool *pool, const uint8_t *key, uint32_t keylen)
 {
     struct server *server;
     uint32_t idx;
@@ -709,7 +709,7 @@ server_pool_server(struct server_pool *pool, uint8_t *key, uint32_t keylen)
 }
 
 struct conn *
-server_pool_conn(struct context *ctx, struct server_pool *pool, uint8_t *key,
+server_pool_conn(struct context *ctx, struct server_pool *pool, const uint8_t *key,
                  uint32_t keylen)
 {
     rstatus_t status;

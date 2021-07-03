@@ -51,7 +51,7 @@ static int test_conf;
 static int daemonize;
 static int describe_stats;
 
-static struct option long_options[] = {
+static const struct option long_options[] = {
     { "help",           no_argument,        NULL,   'h' },
     { "version",        no_argument,        NULL,   'V' },
     { "test-conf",      no_argument,        NULL,   't' },
@@ -68,7 +68,7 @@ static struct option long_options[] = {
     { NULL,             0,                  NULL,    0  }
 };
 
-static char short_options[] = "hVtdDv:o:c:s:i:a:p:m:";
+static const char short_options[] = "hVtdDv:o:c:s:i:a:p:m:";
 
 static rstatus_t
 nc_daemonize(int dump_core)
@@ -173,7 +173,7 @@ nc_daemonize(int dump_core)
 }
 
 static void
-nc_print_run(struct instance *nci)
+nc_print_run(const struct instance *nci)
 {
     int status;
     struct utsname name;
@@ -446,7 +446,7 @@ nc_get_options(int argc, char **argv, struct instance *nci)
  * returns false
  */
 static bool
-nc_test_conf(struct instance *nci)
+nc_test_conf(const struct instance *nci)
 {
     struct conf *cf;
 

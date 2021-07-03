@@ -315,7 +315,7 @@ conf_pool_each_transform(void *elem, void *data)
 }
 
 static void
-conf_dump(struct conf *cf)
+conf_dump(const struct conf *cf)
 {
     uint32_t i, j, npool, nserver;
     struct conf_pool *cp;

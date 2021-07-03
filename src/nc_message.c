@@ -458,7 +458,7 @@ msg_empty(struct msg *msg)
 }
 
 uint32_t
-msg_backend_idx(struct msg *msg, const uint8_t *key, uint32_t keylen)
+msg_backend_idx(const struct msg *msg, const uint8_t *key, uint32_t keylen)
 {
     struct conn *conn = msg->owner;
     struct server_pool *pool = conn->owner;

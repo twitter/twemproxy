@@ -85,10 +85,10 @@ typedef struct {
  * This processes one or more 64-byte data blocks, but does NOT update
  * the bit counters.  There are no alignment requirements.
  */
-static void *
-body(MD5_CTX *ctx, void *data, unsigned long size)
+static const void *
+body(MD5_CTX *ctx, const void *data, unsigned long size)
 {
-    unsigned char *ptr;
+    const unsigned char *ptr;
     MD5_u32plus a, b, c, d;
     MD5_u32plus saved_a, saved_b, saved_c, saved_d;
 
@@ -206,7 +206,7 @@ MD5_Init(MD5_CTX *ctx)
 }
 
 void
-MD5_Update(MD5_CTX *ctx, void *data, unsigned long size)
+MD5_Update(MD5_CTX *ctx, const void *data, unsigned long size)
 {
     MD5_u32plus saved_lo;
     unsigned long used, free;
@@ -228,7 +228,7 @@ MD5_Update(MD5_CTX *ctx, void *data, unsigned long size)
         }
 
         memcpy(&ctx->buffer[used], data, free);
-        data = (unsigned char *)data + free;
+        data = (const unsigned char *)data + free;
         size -= free;
         body(ctx, ctx->buffer, 64);
     }
@@ -298,7 +298,7 @@ MD5_Final(unsigned char *result, MD5_CTX *ctx)
  * result must be == 16
  */
 void
-md5_signature(unsigned char *key, unsigned long length, unsigned char *result)
+md5_signature(const unsigned char *key, unsigned long length, unsigned char *result)
 {
     MD5_CTX my_md5;
 
@@ -312,7 +312,7 @@ hash_md5(const char *key, size_t key_length)
 {
     unsigned char results[16];
 
-    md5_signature((unsigned char*)key, (unsigned long)key_length, results);
+    md5_signature((const unsigned char*)key, (unsigned long)key_length, results);
 
     return ((uint32_t) (results[3] & 0xFF) << 24) |
            ((uint32_t) (results[2] & 0xFF) << 16) |

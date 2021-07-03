@@ -892,3 +892,21 @@ msg_send(struct context *ctx, struct conn *conn)
 
     return NC_OK;
 }
+
+/*
+ * Set a placeholder key for a command with no key that is forwarded to an
+ * arbitrary backend.
+ */
+bool msg_set_placeholder_key(struct msg *r)
+{
+    struct keypos *kpos;
+    ASSERT(array_n(r->keys) == 0);
+    kpos = array_push(r->keys);
+    if (kpos == NULL) {
+        return false;
+    }
+    kpos->start = (uint8_t *)"placeholder";
+    kpos->end = kpos->start + sizeof("placeholder") - 1;
+    return true;
+}
+

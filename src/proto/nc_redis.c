@@ -398,24 +398,6 @@ redis_error(const struct msg *r)
 }
 
 /*
- * Set a placeholder key for a command with no key that is forwarded to an
- * arbitrary backend.
- */
-static bool
-set_placeholder_key(struct msg *r)
-{
-    struct keypos *kpos;
-    ASSERT(array_n(r->keys) == 0);
-    kpos = array_push(r->keys);
-    if (kpos == NULL) {
-        return false;
-    }
-    kpos->start = (uint8_t *)"placeholder";
-    kpos->end = kpos->start + sizeof("placeholder") - 1;
-    return true;
-}
-
-/*
  * Reference: http://redis.io/topics/protocol
  *
  * Redis >= 1.2 uses the unified protocol to send requests to the Redis
@@ -1021,7 +1003,7 @@ redis_parse_req(struct msg *r)
 
                 if (str6icmp(m, 'l', 'o', 'l', 'w', 'u', 't')) {
                     r->type = MSG_REQ_REDIS_LOLWUT;
-                    if (!set_placeholder_key(r)) {
+                    if (!msg_set_placeholder_key(r)) {
                         goto enomem;
                     }
                     break;
@@ -1117,7 +1099,7 @@ redis_parse_req(struct msg *r)
 
                 if (str7icmp(m, 'c', 'o', 'm', 'm', 'a', 'n', 'd')) {
                     r->type = MSG_REQ_REDIS_COMMAND;
-                    if (!set_placeholder_key(r)) {
+                    if (!msg_set_placeholder_key(r)) {
                         goto enomem;
                     }
                     break;

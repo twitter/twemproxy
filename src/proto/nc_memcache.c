@@ -320,6 +320,14 @@ memcache_parse_req(struct msg *r)
                         break;
                     }
 
+                    if (str7cmp(m, 'v', 'e', 'r', 's', 'i', 'o', 'n')) {
+                        r->type = MSG_REQ_MC_VERSION;
+                        if (!msg_set_placeholder_key(r)) {
+                            goto enomem;
+                        }
+                        break;
+                    }
+
                     break;
                 }
 
@@ -342,6 +350,7 @@ memcache_parse_req(struct msg *r)
                     state = SW_SPACES_BEFORE_KEY;
                     break;
 
+                case MSG_REQ_MC_VERSION:
                 case MSG_REQ_MC_QUIT:
                     p = p - 1; /* go back by 1 byte */
                     state = SW_CRLF;
@@ -402,11 +411,10 @@ memcache_parse_req(struct msg *r)
                     state = SW_SPACES_BEFORE_FLAGS;
                 } else if (memcache_arithmetic(r) || memcache_touch(r) ) {
                     state = SW_SPACES_BEFORE_NUM;
-                } else if (memcache_delete(r)) {
-                    state = SW_RUNTO_CRLF;
                 } else if (memcache_retrieval(r)) {
                     state = SW_SPACES_BEFORE_KEYS;
                 } else {
+                    /* delete, etc. */
                     state = SW_RUNTO_CRLF;
                 }
 
@@ -917,6 +925,11 @@ memcache_parse_rsp(struct msg *r)
                         break;
                     }
 
+                    if (str7cmp(m, 'V', 'E', 'R', 'S', 'I', 'O', 'N')) {
+                        r->type = MSG_RSP_MC_VERSION;
+                        break;
+                    }
+
                     break;
 
                 case 9:
@@ -976,6 +989,7 @@ memcache_parse_rsp(struct msg *r)
 
                 case MSG_RSP_MC_CLIENT_ERROR:
                 case MSG_RSP_MC_SERVER_ERROR:
+                case MSG_RSP_MC_VERSION:
                     state = SW_RUNTO_CRLF;
                     break;
 

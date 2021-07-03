@@ -30,7 +30,7 @@
   * <data>    - uint8_t[]: data block
   * <cas>     - uint64_t
 
-#### Ascii Retrival Command
+#### Ascii Retrieval Command
 
     +-------------------+------------+--------------------------------------------------------------------------+
     |      Command      | Supported? | Format                                                                   |
@@ -68,11 +68,15 @@
     +-------------------+------------+--------------------------------------------------------------------------+
     |       touch       |    Yes     | touch <key> <expiry>[noreply]\r\n                                        |
     +-------------------+------------+--------------------------------------------------------------------------+
+    |        gat        |  Planned   | gat <expiry> <key>+\r\n                                                  |
+    +-------------------+------------+--------------------------------------------------------------------------+
+    |        gats       |  Planned   | gats <expiry> <key>+\r\n                                                 |
+    +-------------------+------------+--------------------------------------------------------------------------+
     |        quit       |    Yes     | quit\r\n                                                                 |
     +-------------------+------------+--------------------------------------------------------------------------+
     |      flush_all    |    No      | flush_all [<delay>] [noreply]\r\n                                        |
     +-------------------+------------+--------------------------------------------------------------------------+
-    |      version      |    No      | version\r\n                                                              |
+    |      version      |    Yes     | version\r\n                                                              |
     +-------------------+------------+--------------------------------------------------------------------------+
     |      verbosity    |    No      | verbosity <num> [noreply]\r\n                                            |
     +-------------------+------------+--------------------------------------------------------------------------+
@@ -112,7 +116,7 @@
     NOT_FOUND\r\n
     DELETED\r\n
 
-#### Retrival Responses
+#### Retrieval Responses
 
     END\r\n
     VALUE <key> <flags> <datalen> [<cas>]\r\n<data>\r\nEND\r\n
@@ -158,5 +162,7 @@
   - ascii protocol is easier to debug - think using strace or tcpdump to see
     protocol on the wire, Or using telnet or netcat or socat to build memcache
     requests and responses
-    http://stackoverflow.com/questions/2525188/are-binary-protocols-dead
-  - http://news.ycombinator.com/item?id=1712788
+    https://stackoverflow.com/questions/2525188/are-binary-protocols-dead
+  - nutcracker will support the more efficient meta-text protocol after the protocol
+    is marked as stable and memcached servers using it have had several releases.
+  - https://news.ycombinator.com/item?id=1712788

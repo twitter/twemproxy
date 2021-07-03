@@ -110,6 +110,7 @@ Twemproxy can be configured through a YAML file specified by the -c or --conf-fi
 + **auto_eject_hosts**: A boolean value that controls if server should be ejected temporarily when it fails consecutively server_failure_limit times. See [liveness recommendations](notes/recommendation.md#liveness) for information. Defaults to false.
 + **server_retry_timeout**: The timeout value in msec to wait for before retrying on a temporarily ejected server, when auto_eject_host is set to true. Defaults to 30000 msec.
 + **server_failure_limit**: The number of consecutive failures on a server that would lead to it being temporarily ejected when auto_eject_host is set to true. Defaults to 2.
++ **reuse_port**: A boolean value that controls if a server pool  will use the SO_REUSEPORT option for its socket. Defaults to false.
 + **servers**: A list of server address, port and weight (name:port:weight or ip:port:weight) for this server pool.
 
 

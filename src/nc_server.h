@@ -120,6 +120,7 @@ struct server_pool {
     unsigned           auto_eject_hosts:1;   /* auto_eject_hosts? */
     unsigned           preconnect:1;         /* preconnect? */
     unsigned           redis:1;              /* redis? */
+    unsigned           reuse_port:1;         /* reuse_port? */
     unsigned           tcpkeepalive:1;       /* tcpkeepalive? */
 };
 

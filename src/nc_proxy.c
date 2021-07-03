@@ -90,7 +90,7 @@ proxy_close(struct context *ctx, struct conn *conn)
 }
 
 static rstatus_t
-proxy_reuse(struct conn *p)
+proxy_reuse(struct conn *p, bool reuse_addr)
 {
     rstatus_t status;
     struct sockaddr_un *un;
@@ -98,18 +98,30 @@ proxy_reuse(struct conn *p)
     switch (p->family) {
     case AF_INET:
     case AF_INET6:
-        status = nc_set_reuseaddr(p->sd);
+        if (reuse_addr) {
+            status = nc_set_reuseaddr(p->sd);
+        }
+        else {
+            status = nc_set_reuseport(p->sd);
+        }
         break;
 
     case AF_UNIX:
-        /*
-         * bind() will fail if the pathname already exist. So, we call unlink()
-         * to delete the pathname, in case it already exists. If it does not
-         * exist, unlink() returns error, which we ignore
-         */
-        un = (struct sockaddr_un *) p->addr;
-        unlink(un->sun_path);
-        status = NC_OK;
+        // Shouldn't accept reuseport for Unix domain sockets
+        if (reuse_addr) {
+            /*
+             * bind() will fail if the pathname already exist. So, we call unlink()
+             * to delete the pathname, in case it already exists. If it does not
+             * exist, unlink() returns error, which we ignore
+             */
+            un = (struct sockaddr_un *) p->addr;
+            unlink(un->sun_path);
+            status = NC_OK;
+        }
+        else {
+            errno = ENOPROTOOPT;
+            status = NC_ERROR;
+        }
         break;
 
     default:
@@ -134,12 +146,27 @@ proxy_listen(struct context *ctx, struct conn *p)
         return NC_ERROR;
     }
 
-    status = proxy_reuse(p);
+    status = proxy_reuse(p, true);
     if (status < 0) {
-        log_error("reuse of addr '%.*s' for listening on p %d failed: %s",
+        log_error("reuse_addr of addr '%.*s' for listening on p %d failed: %s",
                   pool->addrstr.len, pool->addrstr.data, p->sd,
                   strerror(errno));
         return NC_ERROR;
+    }
+
+    /*
+    (c) Copyright IBM Corp. 2015
+    */
+    if (p->reuse_port) {
+        status = proxy_reuse(p, false);
+        if (status < 0) {
+            log_error("reuse_port of addr '%.*s' for listening on p %d failed: %s\n\
+NOTICE that the reuse_port option is available only on BSD \
+distros or linux distros with linux kernel version 3.9 or above",
+                      pool->addrstr.len, pool->addrstr.data, p->sd,
+                      strerror(errno));
+            return NC_ERROR;
+        }
     }
 
     status = bind(p->sd, p->addr, p->addrlen);
@@ -294,7 +321,7 @@ proxy_accept(struct context *ctx, struct conn *p)
                 return NC_OK;
             }
 
-            /* 
+            /*
              * Workaround of https://github.com/twitter/twemproxy/issues/97
              *
              * We should never reach here because the check for conn_ncurr_cconn()

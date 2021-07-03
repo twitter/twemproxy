@@ -647,9 +647,15 @@ uint32_t
 server_pool_idx(const struct server_pool *pool, const uint8_t *key, uint32_t keylen)
 {
     uint32_t hash, idx;
+    uint32_t nserver = array_n(&pool->server);
 
-    ASSERT(array_n(&pool->server) != 0);
+    ASSERT(nserver != 0);
     ASSERT(key != NULL);
+
+    if (nserver == 1) {
+        /* Optimization: Skip hashing and dispatching for pools with only one server */
+        return 0;
+    }
 
     /*
      * If hash_tag: is configured for this server pool, we use the part of

@@ -50,6 +50,7 @@ typedef enum msg_parse_result {
     ACTION( REQ_MC_DECR )                                                                           \
     ACTION( REQ_MC_TOUCH )                     /* memcache touch request */                         \
     ACTION( REQ_MC_QUIT )                      /* memcache quit request */                          \
+    ACTION( REQ_MC_VERSION )                   /* memcache version request */                       \
     ACTION( RSP_MC_NUM )                       /* memcache arithmetic response */                   \
     ACTION( RSP_MC_STORED )                    /* memcache cas and storage response */              \
     ACTION( RSP_MC_NOT_STORED )                                                                     \
@@ -59,6 +60,7 @@ typedef enum msg_parse_result {
     ACTION( RSP_MC_VALUE )                                                                          \
     ACTION( RSP_MC_DELETED )                   /* memcache delete response */                       \
     ACTION( RSP_MC_TOUCHED )                   /* memcache touch response */                        \
+    ACTION( RSP_MC_VERSION )                   /* memcache version response */                      \
     ACTION( RSP_MC_ERROR )                     /* memcache error responses */                       \
     ACTION( RSP_MC_CLIENT_ERROR )                                                                   \
     ACTION( RSP_MC_SERVER_ERROR )                                                                   \
@@ -322,6 +324,7 @@ struct mbuf *msg_ensure_mbuf(struct msg *msg, size_t len);
 rstatus_t msg_append(struct msg *msg, const uint8_t *pos, size_t n);
 rstatus_t msg_prepend(struct msg *msg, const uint8_t *pos, size_t n);
 rstatus_t msg_prepend_format(struct msg *msg, const char *fmt, ...);
+bool msg_set_placeholder_key(struct msg *r);
 
 struct msg *req_get(struct conn *conn);
 void req_put(struct msg *msg);

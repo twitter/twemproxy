@@ -29,6 +29,8 @@
 	  redis commands (tyson)
 	  Optimization: Skip hashing and choosing server index when a pool has
 	  exactly one server (tyson)
+	  Support memcache 'version' requests by proxying the request to a single
+	  backend memcache server. (tyson)
 
  2015-22-06  Manju Rajashekhar  <manj@cs.stanford.edu>
     * twemproxy: version 0.4.1 release

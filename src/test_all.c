@@ -178,6 +178,7 @@ static void test_memcache_parse_rsp_success_case(const char* data, int expected)
     struct conn fake_client = {0};
     struct mbuf *m = mbuf_get();
     const int SW_START = 0;  /* Same as SW_START in memcache_parse_rsp */
+    const int original_failures = failures;
 
     struct msg *rsp = msg_get(&fake_client, 0, 0);
     rsp->state = SW_START;
@@ -200,21 +201,31 @@ static void test_memcache_parse_rsp_success_case(const char* data, int expected)
 
     msg_put(rsp);
     /* mbuf_put(m); */
+    if (original_failures != failures) {
+        printf("Saw test failures for test_memcache_parse_rsp_success_case (%s)\n",
+               data);
+    }
 }
 
 static void test_memcache_parse_rsp_success(void) {
-    test_memcache_parse_rsp_success_case("END\r\n", MSG_RSP_MC_END);
+    test_memcache_parse_rsp_success_case("0\r\n", MSG_RSP_MC_NUM);
+    /* The number returned by the server may be space-padded at the end */
+    test_memcache_parse_rsp_success_case("0  \r\n", MSG_RSP_MC_NUM);
+    test_memcache_parse_rsp_success_case("9223372036854775807\r\n", MSG_RSP_MC_NUM);
     test_memcache_parse_rsp_success_case("DELETED\r\n", MSG_RSP_MC_DELETED);
-    test_memcache_parse_rsp_success_case("TOUCHED\r\n", MSG_RSP_MC_TOUCHED);
-    test_memcache_parse_rsp_success_case("STORED\r\n", MSG_RSP_MC_STORED);
-    test_memcache_parse_rsp_success_case("EXISTS\r\n", MSG_RSP_MC_EXISTS);
+    test_memcache_parse_rsp_success_case("END\r\n", MSG_RSP_MC_END);
     test_memcache_parse_rsp_success_case("ERROR\r\n", MSG_RSP_MC_ERROR);
+    test_memcache_parse_rsp_success_case("EXISTS\r\n", MSG_RSP_MC_EXISTS);
     test_memcache_parse_rsp_success_case("NOT_FOUND\r\n", MSG_RSP_MC_NOT_FOUND);
+    test_memcache_parse_rsp_success_case("STORED\r\n", MSG_RSP_MC_STORED);
+    test_memcache_parse_rsp_success_case("TOUCHED\r\n", MSG_RSP_MC_TOUCHED);
     test_memcache_parse_rsp_success_case("VALUE key 0 2\r\nab\r\nEND\r\n", MSG_RSP_MC_END);
     test_memcache_parse_rsp_success_case("VALUE key 0 2\r\nab\r\nVALUE key2 0 2\r\ncd\r\nEND\r\n", MSG_RSP_MC_END);
+    test_memcache_parse_rsp_success_case("VERSION 1.5.22\r\n", MSG_RSP_MC_VERSION);
 }
 
 static void test_memcache_parse_req_success_case(const char* data, int expected) {
+    const int original_failures = failures;
     struct conn fake_client = {0};
     struct mbuf *m = mbuf_get();
     const int SW_START = 0;  /* Same as SW_START in memcache_parse_req */
@@ -240,23 +251,41 @@ static void test_memcache_parse_req_success_case(const char* data, int expected)
 
     msg_put(req);
     /* mbuf_put(m); */
+    if (original_failures != failures) {
+        printf("Saw test failures for test_memcache_parse_req_success_case (%s)\n",
+               data);
+    }
 }
 
 static void test_memcache_parse_req_success(void) {
+    test_memcache_parse_req_success_case("add key 0 600 5\r\nvalue\r\n", MSG_REQ_MC_ADD);
+    /* Can add any binary data such as '\n' */
+    test_memcache_parse_req_success_case("add key 0 0 1 noreply\r\n\n\r\n", MSG_REQ_MC_ADD);
+    test_memcache_parse_req_success_case("append key 0 600 5\r\nvalue\r\n", MSG_REQ_MC_APPEND);
+    test_memcache_parse_req_success_case("append key 0 1 0 noreply\r\n\r\n", MSG_REQ_MC_APPEND);
+    test_memcache_parse_req_success_case("cas key 0 600 5 123456\r\nvalue\r\n", MSG_REQ_MC_CAS);
+    test_memcache_parse_req_success_case("cas key 0 1 1 1 noreply\r\nx\r\n", MSG_REQ_MC_CAS);
+    test_memcache_parse_req_success_case("decr key 0\r\n", MSG_REQ_MC_DECR);
+    test_memcache_parse_req_success_case("decr key 0 noreply\r\n", MSG_REQ_MC_DECR);
+    test_memcache_parse_req_success_case("delete a noreply\r\n", MSG_REQ_MC_DELETE);
+    test_memcache_parse_req_success_case("delete key\r\n", MSG_REQ_MC_DELETE);
+    /* TODO https://github.com/twitter/twemproxy/issues/631 gat/gats */
+    /* test_memcache_parse_req_success_case("gat 3600 key\r\n", MSG_REQ_MC_GAT); */
+    test_memcache_parse_req_success_case("get a b xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\r\n", MSG_REQ_MC_GET);
     test_memcache_parse_req_success_case("get key\r\n", MSG_REQ_MC_GET);
     test_memcache_parse_req_success_case("gets u\r\n", MSG_REQ_MC_GETS);
-    test_memcache_parse_req_success_case("get a b xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\r\n", MSG_REQ_MC_GET);
-    test_memcache_parse_req_success_case("set key 0 600 5\r\nvalue\r\n", MSG_REQ_MC_SET);
-    test_memcache_parse_req_success_case("set key 0 5 10 noreply\r\nvalue12345\r\n", MSG_REQ_MC_SET);
-    test_memcache_parse_req_success_case("add key 0 600 5\r\nvalue\r\n", MSG_REQ_MC_ADD);
-    test_memcache_parse_req_success_case("replace key 0 600 5\r\nvalue\r\n", MSG_REQ_MC_REPLACE);
-    test_memcache_parse_req_success_case("append key 0 600 5\r\nvalue\r\n", MSG_REQ_MC_APPEND);
-    test_memcache_parse_req_success_case("prepend key 0 600 5\r\nvalue\r\n", MSG_REQ_MC_PREPEND);
-    test_memcache_parse_req_success_case("cas key 0 600 5 123456\r\nvalue\r\n", MSG_REQ_MC_CAS);
-    test_memcache_parse_req_success_case("delete key\r\n", MSG_REQ_MC_DELETE);
     test_memcache_parse_req_success_case("incr key 1\r\n", MSG_REQ_MC_INCR);
+    test_memcache_parse_req_success_case("incr key 9223372036854775807 noreply\r\n", MSG_REQ_MC_INCR);
+    test_memcache_parse_req_success_case("prepend key 0 600 5\r\nvalue\r\n", MSG_REQ_MC_PREPEND);
+    test_memcache_parse_req_success_case("prepend key 0 600 0 noreply\r\n\r\n", MSG_REQ_MC_PREPEND);
     test_memcache_parse_req_success_case("quit\r\n", MSG_REQ_MC_QUIT);
+    test_memcache_parse_req_success_case("replace key 0 600 5\r\nvalue\r\n", MSG_REQ_MC_REPLACE);
+    test_memcache_parse_req_success_case("replace key 0 9 0 noreply\r\n\r\n", MSG_REQ_MC_REPLACE);
+    test_memcache_parse_req_success_case("set key 0 5 10 noreply\r\nvalue12345\r\n", MSG_REQ_MC_SET);
+    test_memcache_parse_req_success_case("set key 0 600 5\r\nvalue\r\n", MSG_REQ_MC_SET);
     test_memcache_parse_req_success_case("touch key 12345\r\n", MSG_REQ_MC_TOUCH);
+    test_memcache_parse_req_success_case("touch key 12345 noreply\r\n", MSG_REQ_MC_TOUCH);
+    test_memcache_parse_req_success_case("version\r\n", MSG_REQ_MC_VERSION);
 }
 
 int main(int argc, char **argv) {

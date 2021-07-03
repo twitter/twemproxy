@@ -220,7 +220,8 @@ static void
 core_close(struct context *ctx, struct conn *conn)
 {
     rstatus_t status;
-    char type, *addrstr;
+    char type;
+    const char *addrstr;
 
     ASSERT(conn->sd > 0);
 

@@ -38,7 +38,7 @@ rbtree_init(struct rbtree *tree, struct rbnode *node)
 }
 
 static struct rbnode *
-rbtree_node_min(struct rbnode *node, struct rbnode *sentinel)
+rbtree_node_min(struct rbnode *node, const struct rbnode *sentinel)
 {
     /* traverse left links */
 
@@ -50,10 +50,10 @@ rbtree_node_min(struct rbnode *node, struct rbnode *sentinel)
 }
 
 struct rbnode *
-rbtree_min(struct rbtree *tree)
+rbtree_min(const struct rbtree *tree)
 {
     struct rbnode *node = tree->root;
-    struct rbnode *sentinel = tree->sentinel;
+    const struct rbnode *sentinel = tree->sentinel;
 
     /* empty tree */
 

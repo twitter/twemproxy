@@ -143,7 +143,7 @@ mbuf_rewind(struct mbuf *mbuf)
  * 2^32 bytes (4G).
  */
 uint32_t
-mbuf_length(struct mbuf *mbuf)
+mbuf_length(const struct mbuf *mbuf)
 {
     ASSERT(mbuf->last >= mbuf->pos);
 
@@ -155,7 +155,7 @@ mbuf_length(struct mbuf *mbuf)
  * contain more than 2^32 bytes (4G).
  */
 uint32_t
-mbuf_size(struct mbuf *mbuf)
+mbuf_size(const struct mbuf *mbuf)
 {
     ASSERT(mbuf->end >= mbuf->last);
 
@@ -203,7 +203,7 @@ mbuf_remove(struct mhdr *mhdr, struct mbuf *mbuf)
  * enough space for n bytes.
  */
 void
-mbuf_copy(struct mbuf *mbuf, uint8_t *pos, size_t n)
+mbuf_copy(struct mbuf *mbuf, const uint8_t *pos, size_t n)
 {
     if (n == 0) {
         return;
@@ -262,7 +262,7 @@ mbuf_split(struct mhdr *h, uint8_t *pos, mbuf_copy_t cb, void *cbarg)
 }
 
 void
-mbuf_init(struct instance *nci)
+mbuf_init(const struct instance *nci)
 {
     nfree_mbufq = 0;
     STAILQ_INIT(&free_mbufq);

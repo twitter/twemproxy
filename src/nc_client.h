@@ -20,7 +20,7 @@
 
 #include <nc_core.h>
 
-bool client_active(struct conn *conn);
+bool client_active(const struct conn *conn);
 void client_ref(struct conn *conn, void *owner);
 void client_unref(struct conn *conn);
 void client_close(struct context *ctx, struct conn *conn);

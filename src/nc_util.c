@@ -188,7 +188,7 @@ nc_get_rcvbuf(int sd)
 }
 
 int
-_nc_atoi(uint8_t *line, size_t n)
+_nc_atoi(const uint8_t *line, size_t n)
 {
     int value;
 
@@ -462,7 +462,7 @@ nc_msec_now(void)
 }
 
 static int
-nc_resolve_inet(struct string *name, int port, struct sockinfo *si)
+nc_resolve_inet(const struct string *name, int port, struct sockinfo *si)
 {
     int status;
     struct addrinfo *ai, *cai; /* head and current addrinfo */
@@ -532,7 +532,7 @@ nc_resolve_inet(struct string *name, int port, struct sockinfo *si)
 }
 
 static int
-nc_resolve_unix(struct string *name, struct sockinfo *si)
+nc_resolve_unix(const struct string *name, struct sockinfo *si)
 {
     struct sockaddr_un *un;
 
@@ -560,7 +560,7 @@ nc_resolve_unix(struct string *name, struct sockinfo *si)
  * This routine is reentrant
  */
 int
-nc_resolve(struct string *name, int port, struct sockinfo *si)
+nc_resolve(const struct string *name, int port, struct sockinfo *si)
 {
     if (name != NULL && name->data[0] == '/') {
         return nc_resolve_unix(name, si);
@@ -575,7 +575,7 @@ nc_resolve(struct string *name, int port, struct sockinfo *si)
  *
  * This routine is not reentrant
  */
-char *
+const char *
 nc_unresolve_addr(struct sockaddr *addr, socklen_t addrlen)
 {
     static char unresolve[NI_MAXHOST + NI_MAXSERV];
@@ -600,7 +600,7 @@ nc_unresolve_addr(struct sockaddr *addr, socklen_t addrlen)
  *
  * This routine is not reentrant
  */
-char *
+const char *
 nc_unresolve_peer_desc(int sd)
 {
     static struct sockinfo si;
@@ -626,7 +626,7 @@ nc_unresolve_peer_desc(int sd)
  *
  * This routine is not reentrant
  */
-char *
+const char *
 nc_unresolve_desc(int sd)
 {
     static struct sockinfo si;

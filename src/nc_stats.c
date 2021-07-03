@@ -42,11 +42,11 @@ static struct stats_metric stats_server_codec[] = {
 #undef DEFINE_ACTION
 
 #define DEFINE_ACTION(_name, _type, _desc) { .name = #_name, .desc = _desc },
-static struct stats_desc stats_pool_desc[] = {
+static const struct stats_desc stats_pool_desc[] = {
     STATS_POOL_CODEC( DEFINE_ACTION )
 };
 
-static struct stats_desc stats_server_desc[] = {
+static const struct stats_desc stats_server_desc[] = {
     STATS_SERVER_CODEC( DEFINE_ACTION )
 };
 #undef DEFINE_ACTION
@@ -188,7 +188,7 @@ stats_server_init(struct stats_server *sts, struct server *s)
 }
 
 static rstatus_t
-stats_server_map(struct array *stats_server, struct array *server)
+stats_server_map(struct array *stats_server, const struct array *server)
 {
     rstatus_t status;
     uint32_t i, nserver;
@@ -233,7 +233,7 @@ stats_server_unmap(struct array *stats_server)
 }
 
 static rstatus_t
-stats_pool_init(struct stats_pool *stp, struct server_pool *sp)
+stats_pool_init(struct stats_pool *stp, const struct server_pool *sp)
 {
     rstatus_t status;
 
@@ -281,7 +281,7 @@ stats_pool_reset(struct array *stats_pool)
 }
 
 static rstatus_t
-stats_pool_map(struct array *stats_pool, struct array *server_pool)
+stats_pool_map(struct array *stats_pool, const struct array *server_pool)
 {
     rstatus_t status;
     uint32_t i, npool;
@@ -295,7 +295,7 @@ stats_pool_map(struct array *stats_pool, struct array *server_pool)
     }
 
     for (i = 0; i < npool; i++) {
-        struct server_pool *sp = array_get(server_pool, i);
+        const struct server_pool *sp = array_get(server_pool, i);
         struct stats_pool *stp = array_push(stats_pool);
 
         status = stats_pool_init(stp, sp);
@@ -432,7 +432,7 @@ stats_destroy_buf(struct stats *st)
 }
 
 static rstatus_t
-stats_add_string(struct stats *st, struct string *key, struct string *val)
+stats_add_string(struct stats *st, const struct string *key, const struct string *val)
 {
     struct stats_buffer *buf;
     uint8_t *pos;
@@ -455,7 +455,7 @@ stats_add_string(struct stats *st, struct string *key, struct string *val)
 }
 
 static rstatus_t
-stats_add_num(struct stats *st, struct string *key, int64_t val)
+stats_add_num(struct stats *st, const struct string *key, int64_t val)
 {
     struct stats_buffer *buf;
     uint8_t *pos;
@@ -551,7 +551,7 @@ stats_add_footer(struct stats *st)
 }
 
 static rstatus_t
-stats_begin_nesting(struct stats *st, struct string *key)
+stats_begin_nesting(struct stats *st, const struct string *key)
 {
     struct stats_buffer *buf;
     uint8_t *pos;
@@ -628,12 +628,13 @@ stats_copy_metric(struct stats *st, struct array *metric)
 }
 
 static void
-stats_aggregate_metric(struct array *dst, struct array *src)
+stats_aggregate_metric(struct array *dst, const struct array *src)
 {
     uint32_t i;
 
     for (i = 0; i < array_n(src); i++) {
-        struct stats_metric *stm1, *stm2;
+        const struct stats_metric *stm1;
+        struct stats_metric *stm2;
 
         stm1 = array_get(src, i);
         stm2 = array_get(dst, i);
@@ -887,8 +888,8 @@ stats_stop_aggregator(struct stats *st)
 }
 
 struct stats *
-stats_create(uint16_t stats_port, char *stats_ip, int stats_interval,
-             char *source, struct array *server_pool)
+stats_create(uint16_t stats_port, const char *stats_ip, int stats_interval,
+             const char *source, const struct array *server_pool)
 {
     rstatus_t status;
     struct stats *st;
@@ -1013,7 +1014,7 @@ stats_swap(struct stats *st)
 }
 
 static struct stats_metric *
-stats_pool_to_metric(struct context *ctx, struct server_pool *pool,
+stats_pool_to_metric(struct context *ctx, const struct server_pool *pool,
                      stats_pool_field_t fidx)
 {
     struct stats *st;
@@ -1036,7 +1037,7 @@ stats_pool_to_metric(struct context *ctx, struct server_pool *pool,
 }
 
 void
-_stats_pool_incr(struct context *ctx, struct server_pool *pool,
+_stats_pool_incr(struct context *ctx, const struct server_pool *pool,
                  stats_pool_field_t fidx)
 {
     struct stats_metric *stm;
@@ -1051,7 +1052,7 @@ _stats_pool_incr(struct context *ctx, struct server_pool *pool,
 }
 
 void
-_stats_pool_decr(struct context *ctx, struct server_pool *pool,
+_stats_pool_decr(struct context *ctx, const struct server_pool *pool,
                  stats_pool_field_t fidx)
 {
     struct stats_metric *stm;
@@ -1066,7 +1067,7 @@ _stats_pool_decr(struct context *ctx, struct server_pool *pool,
 }
 
 void
-_stats_pool_incr_by(struct context *ctx, struct server_pool *pool,
+_stats_pool_incr_by(struct context *ctx, const struct server_pool *pool,
                     stats_pool_field_t fidx, int64_t val)
 {
     struct stats_metric *stm;
@@ -1081,7 +1082,7 @@ _stats_pool_incr_by(struct context *ctx, struct server_pool *pool,
 }
 
 void
-_stats_pool_decr_by(struct context *ctx, struct server_pool *pool,
+_stats_pool_decr_by(struct context *ctx, const struct server_pool *pool,
                     stats_pool_field_t fidx, int64_t val)
 {
     struct stats_metric *stm;
@@ -1096,7 +1097,7 @@ _stats_pool_decr_by(struct context *ctx, struct server_pool *pool,
 }
 
 void
-_stats_pool_set_ts(struct context *ctx, struct server_pool *pool,
+_stats_pool_set_ts(struct context *ctx, const struct server_pool *pool,
                    stats_pool_field_t fidx, int64_t val)
 {
     struct stats_metric *stm;
@@ -1111,7 +1112,7 @@ _stats_pool_set_ts(struct context *ctx, struct server_pool *pool,
 }
 
 static struct stats_metric *
-stats_server_to_metric(struct context *ctx, struct server *server,
+stats_server_to_metric(struct context *ctx, const struct server *server,
                        stats_server_field_t fidx)
 {
     struct stats *st;
@@ -1137,7 +1138,7 @@ stats_server_to_metric(struct context *ctx, struct server *server,
 }
 
 void
-_stats_server_incr(struct context *ctx, struct server *server,
+_stats_server_incr(struct context *ctx, const struct server *server,
                    stats_server_field_t fidx)
 {
     struct stats_metric *stm;
@@ -1152,7 +1153,7 @@ _stats_server_incr(struct context *ctx, struct server *server,
 }
 
 void
-_stats_server_decr(struct context *ctx, struct server *server,
+_stats_server_decr(struct context *ctx, const struct server *server,
                    stats_server_field_t fidx)
 {
     struct stats_metric *stm;
@@ -1167,7 +1168,7 @@ _stats_server_decr(struct context *ctx, struct server *server,
 }
 
 void
-_stats_server_incr_by(struct context *ctx, struct server *server,
+_stats_server_incr_by(struct context *ctx, const struct server *server,
                       stats_server_field_t fidx, int64_t val)
 {
     struct stats_metric *stm;
@@ -1182,7 +1183,7 @@ _stats_server_incr_by(struct context *ctx, struct server *server,
 }
 
 void
-_stats_server_decr_by(struct context *ctx, struct server *server,
+_stats_server_decr_by(struct context *ctx, const struct server *server,
                       stats_server_field_t fidx, int64_t val)
 {
     struct stats_metric *stm;
@@ -1197,7 +1198,7 @@ _stats_server_decr_by(struct context *ctx, struct server *server,
 }
 
 void
-_stats_server_set_ts(struct context *ctx, struct server *server,
+_stats_server_set_ts(struct context *ctx, const struct server *server,
                      stats_server_field_t fidx, int64_t val)
 {
     struct stats_metric *stm;

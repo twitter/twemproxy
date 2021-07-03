@@ -30,7 +30,7 @@ RUN pip3.6 install nose && \
 # RUN yum install -y redis redis-sentinel
 
 ARG REDIS_VER=3.2.11
-RUN wget https://github.com/antirez/redis/archive/$REDIS_VER.tar.gz && \
+RUN wget https://github.com/redis/redis/archive/$REDIS_VER.tar.gz && \
 	tar zxvf $REDIS_VER.tar.gz && \
 	pushd redis-$REDIS_VER && \
 		make install && \

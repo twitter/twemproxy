@@ -21,7 +21,7 @@
 #include <nc_core.h>
 #include <nc_signal.h>
 
-static struct signal signals[] = {
+static const struct signal signals[] = {
     { SIGUSR1, "SIGUSR1", 0,                 signal_handler },
     { SIGUSR2, "SIGUSR2", 0,                 signal_handler },
     { SIGTTIN, "SIGTTIN", 0,                 signal_handler },
@@ -36,7 +36,7 @@ static struct signal signals[] = {
 rstatus_t
 signal_init(void)
 {
-    struct signal *sig;
+    const struct signal *sig;
 
     for (sig = signals; sig->signo != 0; sig++) {
         rstatus_t status;
@@ -66,7 +66,7 @@ signal_deinit(void)
 void
 signal_handler(int signo)
 {
-    struct signal *sig;
+    const struct signal *sig;
     void (*action)(void);
     char *actionstr;
     bool done;

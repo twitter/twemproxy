@@ -40,7 +40,7 @@ static rstatus_t redis_handle_auth_req(struct msg *request, struct msg *response
  * return false
  */
 static bool
-redis_argz(struct msg *r)
+redis_argz(const struct msg *r)
 {
     switch (r->type) {
     /* TODO: PING has an optional argument, emulate that? */
@@ -61,7 +61,7 @@ redis_argz(struct msg *r)
  * return false
  */
 static bool
-redis_arg0(struct msg *r)
+redis_arg0(const struct msg *r)
 {
     switch (r->type) {
     case MSG_REQ_REDIS_PERSIST:
@@ -103,7 +103,7 @@ redis_arg0(struct msg *r)
  * return false
  */
 static bool
-redis_arg1(struct msg *r)
+redis_arg1(const struct msg *r)
 {
     switch (r->type) {
     case MSG_REQ_REDIS_EXPIRE:
@@ -146,7 +146,7 @@ redis_arg1(struct msg *r)
  * return false
  */
 static bool
-redis_arg2(struct msg *r)
+redis_arg2(const struct msg *r)
 {
     switch (r->type) {
     case MSG_REQ_REDIS_GETRANGE:
@@ -186,7 +186,7 @@ redis_arg2(struct msg *r)
  * return false
  */
 static bool
-redis_arg3(struct msg *r)
+redis_arg3(const struct msg *r)
 {
     switch (r->type) {
     case MSG_REQ_REDIS_LINSERT:
@@ -205,7 +205,7 @@ redis_arg3(struct msg *r)
  * return false
  */
 static bool
-redis_argn(struct msg *r)
+redis_argn(const struct msg *r)
 {
     switch (r->type) {
     case MSG_REQ_REDIS_SORT:
@@ -297,7 +297,7 @@ redis_argn(struct msg *r)
  * more keys, otherwise return false
  */
 static bool
-redis_argx(struct msg *r)
+redis_argx(const struct msg *r)
 {
     switch (r->type) {
     case MSG_REQ_REDIS_MGET:
@@ -318,7 +318,7 @@ redis_argx(struct msg *r)
  * more key-value pairs, otherwise return false
  */
 static bool
-redis_argkvx(struct msg *r)
+redis_argkvx(const struct msg *r)
 {
     switch (r->type) {
     case MSG_REQ_REDIS_MSET:
@@ -338,7 +338,7 @@ redis_argkvx(struct msg *r)
  * that at least one argument is required, but that shouldn't be the case).
  */
 static bool
-redis_argeval(struct msg *r)
+redis_argeval(const struct msg *r)
 {
     switch (r->type) {
     case MSG_REQ_REDIS_EVAL:
@@ -353,7 +353,7 @@ redis_argeval(struct msg *r)
 }
 
 static bool
-redis_nokey(struct msg *r)
+redis_nokey(const struct msg *r)
 {
     switch (r->type) {
     case MSG_REQ_REDIS_LOLWUT:
@@ -371,7 +371,7 @@ redis_nokey(struct msg *r)
  * string whose first character is '-', otherwise return false.
  */
 static bool
-redis_error(struct msg *r)
+redis_error(const struct msg *r)
 {
     switch (r->type) {
     case MSG_RSP_REDIS_ERROR:
@@ -2552,7 +2552,7 @@ error:
  * See issue: https://github.com/twitter/twemproxy/issues/369
  */
 bool
-redis_failure(struct msg *r)
+redis_failure(const struct msg *r)
 {
     ASSERT(!r->request);
 
@@ -2732,7 +2732,7 @@ redis_pre_coalesce(struct msg *r)
 }
 
 static rstatus_t
-redis_append_key(struct msg *r, uint8_t *key, uint32_t keylen)
+redis_append_key(struct msg *r, const uint8_t *key, uint32_t keylen)
 {
     uint32_t len;
     struct mbuf *mbuf;
@@ -3105,15 +3105,15 @@ static rstatus_t
 redis_handle_auth_req(struct msg *req, struct msg *rsp)
 {
     struct conn *conn = (struct conn *)rsp->owner;
-    struct server_pool *pool;
-    struct keypos *kpos;
-    uint8_t *key;
+    const struct server_pool *pool;
+    const struct keypos *kpos;
+    const uint8_t *key;
     uint32_t keylen;
     bool valid;
 
     ASSERT(conn->client && !conn->proxy);
 
-    pool = (struct server_pool *)conn->owner;
+    pool = (const struct server_pool *)conn->owner;
 
     if (!pool->require_auth) {
         /*
@@ -3127,7 +3127,7 @@ redis_handle_auth_req(struct msg *req, struct msg *rsp)
     key = kpos->start;
     keylen = (uint32_t)(kpos->end - kpos->start);
     valid = (keylen == pool->redis_auth.len) &&
-            (memcmp(pool->redis_auth.data, key, keylen) == 0) ? true : false;
+            (memcmp(pool->redis_auth.data, key, keylen) == 0);
     if (valid) {
         conn->authenticated = 1;
         return msg_append(rsp, rsp_ok.data, rsp_ok.len);

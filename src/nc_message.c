@@ -454,7 +454,7 @@ msg_type_string(msg_type_t type)
 bool
 msg_empty(const struct msg *msg)
 {
-    return msg->mlen == 0 ? true : false;
+    return msg->mlen == 0;
 }
 
 uint32_t

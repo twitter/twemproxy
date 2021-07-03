@@ -117,20 +117,20 @@ struct conf {
 
 struct command {
     struct string name;
-    char          *(*set)(struct conf *cf, const struct command *cmd, void *data);
+    const char    *(*set)(struct conf *cf, const struct command *cmd, void *data);
     int           offset;
 };
 
 #define null_command { null_string, NULL, 0 }
 
-char *conf_set_string(struct conf *cf, const struct command *cmd, void *conf);
-char *conf_set_listen(struct conf *cf, const struct command *cmd, void *conf);
-char *conf_add_server(struct conf *cf, const struct command *cmd, void *conf);
-char *conf_set_num(struct conf *cf, const struct command *cmd, void *conf);
-char *conf_set_bool(struct conf *cf, const struct command *cmd, void *conf);
-char *conf_set_hash(struct conf *cf, const struct command *cmd, void *conf);
-char *conf_set_distribution(struct conf *cf, const struct command *cmd, void *conf);
-char *conf_set_hashtag(struct conf *cf, const struct command *cmd, void *conf);
+const char *conf_set_string(struct conf *cf, const struct command *cmd, void *conf);
+const char *conf_set_listen(struct conf *cf, const struct command *cmd, void *conf);
+const char *conf_add_server(struct conf *cf, const struct command *cmd, void *conf);
+const char *conf_set_num(struct conf *cf, const struct command *cmd, void *conf);
+const char *conf_set_bool(struct conf *cf, const struct command *cmd, void *conf);
+const char *conf_set_hash(struct conf *cf, const struct command *cmd, void *conf);
+const char *conf_set_distribution(struct conf *cf, const struct command *cmd, void *conf);
+const char *conf_set_hashtag(struct conf *cf, const struct command *cmd, void *conf);
 
 rstatus_t conf_server_each_transform(void *elem, void *data);
 rstatus_t conf_pool_each_transform(void *elem, void *data);

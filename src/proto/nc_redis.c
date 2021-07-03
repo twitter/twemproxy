@@ -3127,7 +3127,7 @@ redis_handle_auth_req(struct msg *req, struct msg *rsp)
     key = kpos->start;
     keylen = (uint32_t)(kpos->end - kpos->start);
     valid = (keylen == pool->redis_auth.len) &&
-            (memcmp(pool->redis_auth.data, key, keylen) == 0) ? true : false;
+            (memcmp(pool->redis_auth.data, key, keylen) == 0);
     if (valid) {
         conn->authenticated = 1;
         return msg_append(rsp, rsp_ok.data, rsp_ok.len);

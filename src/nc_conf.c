@@ -515,7 +515,7 @@ conf_handler(struct conf *cf, void *data)
               value->len, value->data);
 
     for (cmd = conf_commands; cmd->name.len != 0; cmd++) {
-        char *rv;
+        const char *rv;
 
         if (string_compare(key, &cmd->name) != 0) {
             continue;
@@ -1414,7 +1414,7 @@ conf_destroy(struct conf *cf)
     nc_free(cf);
 }
 
-char *
+const char *
 conf_set_string(struct conf *cf, const struct command *cmd, void *conf)
 {
     rstatus_t status;
@@ -1438,7 +1438,7 @@ conf_set_string(struct conf *cf, const struct command *cmd, void *conf)
     return CONF_OK;
 }
 
-char *
+const char *
 conf_set_listen(struct conf *cf, const struct command *cmd, void *conf)
 {
     rstatus_t status;
@@ -1527,7 +1527,7 @@ conf_set_listen(struct conf *cf, const struct command *cmd, void *conf)
     return CONF_OK;
 }
 
-char *
+const char *
 conf_add_server(struct conf *cf, const struct command *cmd, void *conf)
 {
     rstatus_t status;
@@ -1537,7 +1537,7 @@ conf_add_server(struct conf *cf, const struct command *cmd, void *conf)
     uint8_t *p, *q, *start;
     uint8_t *pname, *addr, *port, *weight, *name;
     uint32_t k, delimlen, pnamelen, addrlen, portlen, weightlen, namelen;
-    char delim[] = " ::";
+    const char *const delim = " ::";
 
     p = conf;
     a = (struct array *)(p + cmd->offset);
@@ -1667,7 +1667,7 @@ conf_add_server(struct conf *cf, const struct command *cmd, void *conf)
     return CONF_OK;
 }
 
-char *
+const char *
 conf_set_num(struct conf *cf, const struct command *cmd, void *conf)
 {
     uint8_t *p;
@@ -1693,7 +1693,7 @@ conf_set_num(struct conf *cf, const struct command *cmd, void *conf)
     return CONF_OK;
 }
 
-char *
+const char *
 conf_set_bool(struct conf *cf, const struct command *cmd, void *conf)
 {
     uint8_t *p;
@@ -1722,7 +1722,7 @@ conf_set_bool(struct conf *cf, const struct command *cmd, void *conf)
     return CONF_OK;
 }
 
-char *
+const char *
 conf_set_hash(struct conf *cf, const struct command *cmd, void *conf)
 {
     uint8_t *p;
@@ -1752,7 +1752,7 @@ conf_set_hash(struct conf *cf, const struct command *cmd, void *conf)
     return "is not a valid hash";
 }
 
-char *
+const char *
 conf_set_distribution(struct conf *cf, const struct command *cmd, void *conf)
 {
     uint8_t *p;
@@ -1782,7 +1782,7 @@ conf_set_distribution(struct conf *cf, const struct command *cmd, void *conf)
     return "is not a valid distribution";
 }
 
-char *
+const char *
 conf_set_hashtag(struct conf *cf, const struct command *cmd, void *conf)
 {
     rstatus_t status;

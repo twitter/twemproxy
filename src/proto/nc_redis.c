@@ -1960,7 +1960,6 @@ redis_parse_rsp(struct msg *r)
         SW_START,
         SW_STATUS,
         SW_ERROR,
-        SW_INTEGER,
         SW_INTEGER_START,
         SW_SIMPLE,
         SW_BULK,
@@ -2014,8 +2013,8 @@ redis_parse_rsp(struct msg *r)
 
             case ':':
                 r->type = MSG_RSP_REDIS_INTEGER;
-                p = p - 1; /* go back by 1 byte */
-                state = SW_INTEGER;
+                r->integer = 0;
+                state = SW_INTEGER_START;
                 break;
 
             case '$':
@@ -2166,12 +2165,6 @@ redis_parse_rsp(struct msg *r)
                 }
             }
 
-            break;
-
-        case SW_INTEGER:
-            /* rsp_start <- p */
-            state = SW_INTEGER_START;
-            r->integer = 0;
             break;
 
         case SW_SIMPLE:

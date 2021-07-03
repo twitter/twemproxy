@@ -1745,7 +1745,7 @@ conf_set_hash(struct conf *cf, const struct command *cmd, void *conf)
             continue;
         }
 
-        *hp = hash - hash_strings;
+        *hp = (hash_type_t)(hash - hash_strings);
 
         return CONF_OK;
     }
@@ -1774,7 +1774,7 @@ conf_set_distribution(struct conf *cf, const struct command *cmd, void *conf)
             continue;
         }
 
-        *dp = dist - dist_strings;
+        *dp = (dist_type_t)(dist - dist_strings);
 
         return CONF_OK;
     }

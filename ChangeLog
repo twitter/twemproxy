@@ -1,5 +1,5 @@
  2021-??-??  Tyson Andre
-    * twemproxy: version 0.4.2 release (dev)
+    * twemproxy: version 0.5.0 release (dev)
 	  Fix parsing of redis error response for error type with no space,
 	  add tests (tyson, tom dalton)
 	  Update integration tests, add C unit test suite for 'make check' (tyson)
@@ -23,6 +23,12 @@
 	  Upgrade from libyaml 0.1.4 to 0.2.5 (tyson)
 	  Fix compiler warnings about wrong conversion specifiers in format
 	  strings for logging (tyson)
+	  Log the async backend used and any debug options in the
+	  '--help'/'--version' output.
+	  Add support for many more new redis commands and updates to existing
+	  redis commands (tyson)
+	  Optimization: Skip hashing and choosing server index when a pool has
+	  exactly one server (tyson)
 
  2015-22-06  Manju Rajashekhar  <manj@cs.stanford.edu>
     * twemproxy: version 0.4.1 release

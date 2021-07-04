@@ -4,6 +4,9 @@ already add to https://travis-ci.org/idning/twemproxy as travis-ci
 
 see https://github.com/idning/twemproxy/blob/travis-ci/travis.sh
 
+dockerized tests
+================
+
 usage
 =====
 

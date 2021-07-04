@@ -831,24 +831,25 @@ stats_listen(struct stats *st)
 
     status = nc_set_reuseaddr(st->sd);
     if (status < 0) {
-        log_error("set reuseaddr on m %d failed: %s", st->sd, strerror(errno));
+        log_error("set reuseaddr on m %d failed for stats server: %s", st->sd, strerror(errno));
         return NC_ERROR;
     }
 
     status = bind(st->sd, (struct sockaddr *)&si.addr, si.addrlen);
     if (status < 0) {
-        log_error("bind on m %d to addr '%.*s:%u' failed: %s", st->sd,
+        log_error("bind on m %d to stats server addr '%.*s:%u' failed: %s", st->sd,
                   st->addr.len, st->addr.data, st->port, strerror(errno));
         return NC_ERROR;
     }
 
     status = listen(st->sd, SOMAXCONN);
     if (status < 0) {
-        log_error("listen on m %d failed: %s", st->sd, strerror(errno));
+        log_error("listen on m %d for stats server '%.*s:%u' failed: %s", st->sd,
+                  st->addr.len, st->addr.data, st->port, strerror(errno));
         return NC_ERROR;
     }
 
-    log_debug(LOG_NOTICE, "m %d listening on '%.*s:%u'", st->sd,
+    log_debug(LOG_NOTICE, "m %d listening on stats server '%.*s:%u'", st->sd,
               st->addr.len, st->addr.data, st->port);
 
     return NC_OK;

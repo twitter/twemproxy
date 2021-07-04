@@ -35,6 +35,7 @@
 	  exactly one server (tyson)
 	  Support memcache 'version' requests by proxying the request to a single
 	  backend memcache server to fetch the server version. (tyson)
+	  Make error messages for creating the stats server during startup clearer. (tyson)
 
  2015-22-06  Manju Rajashekhar  <manj@cs.stanford.edu>
     * twemproxy: version 0.4.1 release

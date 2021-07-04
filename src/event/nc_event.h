@@ -56,6 +56,22 @@ struct event_base {
     event_cb_t         cb;      /* event callback */
 };
 
+#elif NC_HAVE_POLL
+
+struct fd_unit{
+    int idx;                   /* fd to index of poll array */
+    struct conn* cn;           /* fd to conn */
+};
+    
+struct event_base {
+
+    struct pollfd *poll_event;  /* poll array */  
+    int                nevent;  /* # event */
+    struct fd_unit* fu_array;   /* array of fd_unit*/
+
+    event_cb_t         cb;      /* event callback */
+};
+
 #elif NC_HAVE_EVENT_PORTS
 
 #include <port.h>

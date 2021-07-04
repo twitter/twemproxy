@@ -46,6 +46,8 @@
 # define NC_HAVE_KQUEUE 1
 #elif HAVE_EVENT_PORTS
 # define NC_HAVE_EVENT_PORTS 1
+#elif HAVE_POLL
+# define NC_HAVE_POLL 1
 #else
 # error missing scalable I/O event notification mechanism
 #endif

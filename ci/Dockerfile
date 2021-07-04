@@ -1,6 +1,6 @@
 # Dockerfile to build nutcracker
 # ARGS: none
-# Also see travis.sh
+# Also see test_in_docker.sh
 FROM centos:7
 
 ENV LAST_MODIFIED_DATE 2021-04-09

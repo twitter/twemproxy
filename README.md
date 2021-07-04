@@ -89,7 +89,7 @@ Twemproxy can be configured through a YAML file specified by the -c or --conf-fi
   + crc32 (crc32 implementation compatible with [libmemcached](http://libmemcached.org/))
   + crc32a (correct crc32 implementation as per the spec)
   + fnv1_64
-  + fnv1a_64
+  + fnv1a_64 (default)
   + fnv1_32
   + fnv1a_32
   + hsieh
@@ -102,14 +102,15 @@ Twemproxy can be configured through a YAML file specified by the -c or --conf-fi
   + random (choose a random backend for each key of each request)
 + **timeout**: The timeout value in msec that we wait for to establish a connection to the server or receive a response from a server. By default, we wait indefinitely.
 + **backlog**: The TCP backlog argument. Defaults to 512.
++ **tcpkeepalive**: A boolean value that controls if tcp keepalive is enabled for connections to servers. Defaults to false.
 + **preconnect**: A boolean value that controls if twemproxy should preconnect to all the servers in this pool on process start. Defaults to false.
 + **redis**: A boolean value that controls if a server pool speaks redis or memcached protocol. Defaults to false.
 + **redis_auth**: Authenticate to the Redis server on connect.
 + **redis_db**: The DB number to use on the pool servers. Defaults to 0. Note: Twemproxy will always present itself to clients as DB 0.
 + **server_connections**: The maximum number of connections that can be opened to each server. By default, we open at most 1 server connection.
 + **auto_eject_hosts**: A boolean value that controls if server should be ejected temporarily when it fails consecutively server_failure_limit times. See [liveness recommendations](notes/recommendation.md#liveness) for information. Defaults to false.
-+ **server_retry_timeout**: The timeout value in msec to wait for before retrying on a temporarily ejected server, when auto_eject_host is set to true. Defaults to 30000 msec.
-+ **server_failure_limit**: The number of consecutive failures on a server that would lead to it being temporarily ejected when auto_eject_host is set to true. Defaults to 2.
++ **server_retry_timeout**: The timeout value in msec to wait for before retrying on a temporarily ejected server, when auto_eject_hosts is set to true. Defaults to 30000 msec.
++ **server_failure_limit**: The number of consecutive failures on a server that would lead to it being temporarily ejected when auto_eject_hosts is set to true. Defaults to 2.
 + **servers**: A list of server address, port and weight (name:port:weight or ip:port:weight) for this server pool.
 
 
@@ -230,16 +231,6 @@ Pipelining is the reason why twemproxy ends up doing better in terms of throughp
 If you are deploying twemproxy in production, you might consider reading through the [recommendation document](notes/recommendation.md) to understand the parameters you could tune in twemproxy to run it efficiently in the production environment.
 
 ## Packages
-
-### Ubuntu
-
-#### PPA Stable
-
-https://launchpad.net/~twemproxy/+archive/ubuntu/stable
-
-#### PPA Daily
-
-https://launchpad.net/~twemproxy/+archive/ubuntu/daily
 
 ## Utils
 + [collectd-plugin](https://github.com/bewie/collectd-twemproxy)

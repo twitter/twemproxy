@@ -111,7 +111,7 @@ hash_crc32(const char *key, size_t key_length)
 uint32_t
 hash_crc32a(const char *key, size_t key_length)
 {
-    const uint8_t *p = key;
+    const uint8_t *p = (const uint8_t *)key;
     uint32_t crc;
 
     crc = ~0U;

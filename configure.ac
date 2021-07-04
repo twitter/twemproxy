@@ -84,6 +84,7 @@ AC_CHECK_FUNCS([dup2 gethostname gettimeofday strerror])
 AC_CHECK_FUNCS([socket])
 AC_CHECK_FUNCS([memchr memmove memset])
 AC_CHECK_FUNCS([strchr strndup strtoul])
+AC_CHECK_FUNCS([strdup])
 
 AC_CACHE_CHECK([if epoll works], [ac_cv_epoll_works],
   AC_TRY_RUN([

@@ -2,7 +2,7 @@
 m4_define([NC_MAJOR], 0)
 m4_define([NC_MINOR], 4)
 m4_define([NC_PATCH], 1)
-m4_define([NC_BUGS], [manj@cs.stanford.edu])
+m4_define([NC_BUGS], [https://github.com/twitter/twemproxy/issues])
 
 # Initialize autoconf
 AC_PREREQ([2.64])

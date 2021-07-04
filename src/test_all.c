@@ -61,6 +61,7 @@ static void test_config_parsing(void) {
 }
 
 static void test_redis_parse_req_success_case(const char* data, int expected_type) {
+    const int original_failures = failures;
     struct conn fake_client = {0};
     struct mbuf *m = mbuf_get();
     const int SW_START = 0;  /* Same as SW_START in redis_parse_req */
@@ -86,22 +87,133 @@ static void test_redis_parse_req_success_case(const char* data, int expected_typ
 
     msg_put(req);
     /* mbuf_put(m); */
+    if (failures > original_failures) {
+        fprintf(stderr, "test_redis_parse_req_success_case failed for (%s)", data);
+    }
 }
 
 /* Test support for https://redis.io/topics/protocol */
 static void test_redis_parse_req_success(void) {
     /* Redis requests from clients are serialized as arrays before sending them (* is array length, $ is string length) */
-    test_redis_parse_req_success_case("*2\r\n$3\r\nGET\r\n$3\r\nkey\r\n", MSG_REQ_REDIS_GET);
-    test_redis_parse_req_success_case("*2\r\n$4\r\nMGET\r\n$1\r\nx\r\n", MSG_REQ_REDIS_MGET);
-    test_redis_parse_req_success_case("*3\r\n$4\r\nMGET\r\n$1\r\nx\r\n$10\r\nabcdefghij\r\n", MSG_REQ_REDIS_MGET);
 
-    test_redis_parse_req_success_case("*3\r\n$3\r\nSET\r\n$10\r\nkey4567890\r\n$5\r\nVALUE\r\n", MSG_REQ_REDIS_SET);
+    test_redis_parse_req_success_case("*4\r\n$4\r\neval\r\n$10\r\nreturn 123\r\n$1\r\n1\r\n$1\r\n1\r\n", MSG_REQ_REDIS_EVAL);
+    test_redis_parse_req_success_case("*7\r\n$4\r\neval\r\n$40\r\nreturn {KEYS[1],KEYS[2],ARGV[1],ARGV[2]}\r\n$1\r\n2\r\n$9\r\nkey1{tag}\r\n$4\r\narg1\r\n$9\r\nkey2{tag}\r\n$4\r\narg2\r\n", MSG_REQ_REDIS_EVAL);
 
+    test_redis_parse_req_success_case("*3\r\n$6\r\nappend\r\n$3\r\n999\r\n$3\r\nbar\r\n", MSG_REQ_REDIS_APPEND);
+    test_redis_parse_req_success_case("*2\r\n$8\r\nbitcount\r\n$3\r\nfoo\r\n", MSG_REQ_REDIS_BITCOUNT);
+    test_redis_parse_req_success_case("*4\r\n$8\r\nbitcount\r\n$3\r\nfoo\r\n$1\r\n1\r\n$1\r\n1\r\n", MSG_REQ_REDIS_BITCOUNT);
     test_redis_parse_req_success_case("*1\r\n$7\r\nCOMMAND\r\n", MSG_REQ_REDIS_COMMAND);
+    test_redis_parse_req_success_case("*2\r\n$4\r\ndecr\r\n$7\r\ncounter\r\n", MSG_REQ_REDIS_DECR);
+    test_redis_parse_req_success_case("*3\r\n$6\r\ndecrby\r\n$7\r\ncounter\r\n$3\r\n100\r\n", MSG_REQ_REDIS_DECRBY);
+    test_redis_parse_req_success_case("*2\r\n$3\r\ndel\r\n$3\r\nfoo\r\n", MSG_REQ_REDIS_DEL);
+    test_redis_parse_req_success_case("*3\r\n$3\r\ndel\r\n$3\r\nfoo\r\n$3\r\nbar\r\n", MSG_REQ_REDIS_DEL);
+    test_redis_parse_req_success_case("*2\r\n$4\r\ndump\r\n$3\r\nfoo\r\n", MSG_REQ_REDIS_DUMP);
+    test_redis_parse_req_success_case("*2\r\n$6\r\nexists\r\n$3\r\nfoo\r\n", MSG_REQ_REDIS_EXISTS);
+    test_redis_parse_req_success_case("*3\r\n$6\r\nexpire\r\n$3\r\nfoo\r\n$1\r\n0\r\n", MSG_REQ_REDIS_EXPIRE);
+    test_redis_parse_req_success_case("*3\r\n$8\r\nexpireat\r\n$3\r\nfoo\r\n$10\r\n1282463464\r\n", MSG_REQ_REDIS_EXPIREAT);
+    test_redis_parse_req_success_case("*2\r\n$3\r\nGET\r\n$3\r\nkey\r\n", MSG_REQ_REDIS_GET);
+    test_redis_parse_req_success_case("*3\r\n$6\r\ngetbit\r\n$3\r\nfoo\r\n$1\r\n1\r\n", MSG_REQ_REDIS_GETBIT);
+    test_redis_parse_req_success_case("*4\r\n$8\r\ngetrange\r\n$3\r\nfoo\r\n$1\r\n1\r\n$1\r\n2\r\n", MSG_REQ_REDIS_GETRANGE);
+    test_redis_parse_req_success_case("*3\r\n$6\r\ngetset\r\n$3\r\nfoo\r\n$3\r\nbar\r\n", MSG_REQ_REDIS_GETSET);
+    test_redis_parse_req_success_case("*4\r\n$4\r\nhdel\r\n$4\r\nhfoo\r\n$6\r\nfield1\r\n$3\r\nbar\r\n", MSG_REQ_REDIS_HDEL);
+    test_redis_parse_req_success_case("*3\r\n$7\r\nhexists\r\n$4\r\nhfoo\r\n$6\r\nfield1\r\n", MSG_REQ_REDIS_HEXISTS);
+    test_redis_parse_req_success_case("*3\r\n$4\r\nhget\r\n$4\r\nhfoo\r\n$6\r\nfield1\r\n", MSG_REQ_REDIS_HGET);
+    test_redis_parse_req_success_case("*2\r\n$7\r\nhgetall\r\n$4\r\nhfoo\r\n", MSG_REQ_REDIS_HGETALL);
+    test_redis_parse_req_success_case("*4\r\n$7\r\nhincrby\r\n$4\r\nhfoo\r\n$6\r\nfield1\r\n$3\r\n100\r\n", MSG_REQ_REDIS_HINCRBY);
+    test_redis_parse_req_success_case("*4\r\n$12\r\nhincrbyfloat\r\n$4\r\nhfoo\r\n$6\r\nfield1\r\n$6\r\n100.12\r\n", MSG_REQ_REDIS_HINCRBYFLOAT);
+    test_redis_parse_req_success_case("*2\r\n$5\r\nhkeys\r\n$4\r\nhfoo\r\n", MSG_REQ_REDIS_HKEYS);
+    test_redis_parse_req_success_case("*2\r\n$4\r\nhlen\r\n$4\r\nhfoo\r\n", MSG_REQ_REDIS_HLEN);
+    test_redis_parse_req_success_case("*3\r\n$5\r\nhmget\r\n$4\r\nhfoo\r\n$6\r\nfield1\r\n", MSG_REQ_REDIS_HMGET);
+    test_redis_parse_req_success_case("*4\r\n$5\r\nhmget\r\n$4\r\nhfoo\r\n$6\r\nfield1\r\n$6\r\n1dleif\r\n", MSG_REQ_REDIS_HMGET);
+    test_redis_parse_req_success_case("*6\r\n$5\r\nhmset\r\n$4\r\nhfoo\r\n$6\r\nfield1\r\n$3\r\nbar\r\n$6\r\nfield2\r\n$3\r\nbas\r\n", MSG_REQ_REDIS_HMSET);
+    test_redis_parse_req_success_case("*4\r\n$4\r\nhset\r\n$4\r\nhfoo\r\n$6\r\n1dleif\r\n$3\r\nrab\r\n", MSG_REQ_REDIS_HSET);
+    test_redis_parse_req_success_case("*4\r\n$6\r\nhsetnx\r\n$4\r\nhfoo\r\n$6\r\nfield1\r\n$3\r\nbar\r\n", MSG_REQ_REDIS_HSETNX);
+    test_redis_parse_req_success_case("*2\r\n$5\r\nhvals\r\n$4\r\nhfoo\r\n", MSG_REQ_REDIS_HVALS);
+    test_redis_parse_req_success_case("*2\r\n$4\r\nincr\r\n$7\r\ncounter\r\n", MSG_REQ_REDIS_INCR);
+    test_redis_parse_req_success_case("*3\r\n$6\r\nincrby\r\n$7\r\ncounter\r\n$3\r\n100\r\n", MSG_REQ_REDIS_INCRBY);
+    test_redis_parse_req_success_case("*3\r\n$11\r\nincrbyfloat\r\n$7\r\ncounter\r\n$5\r\n10.10\r\n", MSG_REQ_REDIS_INCRBYFLOAT);
+    test_redis_parse_req_success_case("*3\r\n$6\r\nlindex\r\n$4\r\nlfoo\r\n$1\r\n0\r\n", MSG_REQ_REDIS_LINDEX);
+    test_redis_parse_req_success_case("*5\r\n$7\r\nlinsert\r\n$4\r\nlfoo\r\n$6\r\nBEFORE\r\n$3\r\nbar\r\n$3\r\nbaq\r\n", MSG_REQ_REDIS_LINSERT);
+    test_redis_parse_req_success_case("*2\r\n$4\r\nllen\r\n$4\r\nlfoo\r\n", MSG_REQ_REDIS_LLEN);
+    test_redis_parse_req_success_case("*2\r\n$4\r\nLLEN\r\n$6\r\nmylist\r\n", MSG_REQ_REDIS_LLEN);  /* LLEN command */
     test_redis_parse_req_success_case("*1\r\n$6\r\nLOLWUT\r\n", MSG_REQ_REDIS_LOLWUT);
     test_redis_parse_req_success_case("*2\r\n$6\r\nLOLWUT\r\n$2\r\n40\r\n", MSG_REQ_REDIS_LOLWUT);
-    test_redis_parse_req_success_case("*2\r\n$4\r\nLLEN\r\n$6\r\nmylist\r\n", MSG_REQ_REDIS_LLEN);  /* LLEN command */
+    test_redis_parse_req_success_case("*2\r\n$4\r\nlpop\r\n$4\r\nlfoo\r\n", MSG_REQ_REDIS_LPOP);
+    test_redis_parse_req_success_case("*3\r\n$5\r\nlpush\r\n$4\r\nlfoo\r\n$3\r\nbar\r\n", MSG_REQ_REDIS_LPUSH);
+    test_redis_parse_req_success_case("*4\r\n$5\r\nlpush\r\n$4\r\nlfoo\r\n$3\r\nbaq\r\n$3\r\nbap\r\n", MSG_REQ_REDIS_LPUSH);
+    test_redis_parse_req_success_case("*6\r\n$5\r\nlpush\r\n$4\r\nlfoo\r\n$3\r\nbar\r\n$3\r\nbar\r\n$3\r\nbar\r\n$3\r\nbau\r\n", MSG_REQ_REDIS_LPUSH);
+    test_redis_parse_req_success_case("*3\r\n$6\r\nlpushx\r\n$4\r\nlfoo\r\n$3\r\nbar\r\n", MSG_REQ_REDIS_LPUSHX);
+    test_redis_parse_req_success_case("*4\r\n$6\r\nlrange\r\n$4\r\nlfoo\r\n$1\r\n0\r\n$1\r\n2\r\n", MSG_REQ_REDIS_LRANGE);
+    test_redis_parse_req_success_case("*4\r\n$6\r\nlrange\r\n$4\r\nlfoo\r\n$1\r\n0\r\n$1\r\n3\r\n", MSG_REQ_REDIS_LRANGE);
+    test_redis_parse_req_success_case("*4\r\n$4\r\nlrem\r\n$4\r\nlfoo\r\n$1\r\n2\r\n$3\r\nbar\r\n", MSG_REQ_REDIS_LREM);
+    test_redis_parse_req_success_case("*4\r\n$4\r\nlset\r\n$4\r\nlfoo\r\n$1\r\n0\r\n$3\r\nbaq\r\n", MSG_REQ_REDIS_LSET);
+    test_redis_parse_req_success_case("*4\r\n$5\r\nltrim\r\n$4\r\nlfoo\r\n$1\r\n0\r\n$1\r\n2\r\n", MSG_REQ_REDIS_LTRIM);
+    test_redis_parse_req_success_case("*13\r\n$4\r\nmget\r\n$3\r\nfoo\r\n$3\r\nbar\r\n$3\r\nbar\r\n$3\r\nbar\r\n$3\r\nbar\r\n$3\r\nbar\r\n$3\r\nbar\r\n$3\r\nbar\r\n$3\r\nbar\r\n$3\r\nbar\r\n$3\r\nbar\r\n$3\r\nbar\r\n", MSG_REQ_REDIS_MGET);
+    test_redis_parse_req_success_case("*2\r\n$4\r\nMGET\r\n$1\r\nx\r\n", MSG_REQ_REDIS_MGET);
+    test_redis_parse_req_success_case("*3\r\n$4\r\nMGET\r\n$1\r\nx\r\n$10\r\nabcdefghij\r\n", MSG_REQ_REDIS_MGET);
+    test_redis_parse_req_success_case("*3\r\n$4\r\nmget\r\n$3\r\nfoo\r\n$3\r\nbar\r\n", MSG_REQ_REDIS_MGET);
+    test_redis_parse_req_success_case("*3\r\n$4\r\nmget\r\n$3\r\nfoo\r\n$3\r\nbar\r\n", MSG_REQ_REDIS_MGET);
+    test_redis_parse_req_success_case("*2\r\n$7\r\npersist\r\n$3\r\nfoo\r\n", MSG_REQ_REDIS_PERSIST);
+    test_redis_parse_req_success_case("*3\r\n$7\r\npexpire\r\n$3\r\nfoo\r\n$1\r\n0\r\n", MSG_REQ_REDIS_PEXPIRE);
+    test_redis_parse_req_success_case("*3\r\n$5\r\npfadd\r\n$7\r\n{pfoo}2\r\n$3\r\nbas\r\n", MSG_REQ_REDIS_PFADD);
+    test_redis_parse_req_success_case("*4\r\n$5\r\npfadd\r\n$4\r\npfoo\r\n$3\r\nbar\r\n$3\r\nbas\r\n", MSG_REQ_REDIS_PFADD);
+    test_redis_parse_req_success_case("*2\r\n$7\r\npfcount\r\n$4\r\npfoo\r\n", MSG_REQ_REDIS_PFCOUNT);
+    test_redis_parse_req_success_case("*5\r\n$7\r\npfmerge\r\n$7\r\n{pfoo}3\r\n$1\r\n2\r\n$6\r\n{pfoo}\r\n$7\r\n{pfoo}2\r\n", MSG_REQ_REDIS_PFMERGE);
     test_redis_parse_req_success_case("*1\r\n$4\r\nPING\r\n", MSG_REQ_REDIS_PING);
+    test_redis_parse_req_success_case("*4\r\n$6\r\npsetex\r\n$3\r\nfoo\r\n$4\r\n1000\r\n$3\r\noof\r\n", MSG_REQ_REDIS_PSETEX);
+    test_redis_parse_req_success_case("*2\r\n$4\r\npttl\r\n$3\r\nfoo\r\n", MSG_REQ_REDIS_PTTL);
+    test_redis_parse_req_success_case("*4\r\n$7\r\nrestore\r\n$3\r\nfoo\r\n$1\r\n0\r\n$3\r\noof\r\n", MSG_REQ_REDIS_RESTORE);
+    test_redis_parse_req_success_case("*2\r\n$4\r\nrpop\r\n$4\r\nlfoo\r\n", MSG_REQ_REDIS_RPOP);
+    test_redis_parse_req_success_case("*3\r\n$9\r\nrpoplpush\r\n$6\r\n{lfoo}\r\n$7\r\n{lfoo}2\r\n", MSG_REQ_REDIS_RPOPLPUSH);
+    test_redis_parse_req_success_case("*3\r\n$5\r\nrpush\r\n$4\r\nlfoo\r\n$3\r\nbar\r\n", MSG_REQ_REDIS_RPUSH);
+    test_redis_parse_req_success_case("*4\r\n$5\r\nrpush\r\n$4\r\nlfoo\r\n$3\r\nbat\r\n$3\r\nbau\r\n", MSG_REQ_REDIS_RPUSH);
+    test_redis_parse_req_success_case("*3\r\n$6\r\nrpushx\r\n$4\r\nlfoo\r\n$3\r\nbar\r\n", MSG_REQ_REDIS_RPUSHX);
+    test_redis_parse_req_success_case("*3\r\n$4\r\nsadd\r\n$7\r\n{sfoo}2\r\n$3\r\nbar\r\n", MSG_REQ_REDIS_SADD);
+    test_redis_parse_req_success_case("*4\r\n$4\r\nsadd\r\n$4\r\nsfoo\r\n$3\r\nbar\r\n$3\r\nbas\r\n", MSG_REQ_REDIS_SADD);
+    test_redis_parse_req_success_case("*5\r\n$4\r\nsadd\r\n$4\r\nsfoo\r\n$3\r\nbar\r\n$3\r\nbas\r\n$3\r\nbat\r\n", MSG_REQ_REDIS_SADD);
+    test_redis_parse_req_success_case("*2\r\n$5\r\nscard\r\n$4\r\nsfoo\r\n", MSG_REQ_REDIS_SCARD);
+    test_redis_parse_req_success_case("*3\r\n$5\r\nsdiff\r\n$6\r\n{sfoo}\r\n$7\r\n{sfoo}2\r\n", MSG_REQ_REDIS_SDIFF);
+    test_redis_parse_req_success_case("*4\r\n$10\r\nsdiffstore\r\n$7\r\n{sfoo}3\r\n$6\r\n{sfoo}\r\n$7\r\n{sfoo}2\r\n", MSG_REQ_REDIS_SDIFFSTORE);
+    test_redis_parse_req_success_case("*3\r\n$3\r\nSET\r\n$10\r\nkey4567890\r\n$5\r\nVALUE\r\n", MSG_REQ_REDIS_SET);
+    test_redis_parse_req_success_case("*3\r\n$3\r\nset\r\n$3\r\nbar\r\n$3\r\nrab\r\n", MSG_REQ_REDIS_SET);
+    test_redis_parse_req_success_case("*4\r\n$6\r\nsetbit\r\n$3\r\nfoo\r\n$1\r\n1\r\n$1\r\n1\r\n", MSG_REQ_REDIS_SETBIT);
+    test_redis_parse_req_success_case("*4\r\n$5\r\nsetex\r\n$3\r\nfoo\r\n$4\r\n1000\r\n$3\r\noof\r\n", MSG_REQ_REDIS_SETEX);
+    test_redis_parse_req_success_case("*3\r\n$5\r\nsetnx\r\n$3\r\nfoo\r\n$3\r\noof\r\n", MSG_REQ_REDIS_SETNX);
+    test_redis_parse_req_success_case("*4\r\n$8\r\nsetrange\r\n$3\r\nfoo\r\n$1\r\n1\r\n$3\r\noof\r\n", MSG_REQ_REDIS_SETRANGE);
+    test_redis_parse_req_success_case("*3\r\n$6\r\nsinter\r\n$6\r\n{sfoo}\r\n$7\r\n{sfoo}2\r\n", MSG_REQ_REDIS_SINTER);
+    test_redis_parse_req_success_case("*4\r\n$11\r\nsinterstore\r\n$7\r\n{sfoo}3\r\n$6\r\n{sfoo}\r\n$7\r\n{sfoo}2\r\n", MSG_REQ_REDIS_SINTERSTORE);
+    test_redis_parse_req_success_case("*3\r\n$9\r\nsismember\r\n$4\r\nsfoo\r\n$3\r\nbar\r\n", MSG_REQ_REDIS_SISMEMBER);
+    test_redis_parse_req_success_case("*2\r\n$8\r\nsmembers\r\n$4\r\nsfoo\r\n", MSG_REQ_REDIS_SMEMBERS);
+    test_redis_parse_req_success_case("*4\r\n$5\r\nsmove\r\n$6\r\n{sfoo}\r\n$7\r\n{sfoo}2\r\n$3\r\nbas\r\n", MSG_REQ_REDIS_SMOVE);
+    test_redis_parse_req_success_case("*2\r\n$11\r\nsrandmember\r\n$4\r\nsfoo\r\n", MSG_REQ_REDIS_SRANDMEMBER);
+    test_redis_parse_req_success_case("*3\r\n$11\r\nsrandmember\r\n$4\r\nsfoo\r\n$1\r\n2\r\n", MSG_REQ_REDIS_SRANDMEMBER);
+    test_redis_parse_req_success_case("*3\r\n$4\r\nsrem\r\n$4\r\nsfoo\r\n$3\r\nbar\r\n", MSG_REQ_REDIS_SREM);
+    test_redis_parse_req_success_case("*5\r\n$4\r\nsrem\r\n$4\r\nsfoo\r\n$3\r\nbas\r\n$3\r\nbat\r\n$3\r\nrab\r\n", MSG_REQ_REDIS_SREM);
+    test_redis_parse_req_success_case("*3\r\n$6\r\nsunion\r\n$6\r\n{sfoo}\r\n$7\r\n{sfoo}2\r\n", MSG_REQ_REDIS_SUNION);
+    test_redis_parse_req_success_case("*4\r\n$11\r\nsunionstore\r\n$7\r\n{sfoo}3\r\n$6\r\n{sfoo}\r\n$7\r\n{sfoo}2\r\n", MSG_REQ_REDIS_SUNIONSTORE);
+    test_redis_parse_req_success_case("*2\r\n$3\r\nttl\r\n$3\r\nfoo\r\n", MSG_REQ_REDIS_TTL);
+    test_redis_parse_req_success_case("*2\r\n$4\r\ntype\r\n$3\r\nfoo\r\n", MSG_REQ_REDIS_TYPE);
+    test_redis_parse_req_success_case("*4\r\n$4\r\nzadd\r\n$4\r\nzfoo\r\n$3\r\n100\r\n$3\r\nbar\r\n", MSG_REQ_REDIS_ZADD);
+    test_redis_parse_req_success_case("*6\r\n$4\r\nzadd\r\n$4\r\nzfoo\r\n$3\r\n101\r\n$3\r\nbat\r\n$3\r\n102\r\n$3\r\nbau\r\n", MSG_REQ_REDIS_ZADD);
+    test_redis_parse_req_success_case("*8\r\n$4\r\nzadd\r\n$4\r\nzfoo\r\n$3\r\n100\r\n$3\r\nbar\r\n$3\r\n101\r\n$3\r\nbat\r\n$3\r\n102\r\n$3\r\nbau\r\n", MSG_REQ_REDIS_ZADD);
+    test_redis_parse_req_success_case("*2\r\n$5\r\nzcard\r\n$4\r\nzfoo\r\n", MSG_REQ_REDIS_ZCARD);
+    test_redis_parse_req_success_case("*4\r\n$6\r\nzcount\r\n$4\r\nzfoo\r\n$3\r\n100\r\n$3\r\n101\r\n", MSG_REQ_REDIS_ZCOUNT);
+    test_redis_parse_req_success_case("*4\r\n$7\r\nzincrby\r\n$4\r\nzfoo\r\n$3\r\n100\r\n$3\r\nbar\r\n", MSG_REQ_REDIS_ZINCRBY);
+    test_redis_parse_req_success_case("*5\r\n$11\r\nzinterstore\r\n$7\r\n{zfoo}3\r\n$1\r\n2\r\n$6\r\n{zfoo}\r\n$7\r\n{zfoo}2\r\n", MSG_REQ_REDIS_ZINTERSTORE);
+    test_redis_parse_req_success_case("*4\r\n$9\r\nzlexcount\r\n$4\r\nzfoo\r\n$1\r\n-\r\n$1\r\n+\r\n", MSG_REQ_REDIS_ZLEXCOUNT);
+    test_redis_parse_req_success_case("*4\r\n$6\r\nzrange\r\n$4\r\nzfoo\r\n$1\r\n0\r\n$1\r\n3\r\n", MSG_REQ_REDIS_ZRANGE);
+    test_redis_parse_req_success_case("*5\r\n$6\r\nzrange\r\n$4\r\nzfoo\r\n$1\r\n0\r\n$1\r\n3\r\n$10\r\nWITHSCORES\r\n", MSG_REQ_REDIS_ZRANGE);
+    test_redis_parse_req_success_case("*4\r\n$11\r\nzrangebylex\r\n$4\r\nzfoo\r\n$1\r\n-\r\n$1\r\n+\r\n", MSG_REQ_REDIS_ZRANGEBYLEX);
+    test_redis_parse_req_success_case("*4\r\n$13\r\nzrangebyscore\r\n$4\r\nzfoo\r\n$3\r\n100\r\n$3\r\n101\r\n", MSG_REQ_REDIS_ZRANGEBYSCORE);
+    test_redis_parse_req_success_case("*3\r\n$5\r\nzrank\r\n$4\r\nzfoo\r\n$3\r\nbar\r\n", MSG_REQ_REDIS_ZRANK);
+    test_redis_parse_req_success_case("*8\r\n$4\r\nzrem\r\n$4\r\nzfoo\r\n$3\r\n100\r\n$3\r\nbar\r\n$3\r\n101\r\n$3\r\nbat\r\n$3\r\n102\r\n$3\r\nbau\r\n", MSG_REQ_REDIS_ZREM);
+    test_redis_parse_req_success_case("*4\r\n$14\r\nzremrangebylex\r\n$4\r\nzfoo\r\n$1\r\n-\r\n$1\r\n+\r\n", MSG_REQ_REDIS_ZREMRANGEBYLEX);
+    test_redis_parse_req_success_case("*4\r\n$15\r\nzremrangebyrank\r\n$4\r\nzfoo\r\n$1\r\n0\r\n$1\r\n1\r\n", MSG_REQ_REDIS_ZREMRANGEBYRANK);
+    test_redis_parse_req_success_case("*4\r\n$16\r\nzremrangebyscore\r\n$4\r\nzfoo\r\n$3\r\n100\r\n$3\r\n101\r\n", MSG_REQ_REDIS_ZREMRANGEBYSCORE);
+    test_redis_parse_req_success_case("*4\r\n$9\r\nzrevrange\r\n$4\r\nzfoo\r\n$1\r\n0\r\n$1\r\n2\r\n", MSG_REQ_REDIS_ZREVRANGE);
+    test_redis_parse_req_success_case("*3\r\n$8\r\nzrevrank\r\n$4\r\nzfoo\r\n$3\r\nbar\r\n", MSG_REQ_REDIS_ZREVRANK);
+    test_redis_parse_req_success_case("*3\r\n$6\r\nzscore\r\n$4\r\nzfoo\r\n$3\r\nbar\r\n", MSG_REQ_REDIS_ZSCORE);
+    test_redis_parse_req_success_case("*5\r\n$11\r\nzunionstore\r\n$7\r\n{zfoo}3\r\n$1\r\n2\r\n$6\r\n{zfoo}\r\n$7\r\n{zfoo}2\r\n", MSG_REQ_REDIS_ZUNIONSTORE);
 }
 
 static void test_redis_parse_rsp_success_case(const char* data, int expected) {
@@ -122,11 +234,13 @@ static void test_redis_parse_rsp_success_case(const char* data, int expected) {
     ASSERT(STAILQ_EMPTY(&rsp->mhdr));
     mbuf_insert(&rsp->mhdr, m);
     rsp->pos = m->start;
+    errno = 0;
 
     redis_parse_rsp(rsp);
     expect_same_ptr(m->last, rsp->pos, "redis_parse_rsp: expected rsp->pos to be m->last");
     expect_same_int(SW_START, rsp->state, "redis_parse_rsp: expected full buffer to be parsed");
     expect_same_int(expected, rsp->type, "redis_parse_rsp: expected response type to be parsed");
+    expect_same_int(0, errno, "redis_parse_rsp: expected errno=0");
     expect_same_uint32_t(1, rsp->rnarg ? rsp->rnarg : 1, "expected remaining args to be 0 or 1");
 
     msg_put(rsp);
@@ -242,6 +356,7 @@ static void test_memcache_parse_rsp_success_case(const char* data, int expected)
     ASSERT(STAILQ_EMPTY(&rsp->mhdr));
     mbuf_insert(&rsp->mhdr, m);
     rsp->pos = m->start;
+    errno=0;
 
     memcache_parse_rsp(rsp);
     expect_same_ptr(m->last, rsp->pos, "memcache_parse_rsp: expected rsp->pos to be m->last");

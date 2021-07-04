@@ -231,16 +231,6 @@ If you are deploying twemproxy in production, you might consider reading through
 
 ## Packages
 
-### Ubuntu
-
-#### PPA Stable
-
-https://launchpad.net/~twemproxy/+archive/ubuntu/stable
-
-#### PPA Daily
-
-https://launchpad.net/~twemproxy/+archive/ubuntu/daily
-
 ## Utils
 + [collectd-plugin](https://github.com/bewie/collectd-twemproxy)
 + [munin-plugin](https://github.com/eveiga/contrib/tree/nutcracker/plugins/nutcracker)

@@ -190,7 +190,7 @@ Finally, to make writing a syntactically correct configuration file easier, twem
 
 Observability in twemproxy is through logs and stats.
 
-Twemproxy exposes stats at the granularity of server pool and servers per pool through the stats monitoring port. The stats are essentially JSON formatted key-value pairs, with the keys corresponding to counter names. By default stats are exposed on port 22222 and aggregated every 30 seconds. Both these values can be configured on program start using the `-c` or `--conf-file` and `-i` or `--stats-interval` command-line arguments respectively. You can print the description of all stats exported by  using the `-D` or `--describe-stats` command-line argument.
+Twemproxy exposes stats at the granularity of server pool and servers per pool through the stats monitoring port by responding with the raw data over TCP. The stats are essentially JSON formatted key-value pairs, with the keys corresponding to counter names. By default stats are exposed on port 22222 and aggregated every 30 seconds. Both these values can be configured on program start using the `-c` or `--conf-file` and `-i` or `--stats-interval` command-line arguments respectively. You can print the description of all stats exported by  using the `-D` or `--describe-stats` command-line argument.
 
     $ nutcracker --describe-stats
 
@@ -216,6 +216,8 @@ Twemproxy exposes stats at the granularity of server pool and servers per pool t
       out_queue           "# requests in outgoing queue"
       out_queue_bytes     "current request bytes in outgoing queue"
 
+See [`notes/debug.txt`](notes/debug.txt) for examples of how to read the stats from the stats port.
+
 Logging in twemproxy is only available when twemproxy is built with logging enabled. By default logs are written to stderr. Twemproxy can also be configured to write logs to a specific file through the `-o` or `--output` command-line argument. On a running twemproxy, we can turn log levels up and down by sending it SIGTTIN and SIGTTOU signals respectively and reopen log files by sending it SIGHUP signal.
 
 ## Pipelining
@@ -229,8 +231,6 @@ Pipelining is the reason why twemproxy ends up doing better in terms of throughp
 ## Deployment
 
 If you are deploying twemproxy in production, you might consider reading through the [recommendation document](notes/recommendation.md) to understand the parameters you could tune in twemproxy to run it efficiently in the production environment.
-
-## Packages
 
 ## Utils
 + [collectd-plugin](https://github.com/bewie/collectd-twemproxy)

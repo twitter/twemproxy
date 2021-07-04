@@ -1355,9 +1355,9 @@ memcache_fragment_retrieval(struct msg *r, uint32_t nserver,
 
         /* prepend get/gets */
         if (r->type == MSG_REQ_MC_GET) {
-            status = msg_prepend(sub_msg, (uint8_t *)"get ", 4);
+            status = msg_prepend(sub_msg, (const uint8_t *)"get ", 4);
         } else if (r->type == MSG_REQ_MC_GETS) {
-            status = msg_prepend(sub_msg, (uint8_t *)"gets ", 5);
+            status = msg_prepend(sub_msg, (const uint8_t *)"gets ", 5);
         }
         if (status != NC_OK) {
             nc_free(sub_msgs);
@@ -1365,7 +1365,7 @@ memcache_fragment_retrieval(struct msg *r, uint32_t nserver,
         }
 
         /* append \r\n */
-        status = msg_append(sub_msg, (uint8_t *)CRLF, CRLF_LEN);
+        status = msg_append(sub_msg, (const uint8_t *)CRLF, CRLF_LEN);
         if (status != NC_OK) {
             nc_free(sub_msgs);
             return status;
@@ -1472,7 +1472,8 @@ static rstatus_t
 memcache_copy_bulk(struct msg *dst, struct msg *src)
 {
     struct mbuf *mbuf, *nbuf;
-    uint8_t *p;
+    const uint8_t *p;
+    const uint8_t *last;
     uint32_t len = 0;
     uint32_t bytes = 0;
     uint32_t i = 0;
@@ -1490,30 +1491,44 @@ memcache_copy_bulk(struct msg *dst, struct msg *src)
         return NC_OK;           /* key not exists */
     }
     p = mbuf->pos;
+    last = mbuf->last;
 
     /*
-     * get : VALUE key 0 len\r\nval\r\n
-     * gets: VALUE key 0 len cas\r\nval\r\n
+     * get : VALUE key flags len\r\nval\r\n
+     * gets: VALUE key flags len cas\r\nval\r\n
      */
     ASSERT(*p == 'V');
-    for (i = 0; i < 3; i++) {                 /*  eat 'VALUE key 0 '  */
-        for (; *p != ' ';) {
-            p++;
+    i = 0;
+    while (p < last) { /*  eat 'VALUE key flags '  */
+        if (*p == ' ') {
+            i++;
+            if (i >= 3) {
+                p++;
+                break;
+            }
         }
         p++;
     }
 
     len = 0;
-    for (; p < mbuf->last && isdigit(*p); p++) {
+    for (; p < last && isdigit(*p); p++) {
         len = len * 10 + (uint32_t)(*p - '0');
     }
 
-    for (; p < mbuf->last && ('\r' != *p); p++) { /* eat cas for gets */
+    for (; p < last && ('\r' != *p); p++) { /* eat cas for gets */
         ;
     }
 
     len += CRLF_LEN * 2;
     len += (p - mbuf->pos);
+
+    if (p >= last) {
+        log_error("Saw memcache value response where header was not "
+                  "parsed or header length %d unexpectedly exceeded mbuf size limit",
+                  (int)(p - mbuf->pos));
+        return NC_ERROR;
+    }
+
 
     bytes = len;
 
@@ -1564,8 +1579,8 @@ memcache_post_coalesce(struct msg *request)
         return;
     }
 
-    for (i = 0; i < array_n(request->keys); i++) {      /* for each  key */
-        sub_msg = request->frag_seq[i]->peer;           /* get it's peer response */
+    for (i = 0; i < array_n(request->keys); i++) {      /* for each key */
+        sub_msg = request->frag_seq[i]->peer;           /* get its peer response */
         if (sub_msg == NULL) {
             response->owner->err = 1;
             return;
@@ -1578,7 +1593,7 @@ memcache_post_coalesce(struct msg *request)
     }
 
     /* append END\r\n */
-    status = msg_append(response, (uint8_t *)"END\r\n", 5);
+    status = msg_append(response, (const uint8_t *)"END\r\n", 5);
     if (status != NC_OK) {
         response->owner->err = 1;
         return;

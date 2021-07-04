@@ -1518,6 +1518,7 @@ memcache_copy_bulk(struct msg *dst, struct msg *src)
     for (; p < last && ('\r' != *p); p++) { /* eat cas for gets */
         ;
     }
+    /* "*p" should be pointing to '\r' */
 
     len += CRLF_LEN * 2;
     len += (p - mbuf->pos);

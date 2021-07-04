@@ -96,10 +96,10 @@ Twemproxy can be configured through a YAML file specified by the -c or --conf-fi
   + murmur
   + jenkins
 + **hash_tag**: A two character string that specifies the part of the key used for hashing. Eg "{}" or "$$". [Hash tag](notes/recommendation.md#hash-tags) enable mapping different keys to the same server as long as the part of the key within the tag is the same.
-+ **distribution**: The key distribution mode. Possible values are:
-  + ketama
-  + modula
-  + random
++ **distribution**: The key distribution mode for choosing backend servers based on the computed hash value. Possible values are:
+  + ketama (default, recommended. An implementation of https://en.wikipedia.org/wiki/Consistent_hashing)
+  + modula (use hash modulo number of servers to choose the backend)
+  + random (choose a random backend for each key of each request)
 + **timeout**: The timeout value in msec that we wait for to establish a connection to the server or receive a response from a server. By default, we wait indefinitely.
 + **backlog**: The TCP backlog argument. Defaults to 512.
 + **preconnect**: A boolean value that controls if twemproxy should preconnect to all the servers in this pool on process start. Defaults to false.

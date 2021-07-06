@@ -4,13 +4,13 @@
 
 ## Build
 
-To build twemproxy from [distribution tarball](https://drive.google.com/open?id=0B6pVMMV5F5dfMUdJV25abllhUWM&authuser=0):
+To build twemproxy 0.5.0+ from [distribution tarball](https://github.com/twitter/twemproxy/releases):
 
     $ ./configure
     $ make
     $ sudo make install
 
-To build twemproxy from [distribution tarball](https://drive.google.com/open?id=0B6pVMMV5F5dfMUdJV25abllhUWM&authuser=0) in _debug mode_:
+To build twemproxy 0.5.0+ from [distribution tarball](https://github.com/twitter/twemproxy/releases) in _debug mode_:
 
     $ CFLAGS="-ggdb3 -O0" ./configure --enable-debug=full
     $ make
@@ -31,6 +31,13 @@ A quick checklist:
 + Use CFLAGS="-O1" ./configure && make
 + Use CFLAGS="-O3 -fno-strict-aliasing" ./configure && make
 + `autoreconf -fvi && ./configure` needs `automake` and `libtool` to be installed
+
+`make check` will run unit tests.
+
+### Older Releases
+
+Distribution tarballs for twemproxy <= 0.4.1 can be found at https://drive.google.com/open?id=0B6pVMMV5F5dfMUdJV25abllhUWM&authuser=0
+The build steps are the same (`./configure; make; sudo make install`).
 
 ## Features
 

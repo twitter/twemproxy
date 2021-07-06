@@ -1,5 +1,5 @@
- 2021-??-??  Tyson Andre
-    * twemproxy: version 0.5.0 release (dev)
+ 2021-06-07  Tyson Andre  <tysonandre775@hotmail.com>
+    * twemproxy: version 0.5.0-RC1 release
 	  Add 'tcpkeepalive' pool boolean config flag setting
 	  to enable tcp keepalive (charsyam, manju)
 	  Support redis bitpos command (clark kang)

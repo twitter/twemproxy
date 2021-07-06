@@ -1,7 +1,7 @@
 Summary: Twitter's nutcracker redis and memcached proxy
 Name: nutcracker
-Version: 0.4.1
-Release: 1
+Version: 0.5.0
+Release: 0.1.rc1
 
 URL: https://github.com/twitter/twemproxy/
 Source0: %{name}-%{version}.tar.gz
@@ -66,6 +66,30 @@ fi
 %config(noreplace)%{_sysconfdir}/%{name}/%{name}.yml
 
 %changelog
+* Tue Jul 06 2021 Tyson Andre  <tysonandre775@hotmail.com>
+- twemproxy: version 0.5.0-RC1 release
+- Add 'tcpkeepalive' pool boolean config flag setting to enable tcp keepalive (charsyam, manju)
+- Support redis bitpos command (clark kang)
+- Fix parsing of redis error response for error type with no space, add tests (tyson, tom dalton)
+- Update integration tests, add C unit test suite for 'make check' (tyson)
+- Increase the maximum host length+port+identifier to 273 in ketama_update (李广博)
+- Always initialize file permissions field when listening on a unix domain socket (tyson)
+- Use number of servers instead of number of points on the continuum when sharding requests to backend services to improve sharding performance and fix potential invalid memory access when all hosts were ejected from a pool. (tyson)
+- Optimize performance of deletion of single redis keys (vincentve)
+- Don't fragment memcache/redis get commands when they only have a single key (improves performance and error handling of single key case) (tyson)
+- Don't let requests hang when there is a dns error when processing a fragmented request (e.g. multiget with multiple keys) (tyson)
+- Allow extra parameters for redis spop (charsyam)
+- Update documentation and README (various)
+- Fix memory leak bug for redis mset (deep011)
+- Support arbitrarily deep nested redis multi-bulk responses (nested arrays) (qingping209, tyson)
+- Upgrade from libyaml 0.1.4 to 0.2.5 (tyson)
+- Fix compiler warnings about wrong conversion specifiers in format strings for logging (tyson)
+- Log the async backend used and any debug options in the '--help'/'--version' output.
+- Add support for many more new redis commands and updates to existing redis commands (tyson)
+- Optimization: Skip hashing and choosing server index when a pool has exactly one server (tyson)
+- Support memcache 'version' requests by proxying the request to a single backend memcache server to fetch the server version. (tyson)
+- Make error messages for creating the stats server during startup clearer. (tyson)
+
 * Mon Jun 22 2015  Manju Rajashekhar  <manj@cs.stanford.edu>
 - twemproxy: version 0.4.1 release
 - backend server hostnames are resolved lazily
@@ -109,7 +133,7 @@ fi
 - support for set ex/px/nx/xx for redis 2.6.12 and up (ypocat)
 - kqueue (bsd) support (ferenyx)
 - fix parsing redis response to accept integer reply (charsyam)
-      
+
 * Tue Jul 30 2013 Tait Clarridge <tait@clarridge.ca>
 - Rebuild SPEC to work with CentOS
 - Added buildrequires if building with mock/koji

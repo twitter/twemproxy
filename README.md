@@ -36,7 +36,7 @@ A quick checklist:
 
 ### Older Releases
 
-Distribution tarballs for twemproxy <= 0.4.1 can be found at https://drive.google.com/open?id=0B6pVMMV5F5dfMUdJV25abllhUWM&authuser=0
+Distribution tarballs for older twemproxy releases (<= 0.4.1) can be found on [Google Drive](https://drive.google.com/open?id=0B6pVMMV5F5dfMUdJV25abllhUWM&authuser=0).
 The build steps are the same (`./configure; make; sudo make install`).
 
 ## Features

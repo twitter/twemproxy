@@ -3206,26 +3206,21 @@ redis_swallow_msg(struct conn *conn, struct msg *pmsg, struct msg *msg)
 {
     if (pmsg != NULL && pmsg->type == MSG_REQ_REDIS_SELECT &&
         msg != NULL && redis_error(msg)) {
-        struct server* conn_server;
-        struct server_pool* conn_pool;
-        struct mbuf* rsp_buffer;
-        uint8_t message[128];
-        size_t copy_len;
+        const struct server* conn_server;
+        const struct server_pool* conn_pool;
+        const struct mbuf* rsp_buffer;
+
+        conn_server = (struct server*)conn->owner;
+        conn_pool = conn_server->owner;
+        rsp_buffer = STAILQ_LAST(&msg->mhdr, mbuf, next);
 
         /*
          * Get a substring from the message so that the initial - and the trailing
          * \r\n is removed.
          */
-        conn_server = (struct server*)conn->owner;
-        conn_pool = conn_server->owner;
-        rsp_buffer = STAILQ_LAST(&msg->mhdr, mbuf, next);
-        copy_len = MIN(mbuf_length(rsp_buffer) - 3, sizeof(message) - 1);
-
-        nc_memcpy(message, &rsp_buffer->start[1], copy_len);
-        message[copy_len] = 0;
-
-        log_warn("SELECT %d failed on %s | %s: %s",
+        log_warn("SELECT %d failed on %s | %s: %.*s",
                  conn_pool->redis_db, conn_pool->name.data,
-                 conn_server->name.data, message);
+                 conn_server->name.data,
+                 MAX((int)mbuf_length(rsp_buffer) - 3, 0), &rsp_buffer->start[1]);
     }
 }

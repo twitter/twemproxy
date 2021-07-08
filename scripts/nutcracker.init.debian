@@ -17,16 +17,16 @@ LOGFILE=/opt/nutcracker/log/nutcracker.log
 DAEMON=/opt/nutcracker/sbin/nutcracker
 PIDFILE=/var/run/nutcracker/$NAME.pid
 STATSPORT=22222
-DAEMON_ARGS="-c $CONFFILE -o $LOGFILE -p $PIDFILE -s $STATSPORT -v 11 -m 2048 -d"
-#DAEMON_ARGS="-c $CONFFILE -p $PIDFILE -s $STATSPORT -d"
 SCRIPTNAME=/etc/init.d/$NAME
 
 ulimit -Hn 100000
 ulimit -Sn 100000
 
+[ -r /etc/default/$NAME ] && . /etc/default/$NAME
+
 [ -x $DAEMON ] || exit 0
 
-[ -r /etc/default/$NAME ] && . /etc/default/$NAME
+DAEMON_ARGS="-c $CONFFILE -o $LOGFILE -p $PIDFILE -s $STATSPORT -v 11 -m 2048 -d"
 
 . /lib/init/vars.sh
 

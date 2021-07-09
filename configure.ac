@@ -74,7 +74,10 @@ AC_CHECK_HEADERS([sys/event.h], [], [])
 
 # Checks for libraries
 AC_CHECK_LIB([m], [pow])
-AC_CHECK_LIB([pthread], [pthread_create])
+AX_PTHREAD([LIBS="$PTHREAD_LIBS $LIBS"
+            CFLAGS="$PTHREAD_CFLAGS $CFLAGS"
+            CC="$PTHREAD_CC"],
+           [AC_MSG_ERROR([Pthread API support is required.])])
 
 # Checks for library functions
 AC_FUNC_FORK

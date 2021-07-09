@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 
-#ifndef _NC_PROTO_H_
-#define _NC_PROTO_H_
+#ifndef NC_PROTO_H_7DAF4377669D4EA69D026395004507F4
+#define NC_PROTO_H_7DAF4377669D4EA69D026395004507F4
 
 #include <nc_core.h>
 

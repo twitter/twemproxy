@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 
-#ifndef _NC_CLIENT_H_
-#define _NC_CLIENT_H_
+#ifndef NC_CLIENT_H_AC3C4D0E44AC4FBD83D0E9B747BE23FD
+#define NC_CLIENT_H_AC3C4D0E44AC4FBD83D0E9B747BE23FD
 
 #include <nc_core.h>
 

@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 
-#ifndef _NC_PROXY_H_
-#define _NC_PROXY_H_
+#ifndef NC_PROXY_H_0EFE6BC353564ECF8DF1199E947C5357
+#define NC_PROXY_H_0EFE6BC353564ECF8DF1199E947C5357
 
 #include <nc_core.h>
 

@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 
-#ifndef _NC_RBTREE_
-#define _NC_RBTREE_
+#ifndef NC_RBTREE_H_373370C1A0E248A8925D17009BD90027
+#define NC_RBTREE_H_373370C1A0E248A8925D17009BD90027
 
 #define rbtree_red(_node)           ((_node)->color = 1)
 #define rbtree_black(_node)         ((_node)->color = 0)

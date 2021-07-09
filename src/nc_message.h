@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 
-#ifndef _NC_MESSAGE_H_
-#define _NC_MESSAGE_H_
+#ifndef NC_MESSAGE_H_BEDD33363EE0457680AED439102A42B6
+#define NC_MESSAGE_H_BEDD33363EE0457680AED439102A42B6
 
 #include <nc_core.h>
 #include <proto/nc_proto.h>

@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 
-#ifndef _NC_UTIL_H_
-#define _NC_UTIL_H_
+#ifndef NC_UTIL_H_81E871276FF149D58A44072A88870E22
+#define NC_UTIL_H_81E871276FF149D58A44072A88870E22
 
 #include <stdarg.h>
 

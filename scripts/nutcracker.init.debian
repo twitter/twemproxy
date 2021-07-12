@@ -51,7 +51,7 @@ do_start()
 do_stop()
 {
     echo -n "Stopping ${NAME}: "
-    start-stop-daemon --stop --quiet --pidfile $PIDFILE --exec $DAEMON || true
+    start-stop-daemon --stop --quiet --retry=TERM/30/KILL/2 --pidfile $PIDFILE --exec $DAEMON || true
 
     case "$?" in
         0|1) echo "STOPPED.";;

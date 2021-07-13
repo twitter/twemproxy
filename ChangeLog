@@ -1,3 +1,7 @@
+ 2021-13-07  Tyson Andre  <tysonandre775@hotmail.com>
+    * twemproxy: version 0.5.0 release
+	  Same as 0.5.0-RC1
+
  2021-06-07  Tyson Andre  <tysonandre775@hotmail.com>
     * twemproxy: version 0.5.0-RC1 release
 	  Add 'tcpkeepalive' pool boolean config flag setting

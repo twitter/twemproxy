@@ -1,7 +1,7 @@
 Summary: Twitter's nutcracker redis and memcached proxy
 Name: nutcracker
 Version: 0.5.0
-Release: 0.1.rc1
+Release: 1
 
 URL: https://github.com/twitter/twemproxy/
 Source0: %{name}-%{version}.tar.gz
@@ -66,6 +66,10 @@ fi
 %config(noreplace)%{_sysconfdir}/%{name}/%{name}.yml
 
 %changelog
+* Tue Jul 06 2021 Tyson Andre  <tysonandre775@hotmail.com>
+- twemproxy: version 0.5.0 release
+- Same as 0.5.0-RC1
+
 * Tue Jul 06 2021 Tyson Andre  <tysonandre775@hotmail.com>
 - twemproxy: version 0.5.0-RC1 release
 - Add 'tcpkeepalive' pool boolean config flag setting to enable tcp keepalive (charsyam, manju)

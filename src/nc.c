@@ -28,7 +28,7 @@
 #include <nc_conf.h>
 #include <nc_signal.h>
 
-#define NC_CONF_PATH        "conf/nutcracker.yml"
+#define NC_CONF_PATH        "/etc/nutcracker/nutcracker.yml"
 
 #define NC_LOG_DEFAULT      LOG_NOTICE
 #define NC_LOG_MIN          LOG_EMERG

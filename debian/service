@@ -8,7 +8,7 @@ ConditionPathExists=/etc/nutcracker/nutcracker.yml
 [Service]
 Type=simple
 EnvironmentFile=-/etc/default/nutcracker
-ExecStart=/usr/sbin/nutcracker $DAEMON_OPTS
+ExecStart=/usr/sbin/nutcracker -c /etc/nutcracker/nutcracker.yml $DAEMON_OPTS
 User=nutcracker
 Group=nutcracker
 

@@ -1,0 +1,35 @@
+rediskeydb_srv:
+  redis: true
+  listen: 127.0.0.1:27379
+  hash: fnv1a_64
+  distribution: ketama
+  auto_eject_hosts: true
+  server_retry_timeout: 2000
+  server_failure_limit: 1
+  timeout: 400
+  backlog: 1024
+  preconnect: true
+  tcpkeepalive: true
+  servers:
+   - 127.0.0.1:6379:1 keydb1
+   - 127.0.0.1:7379:1 keydb2
+   - 127.0.0.1:17379:1 keydb3
+   - 127.0.0.1:37379:1 keydb4
+
+memcached_srv:
+  redis: false
+  listen: 127.0.0.1:33211
+  hash: fnv1a_64
+  distribution: ketama
+  auto_eject_hosts: true
+  server_retry_timeout: 2000
+  server_failure_limit: 1
+  timeout: 400
+  backlog: 1024
+  preconnect: true
+  tcpkeepalive: true
+  servers:
+   - 127.0.0.1:11211:1 memc1
+   - 127.0.0.1:11233:1 memc2
+   - 127.0.0.1:33211:1 memc3
+   - 127.0.0.1:44211:1 memc4

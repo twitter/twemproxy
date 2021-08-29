@@ -111,15 +111,19 @@ debian/.debhelper
 debian/files
 debian/*.substvars
 debian/*.log
+debian/.debhelper/*
 debian/*.debhelper
 debian/*-stamp
 debian/*.after
 debian/*.before
+debian/nutcracker/*
 
 /*/debian/files
 /*/debian/*.substvars
 /*/debian/*.log
+/*/debian/.debhelper/*
 /*/debian/*.debhelper
+/*/debian/*-stamp
 /*/debian/*.after
 /*/debian/*.before
-/*/debian/*-stamp
+/*/debian/nutcracker/*

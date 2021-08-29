@@ -87,6 +87,9 @@ debian/.debhelper
 # https://github.com/phusion/debian-packaging-for-the-modern-developer/blob/master/.gitignore
 .DS_Store
 .debhelper
+*.debhelper
+*.cache
+*.cache/*
 *.deb
 *.dsc
 *.build
@@ -105,9 +108,18 @@ debian/.debhelper
 
 # Ignore files generated during build
 # https://github.com/vincentbernat/pragmatic-debian-packages/blob/master/.gitignore
+debian/files
+debian/*.substvars
+debian/*.log
+debian/*.debhelper
+debian/*-stamp
+debian/*.after
+debian/*.before
+
 /*/debian/files
 /*/debian/*.substvars
 /*/debian/*.log
 /*/debian/*.debhelper
+/*/debian/*.after
+/*/debian/*.before
 /*/debian/*-stamp
-/*/debian/*/

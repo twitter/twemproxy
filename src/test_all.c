@@ -184,6 +184,11 @@ static void test_redis_parse_req_success(void) {
     test_redis_parse_req_success_case("*3\r\n$4\r\nsadd\r\n$7\r\n{sfoo}2\r\n$3\r\nbar\r\n", MSG_REQ_REDIS_SADD);
     test_redis_parse_req_success_case("*4\r\n$4\r\nsadd\r\n$4\r\nsfoo\r\n$3\r\nbar\r\n$3\r\nbas\r\n", MSG_REQ_REDIS_SADD);
     test_redis_parse_req_success_case("*5\r\n$4\r\nsadd\r\n$4\r\nsfoo\r\n$3\r\nbar\r\n$3\r\nbas\r\n$3\r\nbat\r\n", MSG_REQ_REDIS_SADD);
+
+    test_redis_parse_req_success_case("*3\r\n$7\r\nsaddint\r\n$7\r\n{sint}2\r\n$1\r\n1\r\n", MSG_REQ_REDIS_SADDINT);
+    test_redis_parse_req_success_case("*4\r\n$7\r\nsaddint\r\n$4\r\nsint\r\n$1\r\n2\r\n$2\r\n11\r\n", MSG_REQ_REDIS_SADDINT);
+    test_redis_parse_req_success_case("*5\r\n$7\r\nsaddint\r\n$4\r\nsint\r\n$1\r\n3\r\n$2\r\n12\r\n$3\r\n333\r\n", MSG_REQ_REDIS_SADDINT);
+
     test_redis_parse_req_success_case("*2\r\n$5\r\nscard\r\n$4\r\nsfoo\r\n", MSG_REQ_REDIS_SCARD);
     test_redis_parse_req_success_case("*3\r\n$5\r\nsdiff\r\n$6\r\n{sfoo}\r\n$7\r\n{sfoo}2\r\n", MSG_REQ_REDIS_SDIFF);
     test_redis_parse_req_success_case("*4\r\n$10\r\nsdiffstore\r\n$7\r\n{sfoo}3\r\n$6\r\n{sfoo}\r\n$7\r\n{sfoo}2\r\n", MSG_REQ_REDIS_SDIFFSTORE);
@@ -196,6 +201,17 @@ static void test_redis_parse_req_success(void) {
     test_redis_parse_req_success_case("*3\r\n$6\r\nsinter\r\n$6\r\n{sfoo}\r\n$7\r\n{sfoo}2\r\n", MSG_REQ_REDIS_SINTER);
     test_redis_parse_req_success_case("*4\r\n$11\r\nsinterstore\r\n$7\r\n{sfoo}3\r\n$6\r\n{sfoo}\r\n$7\r\n{sfoo}2\r\n", MSG_REQ_REDIS_SINTERSTORE);
     test_redis_parse_req_success_case("*3\r\n$9\r\nsismember\r\n$4\r\nsfoo\r\n$3\r\nbar\r\n", MSG_REQ_REDIS_SISMEMBER);
+
+    test_redis_parse_req_success_case("*3\r\n$6\r\nobject\r\n$8\r\nencoding\r\n$4\r\nsfoo\r\n", MSG_REQ_REDIS_OBJECT);
+    test_redis_parse_req_success_case("*3\r\n$6\r\nobject\r\n$8\r\nrefcount\r\n$4\r\nsfoo\r\n", MSG_REQ_REDIS_OBJECT);
+    test_redis_parse_req_success_case("*3\r\n$6\r\nobject\r\n$8\r\nidletime\r\n$4\r\nsfoo\r\n", MSG_REQ_REDIS_OBJECT);
+    test_redis_parse_req_success_case("*3\r\n$6\r\nobject\r\n$4\r\nfreq\r\n$4\r\nsfoo\r\n", MSG_REQ_REDIS_OBJECT);
+
+    test_redis_parse_req_success_case("*3\r\n$6\r\nobject\r\n$8\r\nencoding\r\n$4\r\nsint\r\n", MSG_REQ_REDIS_OBJECT);
+    test_redis_parse_req_success_case("*3\r\n$6\r\nobject\r\n$8\r\nrefcount\r\n$4\r\nsint\r\n", MSG_REQ_REDIS_OBJECT);
+    test_redis_parse_req_success_case("*3\r\n$6\r\nobject\r\n$8\r\nidletime\r\n$4\r\nsint\r\n", MSG_REQ_REDIS_OBJECT);
+    test_redis_parse_req_success_case("*3\r\n$6\r\nobject\r\n$4\r\nfreq\r\n$4\r\nsint\r\n", MSG_REQ_REDIS_OBJECT);
+
     test_redis_parse_req_success_case("*2\r\n$8\r\nsmembers\r\n$4\r\nsfoo\r\n", MSG_REQ_REDIS_SMEMBERS);
     test_redis_parse_req_success_case("*4\r\n$5\r\nsmove\r\n$6\r\n{sfoo}\r\n$7\r\n{sfoo}2\r\n$3\r\nbas\r\n", MSG_REQ_REDIS_SMOVE);
     test_redis_parse_req_success_case("*2\r\n$11\r\nsrandmember\r\n$4\r\nsfoo\r\n", MSG_REQ_REDIS_SRANDMEMBER);

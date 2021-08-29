@@ -132,6 +132,8 @@ redis_arg1(const struct msg *r)
     case MSG_REQ_REDIS_ZRANK:
     case MSG_REQ_REDIS_ZREVRANK:
     case MSG_REQ_REDIS_ZSCORE:
+
+    case MSG_REQ_REDIS_OBJECT:
         return true;
 
     default:
@@ -236,6 +238,7 @@ redis_argn(const struct msg *r)
     case MSG_REQ_REDIS_LPOS:
 
     case MSG_REQ_REDIS_SADD:
+    case MSG_REQ_REDIS_SADDINT:
     case MSG_REQ_REDIS_SDIFF:
     case MSG_REQ_REDIS_SDIFFSTORE:
     case MSG_REQ_REDIS_SINTER:
@@ -971,6 +974,11 @@ redis_parse_req(struct msg *r)
                     break;
                 }
 
+                if (str6icmp(m, 'o', 'b', 'j', 'e', 'c', 't')) {
+                    r->type = MSG_REQ_REDIS_OBJECT;
+                    break;
+                }
+
                 if (str6icmp(m, 'g', 'e', 'o', 'p', 'o', 's')) {
                     r->type = MSG_REQ_REDIS_GEOPOS;
                     break;
@@ -1102,6 +1110,11 @@ redis_parse_req(struct msg *r)
                     if (!msg_set_placeholder_key(r)) {
                         goto enomem;
                     }
+                    break;
+                }
+
+                if (str7icmp(m, 's', 'a', 'd', 'd', 'i', 'n', 't')) {
+                    r->type = MSG_REQ_REDIS_SADDINT;
                     break;
                 }
 

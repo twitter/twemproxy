@@ -7,17 +7,24 @@
  * they'd fall under for twemproxy's request parsing logic.
  */
 
-if (count($argv) !== 2) {
-    echo "Usage: ${argv[0]} commands.json\n";
-    echo "commands.json can be downloaded from https://github.com/redis/redis-doc\n";
-    exit(1);
+if ($argc < 2){
+	$contents = file_get_contents('https://raw.githubusercontent.com/redis/redis-doc/master/commands.json');
+	file_put_contents('commands.json', $contents);
 }
-$path = $argv[1];
-$contents = file_get_contents($path);
-if (!is_string($contents)) {
-    echo "Failed to read $path\n";
-    exit(1);
+else {
+	if (count($argv) !== 2) {
+			echo "Usage: ${argv[0]} commands.json\n";
+			echo "commands.json can be downloaded from https://github.com/redis/redis-doc\n";
+			exit(1);
+	}
+	$path = $argv[1];
+	$contents = file_get_contents($path);
+	if (!is_string($contents)) {
+			echo "Failed to read $path\n";
+			exit(1);
+	}
 }
+
 $commands = json_decode($contents, true);
 uasort($commands, fn($a, $b) => version_compare($b['since'], $a['since']));
 

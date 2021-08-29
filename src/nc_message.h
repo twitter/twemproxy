@@ -79,6 +79,7 @@ typedef enum msg_parse_result {
     ACTION( REQ_REDIS_TTL )                                                                         \
     ACTION( REQ_REDIS_TYPE )                                                                        \
     ACTION( REQ_REDIS_UNLINK )                                                                      \
+    ACTION( REQ_REDIS_OBJECT )                                                                      \
     ACTION( REQ_REDIS_APPEND )                 /* redis requests - string */                        \
     ACTION( REQ_REDIS_BITCOUNT )                                                                    \
     ACTION( REQ_REDIS_BITFIELD )                                                                    \
@@ -141,6 +142,7 @@ typedef enum msg_parse_result {
     ACTION( REQ_REDIS_RPUSH )                                                                       \
     ACTION( REQ_REDIS_RPUSHX )                                                                      \
     ACTION( REQ_REDIS_SADD )                   /* redis requests - sets */                          \
+    ACTION( REQ_REDIS_SADDINT )                                                                       \
     ACTION( REQ_REDIS_SCARD )                                                                       \
     ACTION( REQ_REDIS_SDIFF )                                                                       \
     ACTION( REQ_REDIS_SDIFFSTORE )                                                                  \

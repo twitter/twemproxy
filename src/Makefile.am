@@ -15,11 +15,12 @@ AM_CFLAGS += -fno-strict-aliasing
 AM_CFLAGS += -Wall -Wshadow
 AM_CFLAGS += -Wpointer-arith
 AM_CFLAGS += -Winline
-AM_CFLAGS += -Wunused-function -Wunused-variable -Wunused-value
+#AM_CFLAGS += -Wunused-function -Wunused-variable -Wunused-value
 AM_CFLAGS += -Wno-unused-parameter -Wno-unused-value
 AM_CFLAGS += -Wconversion -Wsign-compare
 AM_CFLAGS += -Wstrict-prototypes -Wmissing-prototypes -Wredundant-decls -Wmissing-declarations
 AM_CFLAGS += -Wno-format-zero-length
+AM_CFLAGS += -Wno-unused-but-set-variable -Wno-sign-conversion
 
 AM_LDFLAGS =
 AM_LDFLAGS += -lm -lpthread -rdynamic

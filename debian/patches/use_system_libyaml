@@ -1,0 +1,58 @@
+Description: Use system libyaml
+Author: Faidon Liambotis <paravoid@debian.org>
+Forwarded: https://github.com/twitter/twemproxy/pull/121
+Last-Update: 2014-06-23
+
+--- a/configure.ac
++++ b/configure.ac
+@@ -196,15 +196,8 @@ AS_IF([test "x$disable_stats" = xyes],
+   [AC_DEFINE([HAVE_STATS], [1], [Define to 1 if stats is not disabled])])
+ AC_MSG_RESULT($disable_stats)
+ 
+-# Untar the yaml-0.1.4 in contrib/ before config.status is rerun
+-AC_CONFIG_COMMANDS_PRE([tar xvfz contrib/yaml-0.1.4.tar.gz -C contrib])
+-
+-# Call yaml-0.1.4 ./configure recursively
+-AC_CONFIG_SUBDIRS([contrib/yaml-0.1.4])
+-
+ # Define Makefiles
+ AC_CONFIG_FILES([Makefile
+-                 contrib/Makefile
+                  src/Makefile
+                  src/hashkit/Makefile
+                  src/proto/Makefile
+--- a/Makefile.am
++++ b/Makefile.am
+@@ -2,7 +2,7 @@ MAINTAINERCLEANFILES = Makefile.in acloc
+ 
+ ACLOCAL_AMFLAGS = -I m4
+ 
+-SUBDIRS = contrib src
++SUBDIRS = src
+ 
+ dist_man_MANS = man/nutcracker.8
+ 
+--- a/src/Makefile.am
++++ b/src/Makefile.am
+@@ -7,7 +7,6 @@ endif
+ AM_CPPFLAGS += -I $(top_srcdir)/src/hashkit
+ AM_CPPFLAGS += -I $(top_srcdir)/src/proto
+ AM_CPPFLAGS += -I $(top_srcdir)/src/event
+-AM_CPPFLAGS += -I $(top_srcdir)/contrib/yaml-0.1.4/include
+ 
+ AM_CFLAGS = 
+ # about -fno-strict-aliasing: https://github.com/twitter/twemproxy/issues/276
+@@ -21,7 +20,7 @@ AM_CFLAGS += -Wconversion -Wsign-compare
+ AM_CFLAGS += -Wstrict-prototypes -Wmissing-prototypes -Wredundant-decls -Wmissing-declarations
+ 
+ AM_LDFLAGS =
+-AM_LDFLAGS += -lm -lpthread -rdynamic
++AM_LDFLAGS += -lm -lpthread -lyaml -rdynamic
+ if OS_SOLARIS
+ AM_LDFLAGS += -lnsl -lsocket
+ endif
+@@ -57,4 +56,3 @@ nutcracker_SOURCES =			\
+ nutcracker_LDADD = $(top_builddir)/src/hashkit/libhashkit.a
+ nutcracker_LDADD += $(top_builddir)/src/proto/libproto.a
+ nutcracker_LDADD += $(top_builddir)/src/event/libevent.a
+-nutcracker_LDADD += $(top_builddir)/contrib/yaml-0.1.4/src/.libs/libyaml.a

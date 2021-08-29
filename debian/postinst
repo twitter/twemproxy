@@ -1,0 +1,30 @@
+#!/bin/sh
+
+set -e
+
+case "$1" in
+    configure|reconfigure)
+        adduser \
+            --system \
+            --quiet \
+            --home /nonexistent \
+            --no-create-home \
+            --group \
+            nutcracker
+        chown nutcracker:adm /var/log/nutcracker
+        chmod 02755 /var/log/nutcracker
+    ;;
+    abort-upgrade|abort-remove|abort-deconfigure)
+        exit 0
+    ;;
+
+    *)
+        echo "postinst called with unknown argument \`$1'" >&2
+        exit 1
+    ;;
+esac
+
+#DEBHELPER#
+
+exit 0
+

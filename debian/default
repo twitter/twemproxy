@@ -1,0 +1,2 @@
+# extra daemon options; see nutcracker --help
+DAEMON_OPTS=""

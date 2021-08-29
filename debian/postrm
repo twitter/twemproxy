@@ -1,0 +1,24 @@
+#!/bin/sh
+
+set -e
+
+case "$1" in
+    purge)
+        if [ -x "$(command -v deluser)" ]; then
+            rm -rf /var/log/nutcracker/
+            deluser --quiet --system nutcracker > /dev/null || true
+            deluser --group --system --quiet --only-if-empty nutcracker || true
+        else
+            echo >&2 "not removing nutcracker system account, group and logfiles because deluser command was not found"
+        fi
+	;;
+    remove|upgrade|failed-upgrade|abort-install|abort-upgrade|disappear)
+	;;
+    *)
+	echo "postrm called with unknown argument \`$1'" >&2
+        exit 1
+esac
+
+#DEBHELPER#
+
+exit 0

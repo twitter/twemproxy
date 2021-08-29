@@ -74,3 +74,40 @@ test_all
 *.trs
 tags
 
+# netbeans project
+nbproject
+nbproject/*
+*.bak
+*bak
+
+# debian packaging
+debian/.debhelper/*
+debian/.debhelper
+
+# https://github.com/phusion/debian-packaging-for-the-modern-developer/blob/master/.gitignore
+.DS_Store
+.debhelper
+*.deb
+*.dsc
+*.build
+*.buildinfo
+*.changes
+*.tar.gz
+*.log
+*.substvars
+# Ignore generated files
+/*.deb
+/*.dsc
+/*.changes
+/*.build
+/*.buildinfo
+/*.tar.gz
+
+# Ignore files generated during build
+# https://github.com/vincentbernat/pragmatic-debian-packages/blob/master/.gitignore
+/*/debian/files
+/*/debian/*.substvars
+/*/debian/*.log
+/*/debian/*.debhelper
+/*/debian/*-stamp
+/*/debian/*/

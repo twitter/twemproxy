@@ -1,0 +1,30 @@
+nutcracker (0.4.1+dfsg-1) unstable; urgency=medium
+
+  * New upstream release.
+  * Bump debhelper compat level to 10; remove dh-autoreconf B-D.
+  * Update Standards-Version to 3.9.8, no changes needed.
+  * Fix a few d/copyright structural errors.
+  * Update Vcs-Git/Vcs-Browser to point to https URLs and cgit.
+  * Add dependency on lsb-base for /lib/lsb/init-functions.
+  * Add hardening build flags (hardening=+all).
+  * Switch pidfile location from /var/run to /run.
+  * Update debian/patches/sysconfdir to only write a pidfile if --daemonize
+    was passed.
+  * Add systemd service file.
+  * Remove upstart job, dead and unmaintained code.
+
+ -- Faidon Liambotis <paravoid@debian.org>  Sat, 17 Dec 2016 04:48:28 +0200
+
+nutcracker (0.4.0+dfsg-1) unstable; urgency=medium
+
+  * New upstream release.
+  * Switch debian/watch to GitHub instead of Google Code, as this is
+    apparently where new tarballs are being shipped nowadays.
+
+ -- Faidon Liambotis <paravoid@debian.org>  Tue, 21 Oct 2014 03:26:49 +0300
+
+nutcracker (0.3.0+dfsg-1) unstable; urgency=medium
+
+  * Initial release. (Closes: #712107)
+
+ -- Faidon Liambotis <paravoid@debian.org>  Mon, 06 Oct 2014 20:02:52 +0300

@@ -1,0 +1,23 @@
+[Unit]
+Description=nutcracker proxy for memcached and Redis
+Documentation=man:nutcracker
+After=local-fs.target
+After=network.target
+ConditionPathExists=/etc/nutcracker/nutcracker.yml
+
+[Service]
+Type=simple
+EnvironmentFile=-/etc/default/nutcracker
+ExecStart=/usr/sbin/nutcracker $DAEMON_OPTS
+User=nutcracker
+Group=nutcracker
+
+MountFlags=slave
+DevicePolicy=closed
+PrivateDevices=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=read-only
+
+[Install]
+WantedBy=multi-user.target

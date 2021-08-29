@@ -1,0 +1,4 @@
+version=3
+
+opts=dversionmangle=s/\+dfsg// \
+https://github.com/twitter/twemproxy/releases /twitter/twemproxy/archive/v(\d\.\d+\.\d+)\.tar\.gz

@@ -1,0 +1,13 @@
+/var/log/nutcracker/nutcracker.log {
+    rotate 7
+    daily
+    missingok
+    compress
+    delaycompress
+    notifempty
+    create 640 nutcracker adm
+    sharedscripts
+    postrotate
+      /usr/sbin/invoke-rc.d nutcracker reload > /dev/null
+    endscript
+}

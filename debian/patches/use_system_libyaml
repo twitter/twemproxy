@@ -9,11 +9,11 @@ Last-Update: 2014-06-23
    [AC_DEFINE([HAVE_STATS], [1], [Define to 1 if stats is not disabled])])
  AC_MSG_RESULT($disable_stats)
  
--# Untar the yaml-0.1.4 in contrib/ before config.status is rerun
--AC_CONFIG_COMMANDS_PRE([tar xvfz contrib/yaml-0.1.4.tar.gz -C contrib])
+-# Untar the yaml-0.2.5 in contrib/ before config.status is rerun
+-AC_CONFIG_COMMANDS_PRE([tar xvfz contrib/yaml-0.2.5.tar.gz -C contrib])
 -
--# Call yaml-0.1.4 ./configure recursively
--AC_CONFIG_SUBDIRS([contrib/yaml-0.1.4])
+-# Call yaml-0.2.5 ./configure recursively
+-AC_CONFIG_SUBDIRS([contrib/yaml-0.2.5])
 -
  # Define Makefiles
  AC_CONFIG_FILES([Makefile
@@ -38,7 +38,7 @@ Last-Update: 2014-06-23
  AM_CPPFLAGS += -I $(top_srcdir)/src/hashkit
  AM_CPPFLAGS += -I $(top_srcdir)/src/proto
  AM_CPPFLAGS += -I $(top_srcdir)/src/event
--AM_CPPFLAGS += -I $(top_srcdir)/contrib/yaml-0.1.4/include
+-AM_CPPFLAGS += -I $(top_srcdir)/contrib/yaml-0.2.5/include
  
  AM_CFLAGS = 
  # about -fno-strict-aliasing: https://github.com/twitter/twemproxy/issues/276
@@ -55,4 +55,4 @@ Last-Update: 2014-06-23
  nutcracker_LDADD = $(top_builddir)/src/hashkit/libhashkit.a
  nutcracker_LDADD += $(top_builddir)/src/proto/libproto.a
  nutcracker_LDADD += $(top_builddir)/src/event/libevent.a
--nutcracker_LDADD += $(top_builddir)/contrib/yaml-0.1.4/src/.libs/libyaml.a
+-nutcracker_LDADD += $(top_builddir)/contrib/yaml-0.2.5/src/.libs/libyaml.a

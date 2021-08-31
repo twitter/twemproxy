@@ -302,6 +302,7 @@ https://github.com/twitter/twemproxy/issues
 
 * Manju Rajashekhar ([@manju](https://twitter.com/manju))
 * Lin Yang ([@idning](https://github.com/idning))
+* Tyson Andre (https://github.com/TysonAndre)
 
 Thank you to all of our [contributors](https://github.com/twitter/twemproxy/graphs/contributors)!
 

@@ -61,7 +61,7 @@ string_empty(const struct string *str)
 {
     ASSERT((str->len == 0 && str->data == NULL) ||
            (str->len != 0 && str->data != NULL));
-    return str->len == 0;
+    return str->len == 0 ? true : false;
 }
 
 rstatus_t

@@ -8,3 +8,15 @@ include /usr/share/dpkg/buildflags.mk
 
 %:
 	dh $@
+
+override_dh_clean:
+	rm -rf $(CURDIR)/debian/.debhelper $(CURDIR)/autom4te.cache
+	find -L $(CURDIR) -type f -name "Makefile" -delete
+	find -L $(CURDIR) -type f -name "Makefile.in" -delete
+	find -L $(CURDIR) -type f -name "config.log" -delete
+	find -L $(CURDIR) -type f -name "config.status" -delete
+	find -L $(CURDIR) -type f -name "libtool" -delete
+	find -L $(CURDIR) -type f -name "*.debhelper" -delete
+	find -L $(CURDIR) -type f -name "*.substvars" -delete
+	find -L $(CURDIR) -type f -name "*-build-stamp" -delete
+	dh_clean

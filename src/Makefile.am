@@ -1,4 +1,11 @@
 MAINTAINERCLEANFILES = Makefile.in
+BUILT_SOURCES = cfg-options.h
+CLEANFILES = cfg-options.h
+
+cfg-options.h: Makefile
+	$(AM_V_GEN)echo '#define NC_CONF_PATH "$(sysconfdir)/nutcracker/nutcracker.yml"' >$@
+	@echo '#define NC_LOG_PATH "$(localstatedir)/log/nutcracker/nutcracker.log"' >>$@
+	@echo '#define NC_PID_FILE "/run/nutcracker/nutcracker.pid"' >>$@
 
 AM_CPPFLAGS =
 if !OS_SOLARIS
@@ -7,7 +14,6 @@ endif
 AM_CPPFLAGS += -I $(top_srcdir)/src/hashkit
 AM_CPPFLAGS += -I $(top_srcdir)/src/proto
 AM_CPPFLAGS += -I $(top_srcdir)/src/event
-AM_CPPFLAGS += -I $(top_srcdir)/contrib/yaml-0.2.5/include
 
 AM_CFLAGS =
 # about -fno-strict-aliasing: https://github.com/twitter/twemproxy/issues/276
@@ -23,7 +29,7 @@ AM_CFLAGS += -Wno-format-zero-length
 AM_CFLAGS += -Wno-unused-but-set-variable -Wno-sign-conversion
 
 AM_LDFLAGS =
-AM_LDFLAGS += -lm -lpthread -rdynamic
+AM_LDFLAGS += -lm -lpthread -rdynamic -lyaml
 if OS_SOLARIS
 AM_LDFLAGS += -lnsl -lsocket
 endif
@@ -59,7 +65,6 @@ nutcracker_SOURCES =			\
 nutcracker_LDADD = $(top_builddir)/src/hashkit/libhashkit.a
 nutcracker_LDADD += $(top_builddir)/src/proto/libproto.a
 nutcracker_LDADD += $(top_builddir)/src/event/libevent.a
-nutcracker_LDADD += $(top_builddir)/contrib/yaml-0.2.5/src/.libs/libyaml.a
 
 TESTS = test_all
 bin_PROGRAMS = test_all
@@ -87,4 +92,3 @@ test_all_SOURCES = test_all.c \
 test_all_LDADD = $(top_builddir)/src/hashkit/libhashkit.a
 test_all_LDADD += $(top_builddir)/src/proto/libproto.a
 test_all_LDADD += $(top_builddir)/src/event/libevent.a
-test_all_LDADD += $(top_builddir)/contrib/yaml-0.2.5/src/.libs/libyaml.a

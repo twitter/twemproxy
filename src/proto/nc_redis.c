@@ -47,6 +47,7 @@ redis_argz(const struct msg *r)
     case MSG_REQ_REDIS_PING:
     case MSG_REQ_REDIS_QUIT:
     case MSG_REQ_REDIS_COMMAND:
+    case MSG_REQ_REDIS_MONITOR:
         return true;
 
     default:
@@ -1102,6 +1103,13 @@ redis_parse_req(struct msg *r)
                     if (!msg_set_placeholder_key(r)) {
                         goto enomem;
                     }
+                    break;
+                }
+
+                if (str7icmp(m, 'm', 'o', 'n', 'i', 't', 'o', 'r')) {
+                    r->type = MSG_REQ_REDIS_MONITOR;
+                    r->noforward = 1;
+                    r->monitor = 1;
                     break;
                 }
 

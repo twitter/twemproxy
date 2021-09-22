@@ -17,6 +17,7 @@
 
 #include <nc_core.h>
 #include <nc_server.h>
+#include <nc_monitor.h>
 
 struct msg *
 req_get(struct conn *conn)
@@ -504,6 +505,15 @@ req_filter(struct conn *conn, struct msg *msg)
     }
 
     /*
+     * Handle monitor command.
+     */
+    if (msg->monitor) {
+        add_to_monitor(conn);
+        req_put(msg);
+        return true;
+    }
+
+    /*
      * If this conn is not authenticated, we will mark it as noforward,
      * and handle it in the redis_reply handler.
      */
@@ -665,6 +675,11 @@ req_recv_done(struct context *ctx, struct conn *conn, struct msg *msg,
         }
 
         return;
+    }
+
+    /* if have monitor client, make monitor info. */
+    if (!mointor_is_empty()) {
+        make_monitor(ctx, conn, msg);
     }
 
     /* do fragment */

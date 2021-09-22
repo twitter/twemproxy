@@ -202,6 +202,7 @@ typedef enum msg_parse_result {
     ACTION( REQ_REDIS_SELECT)                  /* only during init */                               \
     ACTION( REQ_REDIS_COMMAND)                 /* Sent to random server for redis-cli completions*/ \
     ACTION( REQ_REDIS_LOLWUT)                  /* Vitally important */                              \
+    ACTION( REQ_REDIS_MONITOR)                 /* monitor */                                        \
     ACTION( RSP_REDIS_STATUS )                 /* redis response */                                 \
     ACTION( RSP_REDIS_ERROR )                                                                       \
     ACTION( RSP_REDIS_ERROR_ERR )                                                                   \
@@ -300,6 +301,7 @@ struct msg {
     unsigned             fdone:1;         /* all fragments are done? */
     unsigned             swallow:1;       /* swallow response? */
     unsigned             redis:1;         /* redis? */
+    unsigned             monitor:1;       /* monitor comamnd? */
 };
 
 TAILQ_HEAD(msg_tqh, msg);
@@ -349,5 +351,7 @@ struct msg *rsp_recv_next(struct context *ctx, struct conn *conn, bool alloc);
 void rsp_recv_done(struct context *ctx, struct conn *conn, struct msg *msg, struct msg *nmsg);
 struct msg *rsp_send_next(struct context *ctx, struct conn *conn);
 void rsp_send_done(struct context *ctx, struct conn *conn, struct msg *msg);
+
+rstatus_t msg_append_full(struct msg *msg, uint8_t *pos, size_t n);
 
 #endif

@@ -23,6 +23,7 @@
 #define rbtree_is_red(_node)        ((_node)->color)
 #define rbtree_is_black(_node)      (!rbtree_is_red(_node))
 #define rbtree_copy_color(_n1, _n2) ((_n1)->color = (_n2)->color)
+#define rbtree_is_empty(_tree)      ((_tree)->root == (_tree)->sentinel)
 
 struct rbnode {
     struct rbnode *left;     /* left link */
@@ -43,5 +44,8 @@ void rbtree_init(struct rbtree *tree, struct rbnode *node);
 struct rbnode *rbtree_min(const struct rbtree *tree);
 void rbtree_insert(struct rbtree *tree, struct rbnode *node);
 void rbtree_delete(struct rbtree *tree, struct rbnode *node);
+struct rbnode *rbtree_find(struct rbtree *tree, int64_t key);
+void rbtree_inorder_traversal(struct rbnode *root, struct rbnode *sentinel, 
+                                void (*func)(struct rbnode *, void *), void *data);
 
 #endif

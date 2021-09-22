@@ -117,14 +117,14 @@ int string_compare(const struct string *s1, const struct string *s2);
  * Does not support any width/precision
  * Implemented with simplicity, and async-signal-safety in mind
  */
-int _safe_vsnprintf(char *to, size_t size, const char *format, va_list ap);
+int _safe_vsnprintf(char *to, size_t size, int *parse_done, const char *format, va_list ap);
 int _safe_snprintf(char *to, size_t n, const char *fmt, ...);
 
 #define nc_safe_snprintf(_s, _n, ...)       \
     _safe_snprintf((char *)(_s), (size_t)(_n), __VA_ARGS__)
 
 #define nc_safe_vsnprintf(_s, _n, _f, _a)   \
-    _safe_vsnprintf((char *)(_s), (size_t)(_n), _f, _a)
+    _safe_vsnprintf((char *)(_s), (size_t)(_n), NULL, _f, _a)
 
 static inline uint8_t *
 _nc_strchr(uint8_t *p, uint8_t *last, uint8_t c)
@@ -151,5 +151,13 @@ _nc_strrchr(uint8_t *p, uint8_t *start, uint8_t c)
 
     return NULL;
 }
+
+rstatus_t string_printf(struct string *s, const char *fmt, ...);
+
+inline uint32_t string_len(const struct string *str) {
+    return str->len;
+}
+rstatus_t string_cat_len(struct string *dst, uint8_t *data, uint32_t len);
+rstatus_t string_cat(struct string *dst, struct string *src);
 
 #endif

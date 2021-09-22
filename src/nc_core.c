@@ -21,6 +21,7 @@
 #include <nc_conf.h>
 #include <nc_server.h>
 #include <nc_proxy.h>
+#include <nc_monitor.h>
 
 static uint32_t ctx_id; /* context generation */
 
@@ -163,6 +164,7 @@ core_start(struct instance *nci)
     mbuf_init(nci);
     msg_init();
     conn_init();
+    monitor_init();
 
     ctx = core_ctx_create(nci);
     if (ctx != NULL) {
@@ -170,6 +172,7 @@ core_start(struct instance *nci)
         return ctx;
     }
 
+    monitor_deinit(ctx);
     conn_deinit();
     msg_deinit();
     mbuf_deinit();
@@ -180,6 +183,7 @@ core_start(struct instance *nci)
 void
 core_stop(struct context *ctx)
 {
+    monitor_deinit(ctx);
     conn_deinit();
     msg_deinit();
     mbuf_deinit();

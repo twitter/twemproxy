@@ -115,6 +115,7 @@ static void monitor_callback(struct rbnode *node, void *data)
     req_c->enqueue_outq(mdata->ctx, req_c, req);
     if (event_add_out(mdata->ctx->evb, req_c) != NC_OK) {
         req_c->err = errno;
+        req_c->dequeue_outq(mdata->ctx, req_c, req);
         msg_put(req);
         msg_put(rsp);
     }

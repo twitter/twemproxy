@@ -32,7 +32,7 @@ void monitor_deinit(struct context *ctx)
 {
     struct rbnode *node = NULL;
 
-    while ((node = rbtree_min(&monitor_tree) != NULL))
+    while ((node = rbtree_min(&monitor_tree)) != NULL)
     {
         struct conn *c = node->data;
         if (event_del_conn(ctx->evb, c) != NC_OK)  {

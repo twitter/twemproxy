@@ -176,8 +176,8 @@ _safe_itoa(int base, int64_t val, char *buf)
 }
 
 static const char *
-_safe_check_placeholder(const char *fmt, int32_t *have_placeholder) {
-    *have_placeholder = false;
+_safe_check_placeholder_len(const char *fmt, int32_t *placeholder_len) {
+    *placeholder_len = 0;
     int32_t pos = 0;
     if (*fmt == '0') {
         fmt++;

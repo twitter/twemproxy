@@ -24,7 +24,7 @@
 
 void monitor_init();
 void monitor_deinit(struct context *ctx);
-int mointor_is_empty();
+int monitor_is_empty();
 
 rstatus_t add_to_monitor(struct conn *c);
 void del_from_monitor(struct conn *c);

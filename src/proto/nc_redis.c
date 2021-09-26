@@ -1634,11 +1634,14 @@ redis_parse_req(struct msg *r)
             m = p + r->rlen;
             if (m >= b->last) {
                 /* 
-                 * For EVAL/EVALHASH, the r->token has been assigned a value. When 
-                 * m >= b->last happens we will need to repair mbuf. So, when r->token == NULL, 
-                 * we will need to calculate r->rlen again.
-                 *
-                 * At the end of redis_parse_req, r->token will be used to choose the start (p) for the next call to redis_parse_req and clear r->token when repairing this and adding more data.
+                 * For EVAL/EVALHASH, the r->token has been assigned a value.  
+                 * When m >= b->last happens will need to repair mbuf.  
+                 * 
+                 * At the end of redis_parse_req, r->token will be used to choose the start (p) 
+                 * for the next call to redis_parse_req and 
+                 * clear r->token when repairing this and adding more data.
+                 * 
+                 * So, only when r->token == NULL, we will need to calculate r->rlen again.
                  */
                 if (r->token == NULL) {
                     r->rlen -= (uint32_t)(b->last - p);

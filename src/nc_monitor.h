@@ -20,14 +20,20 @@
 #ifndef NC_MONITOR_H
 #define NC_MONITOR_H
 
+#include <stdbool.h>
 #include <nc_core.h>
 
-void monitor_init();
-void monitor_deinit(struct context *ctx);
-int monitor_is_empty();
+#define CONF_DEFAULT_ARRAY_MONITOR_NUM       2
+
+void monitor_init(struct server_pool *sp);
+void monitor_deinit(struct server_pool *sp);
+
+inline bool monitor_is_empty(struct server_pool *sp) {
+    return array_n(&sp->monitor_conns) == 0;
+}
 
 rstatus_t add_to_monitor(struct conn *c);
 void del_from_monitor(struct conn *c);
-rstatus_t make_monitor(struct context *ctx, struct conn *c, struct msg *m);
+rstatus_t rsp_send_monitor_msg(struct context *ctx, struct conn *c, struct msg *m);
 
 #endif

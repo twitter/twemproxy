@@ -18,64 +18,67 @@
  */
 
 #include <nc_monitor.h>
-#include <nc_rbtree.h>
+#include <nc_array.h>
 
-struct rbtree monitor_tree;
-struct rbnode monitor_sentinel_node;
-
-void monitor_init()
+void
+monitor_init(struct server_pool *sp)
 {
-    rbtree_init(&monitor_tree, &monitor_sentinel_node);
-}
-
-void monitor_deinit(struct context *ctx)
-{
-    struct rbnode *node = NULL;
-
-    while ((node = rbtree_min(&monitor_tree)) != NULL)
-    {
-        struct conn *c = node->data;
-        if (event_del_conn(ctx->evb, c) != NC_OK)  {
-            log_warn("event del conn c %d failed, ignored: %s",
-                 c->sd, strerror(errno));
-        }
-        c->close(ctx, c);
-
-        rbtree_delete(&monitor_tree, node);
-        nc_free(node);
+    if (sp->enable_monitor) {
+        array_init(&sp->monitor_conns, CONF_DEFAULT_ARRAY_MONITOR_NUM, sizeof(struct conn *));
     }
 }
 
-int mointor_is_empty()
+void
+monitor_deinit(struct server_pool *sp)
 {
-    return rbtree_is_empty(&monitor_tree);
+    struct array *monitor_conns = &sp->monitor_conns;
+
+    ASSERT(monitor_conns != NULL);
+    
+    if (sp->enable_monitor) {
+        while (array_n(monitor_conns) > 0) {
+            array_pop(monitor_conns);
+        }
+        array_deinit(monitor_conns);
+    }
 }
 
-rstatus_t add_to_monitor(struct conn *c)
+rstatus_t
+add_to_monitor(struct conn *c)
 {
-    ASSERT(c->client);
+    struct server_pool *sp = c->owner;
 
-    struct rbnode *node = nc_alloc(sizeof(struct rbnode));
-    if (node == NULL)
-    {
+    ASSERT(c->client && sp != NULL);
+
+    struct conn **monitor = array_push(&sp->monitor_conns);
+    if (monitor == NULL) {
         return NC_ENOMEM;
     }
-
     c->monitor_client = 1;
-    node->key = c->sd;
-    node->data = c;
+    *monitor = c;
 
-    rbtree_insert(&monitor_tree, node);
+    return NC_OK;
 }
 
-void del_from_monitor(struct conn *c)
+void
+del_from_monitor(struct conn *c)
 {
-    ASSERT(c->client && c->monitor_client);
+    uint32_t i;
+    struct conn **tmp_conn = NULL;
+    struct server_pool *sp = c->owner;
+    struct array *a = NULL;
 
-    struct rbnode *node = rbtree_find(&monitor_tree, c->sd);
-    ASSERT(node != NULL);
-    rbtree_delete(&monitor_tree, node);
-    nc_free(node);
+    ASSERT(c->client && c->monitor_client);
+    ASSERT(sp != NULL);
+
+    a = &sp->monitor_conns;
+    for (i = 0; i < array_n(a); i++) {
+        tmp_conn = array_get(a, i);
+        if (*tmp_conn == c) {
+            array_del(a, i);
+            break;
+        }
+    }
 }
 
 struct monitor_data
@@ -86,19 +89,21 @@ struct monitor_data
     struct string *d;
 };
 
-static void monitor_callback(struct rbnode *node, void *data)
+static int
+monitor_callback(void *conn, void *data)
 {
     struct monitor_data *mdata = data;
-    struct conn *req_c = node->data;
+    struct conn **monitor_conn = conn;
+    struct conn *req_c = *monitor_conn;
 
     struct msg *req = req_get(req_c);
     if (req == NULL) {
-        return;
+        return NC_ENOMEM;
     }
     struct msg *rsp = msg_get(req_c, 0, mdata->c->redis);
     if (rsp == NULL) {
         msg_put(req);
-        return;
+        return NC_ENOMEM;
     }
 
     req->peer = rsp;
@@ -110,7 +115,7 @@ static void monitor_callback(struct rbnode *node, void *data)
     if (msg_append_full(rsp, mdata->d->data, mdata->d->len) != NC_OK) {
         msg_put(req);
         msg_put(rsp);
-        return;
+        return NC_ENOMEM;
     }
     req_c->enqueue_outq(mdata->ctx, req_c, req);
     if (event_add_out(mdata->ctx->evb, req_c) != NC_OK) {
@@ -118,15 +123,17 @@ static void monitor_callback(struct rbnode *node, void *data)
         req_c->dequeue_outq(mdata->ctx, req_c, req);
         msg_put(req);
         msg_put(rsp);
+        return NC_ERROR;
     }
     
-    return;
+    return NC_OK;
 }
 
-rstatus_t make_monitor(struct context *ctx, struct conn *c, struct msg *m)
+rstatus_t rsp_send_monitor_msg(struct context *ctx, struct conn *c, struct msg *m)
 {
     ASSERT(c->client);
 
+    struct server_pool *sp = c->owner;
     struct string monitor_message = null_string;
     struct monitor_data mdata = {0};
     mdata.m = m;
@@ -135,14 +142,19 @@ rstatus_t make_monitor(struct context *ctx, struct conn *c, struct msg *m)
     mdata.ctx = ctx;
     struct keypos *kpos = array_get(m->keys, 0);
 
-    string_printf(&monitor_message, "+%ld.%06ld [%s] command=%s key0=",
-                    m->start_ts/1000000, m->start_ts%1000000, 
-                    nc_unresolve_peer_desc(c->sd),
-                    (msg_type_string(m->type))->data);
-    string_cat_len(&monitor_message, kpos->start, kpos->end - kpos->start);
-    string_cat_len(&monitor_message, "\r\n", 2);
+    if (c->redis) {
+        string_printf(&monitor_message, "+%ld.%06ld [%s] command=%s key0=",
+                        m->start_ts/1000000, m->start_ts%1000000, 
+                        nc_unresolve_peer_desc(c->sd),
+                        (msg_type_string(m->type))->data);
+        string_cat_len(&monitor_message, kpos->start, (uint32_t)(kpos->end - kpos->start));
+        string_cat_len(&monitor_message, (uint8_t*)"\r\n", 2);
+    } else {
+        /* FIX ME: add memcached protocol monitor msg */
+    }
 
-    rbtree_inorder_traversal(monitor_tree.root, monitor_tree.sentinel, monitor_callback, &mdata);
+
+    array_each(&sp->monitor_conns, monitor_callback, &mdata);
 
     string_deinit(&monitor_message);
     return NC_OK;

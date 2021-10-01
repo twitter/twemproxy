@@ -176,16 +176,14 @@ _safe_itoa(int base, int64_t val, char *buf)
 }
 
 static const char *
-_safe_check_placeholder_len(const char *fmt, int32_t *placeholder_len) {
+_safe_check_placeholder(const char *fmt, int32_t *placeholder_len) {
     *placeholder_len = 0;
-    int32_t pos = 0;
     if (*fmt == '0') {
         fmt++;
 
         while (isdigit(*fmt)) {
-            *have_placeholder = *have_placeholder * pos + (*fmt - '0');
+            *placeholder_len = *placeholder_len * 10 + (*fmt - '0');
             fmt++;
-            pos++;
         }
     }
 
@@ -217,7 +215,7 @@ _safe_vsnprintf(char *to, size_t size, int *parse_done, const char *format, va_l
 
     for (; *format; ++format) {
         int32_t have_longlong = false;
-        int32_t have_placeholder = false;
+        int32_t placeholder_len = false;
         int32_t placeholder_num = 0;
         if (*format != '%') {
             if (to == end) {    /* end of buffer */
@@ -229,7 +227,7 @@ _safe_vsnprintf(char *to, size_t size, int *parse_done, const char *format, va_l
         }
         ++format;               /* skip '%' */
 
-        format = _safe_check_placeholder(format, &have_placeholder);
+        format = _safe_check_placeholder(format, &placeholder_len);
         format = _safe_check_longlong(format, &have_longlong);
 
         switch (*format) {
@@ -272,9 +270,9 @@ _safe_vsnprintf(char *to, size_t size, int *parse_done, const char *format, va_l
                         val_as_str += 8;
                     }
                     
-                    if (have_placeholder) {
-                        placeholder_num = nc_strlen(val_as_str);
-                        while (have_placeholder > placeholder_num && to < end) {
+                    if (placeholder_len) {
+                        placeholder_num = (int32_t)(val_as_str - buff);
+                        while (placeholder_len > placeholder_num && to < end) {
                             *to++ =  '0';
                             placeholder_num++;
                         }

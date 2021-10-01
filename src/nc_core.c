@@ -164,7 +164,6 @@ core_start(struct instance *nci)
     mbuf_init(nci);
     msg_init();
     conn_init();
-    monitor_init();
 
     ctx = core_ctx_create(nci);
     if (ctx != NULL) {
@@ -172,7 +171,6 @@ core_start(struct instance *nci)
         return ctx;
     }
 
-    monitor_deinit(ctx);
     conn_deinit();
     msg_deinit();
     mbuf_deinit();
@@ -183,7 +181,6 @@ core_start(struct instance *nci)
 void
 core_stop(struct context *ctx)
 {
-    monitor_deinit(ctx);
     conn_deinit();
     msg_deinit();
     mbuf_deinit();

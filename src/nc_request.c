@@ -475,7 +475,12 @@ req_make_reply(struct context *ctx, struct conn *conn, struct msg *req)
 static bool
 req_filter(struct conn *conn, struct msg *msg)
 {
+    struct server_pool *sp;
+
     ASSERT(conn->client && !conn->proxy);
+
+    sp = conn->owner;
+    ASSERT(sp != NULL);
 
     if (msg_empty(msg)) {
         ASSERT(conn->rmsg == NULL);
@@ -507,7 +512,7 @@ req_filter(struct conn *conn, struct msg *msg)
     /*
      * Handle monitor command.
      */
-    if (msg->monitor) {
+    if (sp->enable_monitor && msg->monitor) {
         add_to_monitor(conn);
         req_put(msg);
         return true;
@@ -677,13 +682,13 @@ req_recv_done(struct context *ctx, struct conn *conn, struct msg *msg,
         return;
     }
 
+    pool = conn->owner;
     /* if have monitor client, make monitor info. */
-    if (!mointor_is_empty()) {
-        make_monitor(ctx, conn, msg);
+    if (pool->enable_monitor && !monitor_is_empty(pool)) {
+        rsp_send_monitor_msg(ctx, conn, msg);
     }
 
     /* do fragment */
-    pool = conn->owner;
     TAILQ_INIT(&frag_msgq);
     status = msg->fragment(msg, array_n(&pool->server), &frag_msgq);
     if (status != NC_OK) {

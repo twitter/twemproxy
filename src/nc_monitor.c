@@ -140,15 +140,23 @@ rstatus_t rsp_send_monitor_msg(struct context *ctx, struct conn *c, struct msg *
     mdata.c = c;
     mdata.d = &monitor_message;
     mdata.ctx = ctx;
-    struct keypos *kpos = array_get(m->keys, 0);
+    struct keypos kpos = {0};
+    struct keypos *tmp_kpos = NULL;
 
     if (c->redis) {
-        string_printf(&monitor_message, "+%ld.%06ld [%s] command=%s key0=",
-                        m->start_ts/1000000, m->start_ts%1000000, 
-                        nc_unresolve_peer_desc(c->sd),
-                        (msg_type_string(m->type))->data);
-        string_cat_len(&monitor_message, kpos->start, (uint32_t)(kpos->end - kpos->start));
-        string_cat_len(&monitor_message, (uint8_t*)"\r\n", 2);
+        /* Only Command command has a fake key. */
+        if (m->type != MSG_REQ_REDIS_COMMAND) {
+            tmp_kpos = array_get(m->keys, 0);
+
+            kpos.start = tmp_kpos->start;
+            kpos.end = tmp_kpos->end;
+        }
+        string_printf(&monitor_message, "+%ld.%06ld [%s] command=%s key0=%.*s\r\n",
+                      m->start_ts/1000000, m->start_ts%1000000, 
+                      nc_unresolve_peer_desc(c->sd), 
+                      (msg_type_string(m->type))->data,
+                      kpos.end - kpos.start, kpos.start);
+
     } else {
         /* FIX ME: add memcached protocol monitor msg */
     }

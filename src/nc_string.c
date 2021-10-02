@@ -176,14 +176,27 @@ _safe_itoa(int base, int64_t val, char *buf)
 }
 
 static const char *
-_safe_check_placeholder(const char *fmt, int32_t *placeholder_len) {
+_safe_check_placeholder(const char *fmt, int32_t *placeholder_len, bool *is_variable) {
     *placeholder_len = 0;
+    *is_variable = false;
+
     if (*fmt == '0') {
         fmt++;
 
         while (isdigit(*fmt)) {
             *placeholder_len = *placeholder_len * 10 + (*fmt - '0');
             fmt++;
+        }
+    } else if (*fmt == '.') {
+        fmt++;
+        if (*fmt == '*') {
+            *is_variable = true;
+            fmt++;
+        } else {
+            while (isdigit(*fmt)) {
+                *placeholder_len = *placeholder_len * 10 + (*fmt - '0');
+                fmt++;
+            }
         }
     }
 
@@ -212,6 +225,7 @@ _safe_vsnprintf(char *to, size_t size, int *parse_done, const char *format, va_l
     char *start = to;
     char *end = start + size - 1;
     if (parse_done) *parse_done = 1;
+    bool is_variable = false;
 
     for (; *format; ++format) {
         int32_t have_longlong = false;
@@ -227,7 +241,7 @@ _safe_vsnprintf(char *to, size_t size, int *parse_done, const char *format, va_l
         }
         ++format;               /* skip '%' */
 
-        format = _safe_check_placeholder(format, &placeholder_len);
+        format = _safe_check_placeholder(format, &placeholder_len, &is_variable);
         format = _safe_check_longlong(format, &have_longlong);
 
         switch (*format) {
@@ -271,7 +285,7 @@ _safe_vsnprintf(char *to, size_t size, int *parse_done, const char *format, va_l
                     }
                     
                     if (placeholder_len) {
-                        placeholder_num = (int32_t)(val_as_str - buff);
+                        placeholder_num = (int32_t)(&buff[sizeof(buff) - 1] - val_as_str);
                         while (placeholder_len > placeholder_num && to < end) {
                             *to++ =  '0';
                             placeholder_num++;
@@ -286,11 +300,25 @@ _safe_vsnprintf(char *to, size_t size, int *parse_done, const char *format, va_l
             }
         case 's':
             {
+                if (is_variable) {
+                    placeholder_len = (int32_t)va_arg(ap, int64_t);
+                }
+
                 const char *val = va_arg(ap, char *);
                 if (!val) {
                     val = "(null)";
+                    if (is_variable) {
+                        /* placeholder_len = nc_strlen(val); */
+                        placeholder_len = 6;
+                    }
                 }
                 while (*val && to < end) {
+                    if (is_variable) {
+                        if (placeholder_len == 0) {
+                            break;
+                        }
+                        placeholder_len--;
+                    }
                     *to++ = *val++;
                 }
                 continue;
@@ -315,14 +343,12 @@ _safe_snprintf(char *to, size_t n, const char *fmt, ...)
 rstatus_t
 string_printf(struct string *s, const char *fmt, ...)
 {
+    char static_buff[1024] = {0};
     char *buf = NULL;
-    size_t buflen = nc_strlen(fmt)*2;
+    size_t buflen = sizeof(static_buff);
     int bufstrlen, parse_done;
 
-    buf = nc_alloc(buflen);
-    if (buf == NULL) {
-        return NC_ENOMEM;
-    }
+    buf = static_buff;
 
     va_list args, cpy;
     va_start(args, fmt);
@@ -339,6 +365,13 @@ string_printf(struct string *s, const char *fmt, ...)
                 return NC_ENOMEM;
             }
             continue;
+        } else {
+            buf = nc_zalloc(bufstrlen + 1);
+            if (buf == NULL) {
+                return NC_ENOMEM;
+            }
+
+            memcpy(buf ,static_buff, bufstrlen);
         }
 
         break;

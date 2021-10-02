@@ -21,7 +21,6 @@
 #include <nc_core.h>
 #include <nc_server.h>
 #include <nc_conf.h>
-#include <nc_monitor.h>
 
 static void
 server_resolve(struct server *server, struct conn *conn)

@@ -153,10 +153,6 @@ _nc_strrchr(uint8_t *p, uint8_t *start, uint8_t c)
 }
 
 rstatus_t string_printf(struct string *s, const char *fmt, ...);
-
-inline uint32_t string_len(const struct string *str) {
-    return str->len;
-}
 rstatus_t string_cat_len(struct string *dst, uint8_t *data, uint32_t len);
 rstatus_t string_cat(struct string *dst, struct string *src);
 

@@ -21,7 +21,6 @@
 #include <nc_conf.h>
 #include <nc_server.h>
 #include <nc_proxy.h>
-#include <nc_monitor.h>
 
 static uint32_t ctx_id; /* context generation */
 

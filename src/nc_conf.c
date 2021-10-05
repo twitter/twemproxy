@@ -19,6 +19,7 @@
 #include <nc_conf.h>
 #include <nc_server.h>
 #include <proto/nc_proto.h>
+#include <nc_monitor.h>
 
 #define DEFINE_ACTION(_hash, _name) string(#_name),
 static const struct string hash_strings[] = {
@@ -109,6 +110,10 @@ static const struct command conf_commands[] = {
     { string("servers"),
       conf_add_server,
       offsetof(struct conf_pool, server) },
+
+    { string("enable_monitor"),
+      conf_set_bool,
+      offsetof(struct conf_pool, enable_monitor) },
 
     null_command
 };
@@ -225,6 +230,8 @@ conf_pool_init(struct conf_pool *cp, const struct string *name)
         return status;
     }
 
+    cp->enable_monitor = CONF_UNSET_NUM;
+
     log_debug(LOG_VVERB, "init conf pool %p, '%.*s'", cp, name->len, name->data);
 
     return NC_OK;
@@ -310,6 +317,9 @@ conf_pool_each_transform(void *elem, void *data)
     if (status != NC_OK) {
         return status;
     }
+
+    sp->enable_monitor = cp->enable_monitor ? 1 : 0;
+    monitor_init(sp);
 
     log_debug(LOG_VERB, "transform to pool %"PRIu32" '%.*s'", sp->idx,
               sp->name.len, sp->name.data);
@@ -1280,6 +1290,10 @@ conf_validate_pool(struct conf *cf, struct conf_pool *cp)
     status = conf_validate_server(cf, cp);
     if (status != NC_OK) {
         return status;
+    }
+
+    if (cp->enable_monitor == CONF_UNSET_NUM) {
+        cp->enable_monitor = CONF_DEFAULT_ENABLE_MONITOR;
     }
 
     cp->valid = 1;

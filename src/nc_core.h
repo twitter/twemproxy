@@ -117,6 +117,7 @@ struct event_base;
 #include <nc_message.h>
 #include <nc_connection.h>
 #include <nc_server.h>
+#include <nc_monitor.h>
 
 struct context {
     uint32_t           id;          /* unique context id */

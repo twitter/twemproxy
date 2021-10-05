@@ -23,6 +23,7 @@
 #define rbtree_is_red(_node)        ((_node)->color)
 #define rbtree_is_black(_node)      (!rbtree_is_red(_node))
 #define rbtree_copy_color(_n1, _n2) ((_n1)->color = (_n2)->color)
+#define rbtree_is_empty(_tree)      ((_tree)->root == (_tree)->sentinel)
 
 struct rbnode {
     struct rbnode *left;     /* left link */

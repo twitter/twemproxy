@@ -69,5 +69,6 @@ void *array_top(const struct array *a);
 void array_swap(struct array *a, struct array *b);
 void array_sort(struct array *a, array_compare_t compare);
 rstatus_t array_each(const struct array *a, array_each_t func, void *data);
+rstatus_t array_del(struct array *a, uint32_t idx);
 
 #endif

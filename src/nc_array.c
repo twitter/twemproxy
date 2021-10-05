@@ -202,3 +202,22 @@ array_each(const struct array *a, array_each_t func, void *data)
 
     return NC_OK;
 }
+
+rstatus_t
+array_del(struct array *a, uint32_t idx)
+{
+    uint8_t *pos = NULL;
+    uint64_t len = 0;
+
+    if (a->nelem == 0 || idx >= a->nelem) {
+        return NC_ERROR;
+    }
+
+    pos = (uint8_t*)a->elem + (a->size * idx);
+    len = (a->nelem - idx - 1) * a->size;
+
+    memmove(pos, pos + a->size, (size_t)len);
+    a->nelem--;
+
+    return NC_OK;
+}

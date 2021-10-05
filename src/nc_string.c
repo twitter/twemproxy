@@ -176,6 +176,34 @@ _safe_itoa(int base, int64_t val, char *buf)
 }
 
 static const char *
+_safe_check_placeholder(const char *fmt, int32_t *placeholder_len, bool *is_variable) {
+    *placeholder_len = 0;
+    *is_variable = false;
+
+    if (*fmt == '0') {
+        fmt++;
+
+        while (isdigit(*fmt)) {
+            *placeholder_len = *placeholder_len * 10 + (*fmt - '0');
+            fmt++;
+        }
+    } else if (*fmt == '.') {
+        fmt++;
+        if (*fmt == '*') {
+            *is_variable = true;
+            fmt++;
+        } else {
+            while (isdigit(*fmt)) {
+                *placeholder_len = *placeholder_len * 10 + (*fmt - '0');
+                fmt++;
+            }
+        }
+    }
+
+    return fmt;
+}
+
+static const char *
 _safe_check_longlong(const char *fmt, int32_t * have_longlong)
 {
     *have_longlong = false;
@@ -192,14 +220,20 @@ _safe_check_longlong(const char *fmt, int32_t * have_longlong)
 }
 
 int
-_safe_vsnprintf(char *to, size_t size, const char *format, va_list ap)
+_safe_vsnprintf(char *to, size_t size, int *parse_done, const char *format, va_list ap)
 {
     char *start = to;
     char *end = start + size - 1;
+    if (parse_done) *parse_done = 1;
+    bool is_variable = false;
+
     for (; *format; ++format) {
         int32_t have_longlong = false;
+        int32_t placeholder_len = false;
+        int32_t placeholder_num = 0;
         if (*format != '%') {
             if (to == end) {    /* end of buffer */
+                if (parse_done) *parse_done = 0;
                 break;
             }
             *to++ = *format;    /* copy ordinary char */
@@ -207,6 +241,7 @@ _safe_vsnprintf(char *to, size_t size, const char *format, va_list ap)
         }
         ++format;               /* skip '%' */
 
+        format = _safe_check_placeholder(format, &placeholder_len, &is_variable);
         format = _safe_check_longlong(format, &have_longlong);
 
         switch (*format) {
@@ -235,7 +270,7 @@ _safe_vsnprintf(char *to, size_t size, const char *format, va_list ap)
                 }
 
                 {
-                    char buff[22];
+                    char buff[22] = {0};
                     const int base = (*format == 'x' || *format == 'p') ? 16 : 10;
 
 		            /* *INDENT-OFF* */
@@ -248,6 +283,14 @@ _safe_vsnprintf(char *to, size_t size, const char *format, va_list ap)
                     if (*format == 'x' && !have_longlong && ival < 0) {
                         val_as_str += 8;
                     }
+                    
+                    if (placeholder_len) {
+                        placeholder_num = (int32_t)(&buff[sizeof(buff) - 1] - val_as_str);
+                        while (placeholder_len > placeholder_num && to < end) {
+                            *to++ =  '0';
+                            placeholder_num++;
+                        }
+                    }
 
                     while (*val_as_str && to < end) {
                         *to++ = *val_as_str++;
@@ -257,11 +300,25 @@ _safe_vsnprintf(char *to, size_t size, const char *format, va_list ap)
             }
         case 's':
             {
+                if (is_variable) {
+                    placeholder_len = (int32_t)va_arg(ap, int64_t);
+                }
+
                 const char *val = va_arg(ap, char *);
                 if (!val) {
                     val = "(null)";
+                    if (is_variable) {
+                        /* placeholder_len = nc_strlen(val); */
+                        placeholder_len = 6;
+                    }
                 }
                 while (*val && to < end) {
+                    if (is_variable) {
+                        if (placeholder_len == 0) {
+                            break;
+                        }
+                        placeholder_len--;
+                    }
                     *to++ = *val++;
                 }
                 continue;
@@ -278,7 +335,76 @@ _safe_snprintf(char *to, size_t n, const char *fmt, ...)
     int result;
     va_list args;
     va_start(args, fmt);
-    result = _safe_vsnprintf(to, n, fmt, args);
+    result = _safe_vsnprintf(to, n, NULL, fmt, args);
     va_end(args);
     return result;
+}
+
+rstatus_t
+string_printf(struct string *s, const char *fmt, ...)
+{
+    char static_buff[1024] = {0};
+    char *buf = NULL;
+    size_t buflen = sizeof(static_buff);
+    int bufstrlen, parse_done;
+
+    buf = static_buff;
+
+    va_list args, cpy;
+    va_start(args, fmt);
+    while(1) {
+        va_copy(cpy, args);
+        bufstrlen = _safe_vsnprintf(buf, buflen, &parse_done, fmt, cpy);
+        va_end(cpy);
+
+        if (!parse_done) {
+            nc_free(buf);
+            buflen += 256;
+            buf = nc_alloc(buflen);
+            if (buf == NULL) {
+                return NC_ENOMEM;
+            }
+            continue;
+        } else {
+            buf = nc_zalloc(bufstrlen + 1);
+            if (buf == NULL) {
+                return NC_ENOMEM;
+            }
+
+            memcpy(buf ,static_buff, (size_t)bufstrlen);
+        }
+
+        break;
+    }
+    va_end(args);
+
+    s->len = (uint32_t)bufstrlen;
+    s->data = (uint8_t*)buf;
+
+    return NC_OK;
+}
+
+rstatus_t string_cat_len(struct string *dst, uint8_t *data, uint32_t len) {
+    if (len == 0) {
+        return NC_OK;
+    }
+
+    uint8_t *buf = dst->data;
+    uint32_t newlen = dst->len + len + 1;
+
+    buf = nc_realloc(dst->data, newlen);
+    if (buf == NULL) {
+        return NC_ENOMEM;
+    }
+
+    nc_memcpy(buf + dst->len, data, len);
+    buf[newlen-1] = '\0';
+    dst->len = newlen-1;
+    dst->data = buf;
+
+    return NC_OK;
+}
+
+rstatus_t string_cat(struct string *dst, struct string *src) {
+    return string_cat_len(dst, src->data, src->len);
 }

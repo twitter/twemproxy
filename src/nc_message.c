@@ -273,6 +273,7 @@ done:
     msg->fdone = 0;
     msg->swallow = 0;
     msg->redis = 0;
+    msg->monitor = 0;
 
     return msg;
 }
@@ -910,3 +911,28 @@ bool msg_set_placeholder_key(struct msg *r)
     return true;
 }
 
+rstatus_t
+msg_append_full(struct msg *msg, uint8_t *pos, size_t n)
+{
+    struct mbuf *mbuf = NULL;
+    size_t cidx = 0;
+    size_t mbsize = 0;
+    size_t clen = 0;
+
+    do {
+        mbuf = msg_ensure_mbuf(msg, n);
+        if (mbuf == NULL) {
+            return NC_ENOMEM;
+        }
+
+        mbsize = mbuf_size(mbuf);
+
+        clen = n > mbsize ? mbsize : n;
+        mbuf_copy(mbuf, pos+cidx, clen);
+        cidx += clen;
+        msg->mlen += (uint32_t)clen;
+        n -= clen;
+    } while(n);
+
+    return NC_OK;
+}

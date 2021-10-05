@@ -129,6 +129,11 @@ client_close(struct context *ctx, struct conn *conn)
 
     client_close_stats(ctx, conn->owner, conn->err, conn->eof);
 
+    /* when client close, if conn in monitor, delete it */
+    if (conn->monitor_client) {
+        del_from_monitor(conn);
+    }
+
     if (conn->sd < 0) {
         conn->unref(conn);
         conn_put(conn);

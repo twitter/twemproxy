@@ -328,6 +328,12 @@ memcache_parse_req(struct msg *r)
                         break;
                     }
 
+                    if (str7cmp(m, 'm', 'o', 'n', 'i', 't', 'o', 'r')) {
+                        r->type = MSG_REQ_MC_MONITOR;
+                        r->monitor = 1;
+                        break;
+                    }
+
                     break;
                 }
 
@@ -352,6 +358,7 @@ memcache_parse_req(struct msg *r)
 
                 case MSG_REQ_MC_VERSION:
                 case MSG_REQ_MC_QUIT:
+                case MSG_REQ_MC_MONITOR:
                     p = p - 1; /* go back by 1 byte */
                     state = SW_CRLF;
                     break;

@@ -18,7 +18,6 @@
 #include <nc_core.h>
 #include <nc_server.h>
 #include <nc_client.h>
-#include <nc_monitor.h>
 
 void
 client_ref(struct conn *conn, void *owner)

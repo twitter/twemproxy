@@ -28,8 +28,10 @@
 void monitor_init(struct server_pool *sp);
 void monitor_deinit(struct server_pool *sp);
 
-inline bool monitor_is_empty(struct server_pool *sp) {
-    return array_n(&sp->monitor_conns) == 0;
+static inline bool
+monitor_is_empty(struct server_pool *sp)
+{
+    return sp->monitor_conns.nelem == 0;
 }
 
 rstatus_t add_to_monitor(struct conn *c);

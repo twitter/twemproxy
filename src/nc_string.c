@@ -371,7 +371,7 @@ string_printf(struct string *s, const char *fmt, ...)
                 return NC_ENOMEM;
             }
 
-            memcpy(buf ,static_buff, bufstrlen);
+            memcpy(buf ,static_buff, (size_t)bufstrlen);
         }
 
         break;

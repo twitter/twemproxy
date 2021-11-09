@@ -20,6 +20,18 @@
 
 #include <stdarg.h>
 
+#ifdef __GNUC__
+# define NC_GCC_VERSION (__GNUC__ * 1000 + __GNUC_MINOR__)
+#else
+# define NC_GCC_VERSION 0
+#endif
+#if NC_GCC_VERSION >= 2007
+#define NC_ATTRIBUTE_FORMAT(type, idx, first) __attribute__ ((format(type, idx, first)))
+#else
+#define NC_ATTRIBUTE_FORMAT(type, idx, first)
+#endif
+
+
 #define LF                  (uint8_t) 10
 #define CR                  (uint8_t) 13
 #define CRLF                "\x0d\x0a"
@@ -90,7 +102,7 @@ int nc_get_soerror(int sd);
 int nc_get_sndbuf(int sd);
 int nc_get_rcvbuf(int sd);
 
-int _nc_atoi(uint8_t *line, size_t n);
+int _nc_atoi(const uint8_t *line, size_t n);
 bool nc_valid_port(int n);
 
 /*
@@ -188,7 +200,7 @@ void nc_assert(const char *cond, const char *file, int line, int panic);
 void nc_stacktrace(int skip_count);
 void nc_stacktrace_fd(int fd);
 
-int _scnprintf(char *buf, size_t size, const char *fmt, ...);
+int _scnprintf(char *buf, size_t size, const char *fmt, ...) NC_ATTRIBUTE_FORMAT(printf, 3, 4);
 int _vscnprintf(char *buf, size_t size, const char *fmt, va_list args);
 int64_t nc_usec_now(void);
 int64_t nc_msec_now(void);
@@ -208,9 +220,9 @@ struct sockinfo {
     } addr;
 };
 
-int nc_resolve(struct string *name, int port, struct sockinfo *si);
-char *nc_unresolve_addr(struct sockaddr *addr, socklen_t addrlen);
-char *nc_unresolve_peer_desc(int sd);
-char *nc_unresolve_desc(int sd);
+int nc_resolve(const struct string *name, int port, struct sockinfo *si);
+const char *nc_unresolve_addr(struct sockaddr *addr, socklen_t addrlen);
+const char *nc_unresolve_peer_desc(int sd);
+const char *nc_unresolve_desc(int sd);
 
 #endif

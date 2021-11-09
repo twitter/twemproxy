@@ -1,5 +1,4 @@
-#!/usr/bin/env python
-#coding: utf-8
+#!/usr/bin/env python3
 
 import os
 import sys
@@ -67,7 +66,6 @@ def test_mget_mset(kv=default_kv):
     conn.set_multi(kv)
     keys = sorted(kv.keys())
 
-    assert(conn.get_multi(keys) == kv)
     assert(conn.get_multi(keys) == kv)
 
     #del

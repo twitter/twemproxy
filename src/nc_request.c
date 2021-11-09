@@ -33,14 +33,14 @@ req_get(struct conn *conn)
 }
 
 static void
-req_log(struct msg *req)
+req_log(const struct msg *req)
 {
-    struct msg *rsp;           /* peer message (response) */
+    const struct msg *rsp;           /* peer message (response) */
     int64_t req_time;          /* time cost for this request */
-    char *peer_str;            /* peer client ip:port */
+    const char *peer_str;      /* peer client ip:port */
     uint32_t req_len, rsp_len; /* request and response length */
-    struct string *req_type;   /* request type string */
-    struct keypos *kpos;
+    const struct string *req_type; /* request type string */
+    const struct keypos *kpos;
 
     if (log_loggable(LOG_NOTICE) == 0) {
         return;
@@ -75,9 +75,6 @@ req_log(struct msg *req)
     }
 
     kpos = array_get(req->keys, 0);
-    if (kpos->end != NULL) {
-        *(kpos->end) = '\0';
-    }
 
     /*
      * FIXME: add backend addr here
@@ -90,10 +87,11 @@ req_log(struct msg *req)
 
     log_debug(LOG_NOTICE, "req %"PRIu64" done on c %d req_time %"PRIi64".%03"PRIi64
               " msec type %.*s narg %"PRIu32" req_len %"PRIu32" rsp_len %"PRIu32
-              " key0 '%s' peer '%s' done %d error %d",
+              " key0 '%.*s' peer '%s' done %d error %d",
               req->id, req->owner->sd, req_time / 1000, req_time % 1000,
               req_type->len, req_type->data, req->narg, req_len, rsp_len,
-              kpos->start, peer_str, req->done, req->error);
+              (int)(kpos->end ? kpos->end - kpos->start : 0), kpos->start,
+              peer_str, req->done, req->error);
 }
 
 void
@@ -124,11 +122,13 @@ req_put(struct msg *msg)
  * A request is done, if we received response for the given request.
  * A request vector is done if we received responses for all its
  * fragments.
+ *
+ * msg->fdone is modified to cache whether this request was done.
  */
 bool
-req_done(struct conn *conn, struct msg *msg)
+req_done(const struct conn *conn, struct msg *msg)
 {
-    struct msg *cmsg, *pmsg; /* current and previous message */
+    struct msg *cmsg;        /* current message */
     uint64_t id;             /* fragment id */
     uint32_t nfragment;      /* # fragment */
 
@@ -155,18 +155,18 @@ req_done(struct conn *conn, struct msg *msg)
 
     /* check all fragments of the given request vector are done */
 
-    for (pmsg = msg, cmsg = TAILQ_PREV(msg, msg_tqh, c_tqe);
+    for (cmsg = TAILQ_PREV(msg, msg_tqh, c_tqe);
          cmsg != NULL && cmsg->frag_id == id;
-         pmsg = cmsg, cmsg = TAILQ_PREV(cmsg, msg_tqh, c_tqe)) {
+         cmsg = TAILQ_PREV(cmsg, msg_tqh, c_tqe)) {
 
         if (!cmsg->done) {
             return false;
         }
     }
 
-    for (pmsg = msg, cmsg = TAILQ_NEXT(msg, c_tqe);
+    for (cmsg = TAILQ_NEXT(msg, c_tqe);
          cmsg != NULL && cmsg->frag_id == id;
-         pmsg = cmsg, cmsg = TAILQ_NEXT(cmsg, c_tqe)) {
+         cmsg = TAILQ_NEXT(cmsg, c_tqe)) {
 
         if (!cmsg->done) {
             return false;
@@ -184,16 +184,16 @@ req_done(struct conn *conn, struct msg *msg)
     msg->fdone = 1;
     nfragment = 0;
 
-    for (pmsg = msg, cmsg = TAILQ_PREV(msg, msg_tqh, c_tqe);
+    for (cmsg = TAILQ_PREV(msg, msg_tqh, c_tqe);
          cmsg != NULL && cmsg->frag_id == id;
-         pmsg = cmsg, cmsg = TAILQ_PREV(cmsg, msg_tqh, c_tqe)) {
+         cmsg = TAILQ_PREV(cmsg, msg_tqh, c_tqe)) {
         cmsg->fdone = 1;
         nfragment++;
     }
 
-    for (pmsg = msg, cmsg = TAILQ_NEXT(msg, c_tqe);
+    for (cmsg = TAILQ_NEXT(msg, c_tqe);
          cmsg != NULL && cmsg->frag_id == id;
-         pmsg = cmsg, cmsg = TAILQ_NEXT(cmsg, c_tqe)) {
+         cmsg = TAILQ_NEXT(cmsg, c_tqe)) {
         cmsg->fdone = 1;
         nfragment++;
     }
@@ -217,7 +217,7 @@ req_done(struct conn *conn, struct msg *msg)
  * receiving response for any its fragments.
  */
 bool
-req_error(struct conn *conn, struct msg *msg)
+req_error(const struct conn *conn, struct msg *msg)
 {
     struct msg *cmsg; /* current message */
     uint64_t id;
@@ -472,7 +472,7 @@ req_make_reply(struct context *ctx, struct conn *conn, struct msg *req)
 }
 
 static bool
-req_filter(struct context *ctx, struct conn *conn, struct msg *msg)
+req_filter(struct conn *conn, struct msg *msg)
 {
     ASSERT(conn->client && !conn->proxy);
 
@@ -574,7 +574,6 @@ req_forward(struct context *ctx, struct conn *c_conn, struct msg *msg)
 {
     rstatus_t status;
     struct conn *s_conn;
-    struct server_pool *pool;
     uint8_t *key;
     uint32_t keylen;
     struct keypos *kpos;
@@ -586,8 +585,6 @@ req_forward(struct context *ctx, struct conn *c_conn, struct msg *msg)
         c_conn->enqueue_outq(ctx, c_conn, msg);
     }
 
-    pool = c_conn->owner;
-
     ASSERT(array_n(msg->keys) > 0);
     kpos = array_get(msg->keys, 0);
     key = kpos->start;
@@ -595,6 +592,21 @@ req_forward(struct context *ctx, struct conn *c_conn, struct msg *msg)
 
     s_conn = server_pool_conn(ctx, c_conn->owner, key, keylen);
     if (s_conn == NULL) {
+        /*
+         * Handle a failure to establish a new connection to a server,
+         * e.g. due to dns resolution errors.
+         *
+         * If this is a fragmented request sent to multiple servers such as
+         * a memcache get(multiget),
+         * mark the fragment for this request to the server as done.
+         *
+         * Normally, this would be done when the request was forwarded to the
+         * server, but due to failing to connect to the server this check is
+         * repeated here.
+         */
+        if (msg->frag_owner != NULL) {
+            msg->frag_owner->nfrag_done++;
+        }
         req_forward_error(ctx, c_conn, msg);
         return;
     }
@@ -647,7 +659,7 @@ req_recv_done(struct context *ctx, struct conn *conn, struct msg *msg,
     /* enqueue next message (request), if any */
     conn->rmsg = nmsg;
 
-    if (req_filter(ctx, conn, msg)) {
+    if (req_filter(conn, msg)) {
         return;
     }
 
@@ -675,7 +687,7 @@ req_recv_done(struct context *ctx, struct conn *conn, struct msg *msg,
     /* do fragment */
     pool = conn->owner;
     TAILQ_INIT(&frag_msgq);
-    status = msg->fragment(msg, pool->ncontinuum, &frag_msgq);
+    status = msg->fragment(msg, array_n(&pool->server), &frag_msgq);
     if (status != NC_OK) {
         if (!msg->noreply) {
             conn->enqueue_outq(ctx, conn, msg);

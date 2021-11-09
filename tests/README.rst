@@ -1,19 +1,25 @@
 Python testing facilities for twemproxy, this test suite is based on https://github.com/idning/redis-mgr
 
-already add to https://travis-ci.org/idning/twemproxy as travis-ci
+Testing in docker
+=================
 
-see https://github.com/idning/twemproxy/blob/travis-ci/travis.sh
+The script `test_in_docker.sh` can be run to run all of twemproxy's compiler checks, C unit tests, and this folder's integration tests in docker.
+
+    REDIS_VERSION=6.2.4
+    ./test_in_docker.sh $REDIS_VERSION
 
 usage
 =====
 
-1. install dependency::
+Information on setting up integration tests, running integration tests, and creating new integration tests is below.
+
+1. install dependencies (redis-py must be 3.0 or newer)::
 
     pip install nose
-    pip install git+https://github.com/andymccurdy/redis-py.git@2.10.3
-    pip install git+https://github.com/idning/python-memcached.git#egg=memcache
+    pip install git+https://github.com/andymccurdy/redis-py.git@3.5.3
+    pip install git+https://github.com/linsomniac/python-memcached.git#egg=memcache
 
-2. copy binarys to _binaries/::
+2. copy binaries to _binaries/::
 
     _binaries/
     |-- nutcracker
@@ -25,9 +31,9 @@ usage
     |-- redis-server
     |-- memcached
 
-3. run::
+3. run with nosetests (or ./nosetests_verbose.sh)::
 
-    $ nosetests -v
+    $ python3 -m nose -v
     test_del.test_multi_delete_on_readonly ... ok
     test_mget.test_mget ... ok
 
@@ -36,7 +42,7 @@ usage
 
     OK
 
-4. add A case::
+4. add a case::
 
     cp tests/test_del.py tests/test_xxx.py
     vim tests/test_xxx.py
@@ -69,6 +75,13 @@ T_LOGFILE:
 notes
 =====
 
-- After all the tests. you may got a core because we have a case in test_signal which will send SEGV to nutcracker
+- After all of the integration tests, you may get a core dump because we have a case in test_signal which will send SEGV to nutcracker
 
+- If tests are failing, you may have to `pkill` redis-server, redis-sentinel, or nutcracker
 
+Unit tests
+==========
+
+See src/test_all.c - unit tests are separate from these integration tests and do not require python. They can be compiled and run with `make check`.
+
+To view the output of the failing tests, run `cd src; make test_all; ./test_all`.

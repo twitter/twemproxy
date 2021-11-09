@@ -1,0 +1,19 @@
+# https://editorconfig.org/
+
+root = true
+
+[*]
+trim_trailing_whitespace = true
+insert_final_newline     = true
+end_of_line              = lf
+charset                  = utf-8
+
+# See twemproxy/notes/c-styleguide.txt
+[*.c,*.h]
+tab_width                = 4
+indent_size              = 4
+indent_style             = space
+# indent_brace_style depends on function vs conditional
+max_line_length          = 80
+spaces_around_brackets   = none
+spaces_around_operators  = true

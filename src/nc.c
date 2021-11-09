@@ -51,7 +51,7 @@ static int test_conf;
 static int daemonize;
 static int describe_stats;
 
-static struct option long_options[] = {
+static const struct option long_options[] = {
     { "help",           no_argument,        NULL,   'h' },
     { "version",        no_argument,        NULL,   'V' },
     { "test-conf",      no_argument,        NULL,   't' },
@@ -68,7 +68,7 @@ static struct option long_options[] = {
     { NULL,             0,                  NULL,    0  }
 };
 
-static char short_options[] = "hVtdDv:o:c:s:i:a:p:m:";
+static const char short_options[] = "hVtdDv:o:c:s:i:a:p:m:";
 
 static rstatus_t
 nc_daemonize(int dump_core)
@@ -173,7 +173,7 @@ nc_daemonize(int dump_core)
 }
 
 static void
-nc_print_run(struct instance *nci)
+nc_print_run(const struct instance *nci)
 {
     int status;
     struct utsname name;
@@ -397,8 +397,8 @@ nc_get_options(int argc, char **argv, struct instance *nci)
             }
 
             if (value < NC_MBUF_MIN_SIZE || value > NC_MBUF_MAX_SIZE) {
-                log_stderr("nutcracker: mbuf chunk size must be between %zu and"
-                           " %zu bytes", NC_MBUF_MIN_SIZE, NC_MBUF_MAX_SIZE);
+                log_stderr("nutcracker: mbuf chunk size must be between %d and"
+                           " %d bytes", NC_MBUF_MIN_SIZE, NC_MBUF_MAX_SIZE);
                 return NC_ERROR;
             }
 
@@ -446,7 +446,7 @@ nc_get_options(int argc, char **argv, struct instance *nci)
  * returns false
  */
 static bool
-nc_test_conf(struct instance *nci)
+nc_test_conf(const struct instance *nci)
 {
     struct conf *cf;
 
@@ -551,7 +551,22 @@ main(int argc, char **argv)
     }
 
     if (show_version) {
-        log_stderr("This is nutcracker-%s" CRLF, NC_VERSION_STRING);
+        log_stderr("This is nutcracker-%s", NC_VERSION_STRING);
+#if NC_HAVE_EPOLL
+        log_stderr("async event backend: epoll");
+#elif NC_HAVE_KQUEUE
+        log_stderr("async event backend: kqueue");
+#elif NC_HAVE_EVENT_PORTS
+        log_stderr("async event backend: event_ports");
+#else
+        log_stderr("async event backend: unknown");
+#endif
+#if HAVE_ASSERT_PANIC || HAVE_ASSERT_LOG
+        log_stderr("debugging assertions are enabled (--enable-debug=yes|full), nutcracker may be less efficient");
+#endif
+        // Log a blank line after the version
+        log_stderr("");
+
         if (show_help) {
             nc_show_usage();
         }

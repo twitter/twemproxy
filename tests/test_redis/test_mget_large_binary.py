@@ -12,7 +12,7 @@ nc = NutCracker(nc.host(), nc.port(), '/tmp/r/nutcracker-4100', CLUSTER_NAME,
                 all_redis, mbuf=mbuf, verbose=nc_verbose, timeout=2000)
 
 def setup():
-    print(('special setup(mbuf=%s, verbose=%s)' %(mbuf, nc_verbose)))
+    print('special setup(mbuf=%s, verbose=%s)' %(mbuf, nc_verbose))
     for r in all_redis + [nc]:
         r.deploy()
         r.stop()
@@ -27,8 +27,8 @@ def teardown():
 def test_mget_binary_value(cnt=5):
     kv = {}
     for i in range(cnt):
-        kv['kkk-%s' % i] = os.urandom(1024*1024*16+1024) #16M
+        kv[bytes('kkk-%s' % i, encoding='utf-8')] = os.urandom(1024*1024*16+1024) #16M
     for i in range(cnt):
-        kv['kkk2-%s' % i] = b''
-    _mget_mset(kv, no_decode=True)
+        kv[bytes('kkk2-%s' % i, encoding='utf-8')] = b''
+    _mget_mset(kv)
 

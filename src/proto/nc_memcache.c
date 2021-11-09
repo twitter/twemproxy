@@ -37,7 +37,7 @@
  * return false
  */
 static bool
-memcache_storage(struct msg *r)
+memcache_storage(const struct msg *r)
 {
     switch (r->type) {
     case MSG_REQ_MC_SET:
@@ -60,7 +60,7 @@ memcache_storage(struct msg *r)
  * return false
  */
 static bool
-memcache_cas(struct msg *r)
+memcache_cas(const struct msg *r)
 {
     if (r->type == MSG_REQ_MC_CAS) {
         return true;
@@ -74,7 +74,7 @@ memcache_cas(struct msg *r)
  * return false
  */
 static bool
-memcache_retrieval(struct msg *r)
+memcache_retrieval(const struct msg *r)
 {
     switch (r->type) {
     case MSG_REQ_MC_GET:
@@ -89,11 +89,42 @@ memcache_retrieval(struct msg *r)
 }
 
 /*
+ * Return true, if the memcache command should be fragmented,
+ * otherwise return false.
+ *
+ * The only supported memcache commands that can have multiple keys
+ * are get/gets. Both are multigets, and the latter returns CAS token with the
+ * value.
+ *
+ * Fragmented requests are assumed to be slower due to the fact that they need
+ * to allocate an array to track which key went to which server,
+ * so avoid them when possible.
+ */
+static bool
+memcache_should_fragment(const struct msg *r)
+{
+    switch (r->type) {
+    case MSG_REQ_MC_GET:
+    case MSG_REQ_MC_GETS:
+        /*
+         * A memcache get for a single key is only sent to one server.
+         * Fragmenting it would work but be less efficient.
+         */
+        return array_n(r->keys) != 1;
+
+    default:
+        break;
+    }
+
+    return false;
+}
+
+/*
  * Return true, if the memcache command is a arithmetic command, otherwise
  * return false
  */
 static bool
-memcache_arithmetic(struct msg *r)
+memcache_arithmetic(const struct msg *r)
 {
     switch (r->type) {
     case MSG_REQ_MC_INCR:
@@ -112,7 +143,7 @@ memcache_arithmetic(struct msg *r)
  * return false
  */
 static bool
-memcache_delete(struct msg *r)
+memcache_delete(const struct msg *r)
 {
     if (r->type == MSG_REQ_MC_DELETE) {
         return true;
@@ -126,7 +157,7 @@ memcache_delete(struct msg *r)
  * return false
  */
 static bool
-memcache_touch(struct msg *r)
+memcache_touch(const struct msg *r)
 {
     if (r->type == MSG_REQ_MC_TOUCH) {
         return true;
@@ -289,6 +320,14 @@ memcache_parse_req(struct msg *r)
                         break;
                     }
 
+                    if (str7cmp(m, 'v', 'e', 'r', 's', 'i', 'o', 'n')) {
+                        r->type = MSG_REQ_MC_VERSION;
+                        if (!msg_set_placeholder_key(r)) {
+                            goto enomem;
+                        }
+                        break;
+                    }
+
                     break;
                 }
 
@@ -311,6 +350,7 @@ memcache_parse_req(struct msg *r)
                     state = SW_SPACES_BEFORE_KEY;
                     break;
 
+                case MSG_REQ_MC_VERSION:
                 case MSG_REQ_MC_QUIT:
                     p = p - 1; /* go back by 1 byte */
                     state = SW_CRLF;
@@ -348,7 +388,7 @@ memcache_parse_req(struct msg *r)
                     log_error("parsed bad req %"PRIu64" of type %d with key "
                               "prefix '%.*s...' and length %d that exceeds "
                               "maximum key length", r->id, r->type, 16,
-                              r->token, p - r->token);
+                              r->token, (int)(p - r->token));
                     goto error;
                 } else if (keylen == 0) {
                     log_error("parsed bad req %"PRIu64" of type %d with an "
@@ -371,11 +411,10 @@ memcache_parse_req(struct msg *r)
                     state = SW_SPACES_BEFORE_FLAGS;
                 } else if (memcache_arithmetic(r) || memcache_touch(r) ) {
                     state = SW_SPACES_BEFORE_NUM;
-                } else if (memcache_delete(r)) {
-                    state = SW_RUNTO_CRLF;
                 } else if (memcache_retrieval(r)) {
                     state = SW_SPACES_BEFORE_KEYS;
                 } else {
+                    /* delete, etc. */
                     state = SW_RUNTO_CRLF;
                 }
 
@@ -714,7 +753,7 @@ memcache_parse_req(struct msg *r)
 
     log_hexdump(LOG_VERB, b->pos, mbuf_length(b), "parsed req %"PRIu64" res %d "
                 "type %d state %d rpos %d of %d", r->id, r->result, r->type,
-                r->state, r->pos - b->pos, b->last - b->pos);
+                r->state, (int)(r->pos - b->pos), (int)(b->last - b->pos));
     return;
 
 done:
@@ -726,7 +765,7 @@ done:
 
     log_hexdump(LOG_VERB, b->pos, mbuf_length(b), "parsed req %"PRIu64" res %d "
                 "type %d state %d rpos %d of %d", r->id, r->result, r->type,
-                r->state, r->pos - b->pos, b->last - b->pos);
+                r->state, (int)(r->pos - b->pos), (int)(b->last - b->pos));
     return;
 
 enomem:
@@ -886,6 +925,11 @@ memcache_parse_rsp(struct msg *r)
                         break;
                     }
 
+                    if (str7cmp(m, 'V', 'E', 'R', 'S', 'I', 'O', 'N')) {
+                        r->type = MSG_RSP_MC_VERSION;
+                        break;
+                    }
+
                     break;
 
                 case 9:
@@ -945,6 +989,7 @@ memcache_parse_rsp(struct msg *r)
 
                 case MSG_RSP_MC_CLIENT_ERROR:
                 case MSG_RSP_MC_SERVER_ERROR:
+                case MSG_RSP_MC_VERSION:
                     state = SW_RUNTO_CRLF;
                     break;
 
@@ -1174,7 +1219,7 @@ memcache_parse_rsp(struct msg *r)
 
     log_hexdump(LOG_VERB, b->pos, mbuf_length(b), "parsed rsp %"PRIu64" res %d "
                 "type %d state %d rpos %d of %d", r->id, r->result, r->type,
-                r->state, r->pos - b->pos, b->last - b->pos);
+                r->state, (int)(r->pos - b->pos), (int)(b->last - b->pos));
     return;
 
 done:
@@ -1187,7 +1232,7 @@ done:
 
     log_hexdump(LOG_VERB, b->pos, mbuf_length(b), "parsed rsp %"PRIu64" res %d "
                 "type %d state %d rpos %d of %d", r->id, r->result, r->type,
-                r->state, r->pos - b->pos, b->last - b->pos);
+                r->state, (int)(r->pos - b->pos), (int)(b->last - b->pos));
     return;
 
 error:
@@ -1201,13 +1246,13 @@ error:
 }
 
 bool
-memcache_failure(struct msg *r)
+memcache_failure(const struct msg *r)
 {
     return false;
 }
 
 static rstatus_t
-memcache_append_key(struct msg *r, uint8_t *key, uint32_t keylen)
+memcache_append_key(struct msg *r, const uint8_t *key, uint32_t keylen)
 {
     struct mbuf *mbuf;
     struct keypos *kpos;
@@ -1227,7 +1272,7 @@ memcache_append_key(struct msg *r, uint8_t *key, uint32_t keylen)
     mbuf_copy(mbuf, key, keylen);
     r->mlen += keylen;
 
-    mbuf_copy(mbuf, (uint8_t *)" ", 1);
+    mbuf_copy(mbuf, (const uint8_t *)" ", 1);
     r->mlen += 1;
     return NC_OK;
 }
@@ -1236,7 +1281,7 @@ memcache_append_key(struct msg *r, uint8_t *key, uint32_t keylen)
  * read the comment in proto/nc_redis.c
  */
 static rstatus_t
-memcache_fragment_retrieval(struct msg *r, uint32_t ncontinuum,
+memcache_fragment_retrieval(struct msg *r, uint32_t nserver,
                             struct msg_tqh *frag_msgq,
                             uint32_t key_step)
 {
@@ -1245,7 +1290,7 @@ memcache_fragment_retrieval(struct msg *r, uint32_t ncontinuum,
     uint32_t i;
     rstatus_t status;
 
-    sub_msgs = nc_zalloc(ncontinuum * sizeof(*sub_msgs));
+    sub_msgs = nc_zalloc(nserver * sizeof(*sub_msgs));
     if (sub_msgs == NULL) {
         return NC_ENOMEM;
     }
@@ -1275,10 +1320,12 @@ memcache_fragment_retrieval(struct msg *r, uint32_t ncontinuum,
     r->nfrag = 0;
     r->frag_owner = r;
 
+    /* Build up the key1 key2 ... to be sent to a given server at index idx */
     for (i = 0; i < array_n(r->keys); i++) {        /* for each  key */
         struct msg *sub_msg;
         struct keypos *kpos = array_get(r->keys, i);
         uint32_t idx = msg_backend_idx(r, kpos->start, kpos->end - kpos->start);
+        ASSERT(idx < nserver);
 
         if (sub_msgs[idx] == NULL) {
             sub_msgs[idx] = msg_get(r->owner, r->request, r->redis);
@@ -1296,8 +1343,11 @@ memcache_fragment_retrieval(struct msg *r, uint32_t ncontinuum,
             return status;
         }
     }
-
-    for (i = 0; i < ncontinuum; i++) {     /* prepend mget header, and forward it */
+    /*
+     * prepend mget header, and forward the get[s] key1 key2\r\n
+     * to the corresponding server(s)
+     */
+    for (i = 0; i < nserver; i++) {
         struct msg *sub_msg = sub_msgs[i];
         if (sub_msg == NULL) {
             continue;
@@ -1305,9 +1355,9 @@ memcache_fragment_retrieval(struct msg *r, uint32_t ncontinuum,
 
         /* prepend get/gets */
         if (r->type == MSG_REQ_MC_GET) {
-            status = msg_prepend(sub_msg, (uint8_t *)"get ", 4);
+            status = msg_prepend(sub_msg, (const uint8_t *)"get ", 4);
         } else if (r->type == MSG_REQ_MC_GETS) {
-            status = msg_prepend(sub_msg, (uint8_t *)"gets ", 5);
+            status = msg_prepend(sub_msg, (const uint8_t *)"gets ", 5);
         }
         if (status != NC_OK) {
             nc_free(sub_msgs);
@@ -1315,7 +1365,7 @@ memcache_fragment_retrieval(struct msg *r, uint32_t ncontinuum,
         }
 
         /* append \r\n */
-        status = msg_append(sub_msg, (uint8_t *)CRLF, CRLF_LEN);
+        status = msg_append(sub_msg, (const uint8_t *)CRLF, CRLF_LEN);
         if (status != NC_OK) {
             nc_free(sub_msgs);
             return status;
@@ -1334,10 +1384,10 @@ memcache_fragment_retrieval(struct msg *r, uint32_t ncontinuum,
 }
 
 rstatus_t
-memcache_fragment(struct msg *r, uint32_t ncontinuum, struct msg_tqh *frag_msgq)
+memcache_fragment(struct msg *r, uint32_t nserver, struct msg_tqh *frag_msgq)
 {
-    if (memcache_retrieval(r)) {
-        return memcache_fragment_retrieval(r, ncontinuum, frag_msgq, 1);
+    if (memcache_should_fragment(r)) {
+        return memcache_fragment_retrieval(r, nserver, frag_msgq, 1);
     }
     return NC_OK;
 }
@@ -1422,7 +1472,8 @@ static rstatus_t
 memcache_copy_bulk(struct msg *dst, struct msg *src)
 {
     struct mbuf *mbuf, *nbuf;
-    uint8_t *p;
+    const uint8_t *p;
+    const uint8_t *last;
     uint32_t len = 0;
     uint32_t bytes = 0;
     uint32_t i = 0;
@@ -1440,30 +1491,45 @@ memcache_copy_bulk(struct msg *dst, struct msg *src)
         return NC_OK;           /* key not exists */
     }
     p = mbuf->pos;
+    last = mbuf->last;
 
     /*
-     * get : VALUE key 0 len\r\nval\r\n
-     * gets: VALUE key 0 len cas\r\nval\r\n
+     * get : VALUE key flags len\r\nval\r\n
+     * gets: VALUE key flags len cas\r\nval\r\n
      */
     ASSERT(*p == 'V');
-    for (i = 0; i < 3; i++) {                 /*  eat 'VALUE key 0 '  */
-        for (; *p != ' ';) {
-            p++;
+    i = 0;
+    while (p < last) { /*  eat 'VALUE key flags '  */
+        if (*p == ' ') {
+            i++;
+            if (i >= 3) {
+                p++;
+                break;
+            }
         }
         p++;
     }
 
     len = 0;
-    for (; p < mbuf->last && isdigit(*p); p++) {
+    for (; p < last && isdigit(*p); p++) {
         len = len * 10 + (uint32_t)(*p - '0');
     }
 
-    for (; p < mbuf->last && ('\r' != *p); p++) { /* eat cas for gets */
+    for (; p < last && ('\r' != *p); p++) { /* eat cas for gets */
         ;
     }
+    /* "*p" should be pointing to '\r' */
 
     len += CRLF_LEN * 2;
     len += (p - mbuf->pos);
+
+    if (p >= last) {
+        log_error("Saw memcache value response where header was not "
+                  "parsed or header length %d unexpectedly exceeded mbuf size limit",
+                  (int)(p - mbuf->pos));
+        return NC_ERROR;
+    }
+
 
     bytes = len;
 
@@ -1514,8 +1580,8 @@ memcache_post_coalesce(struct msg *request)
         return;
     }
 
-    for (i = 0; i < array_n(request->keys); i++) {      /* for each  key */
-        sub_msg = request->frag_seq[i]->peer;           /* get it's peer response */
+    for (i = 0; i < array_n(request->keys); i++) {      /* for each key */
+        sub_msg = request->frag_seq[i]->peer;           /* get its peer response */
         if (sub_msg == NULL) {
             response->owner->err = 1;
             return;
@@ -1528,7 +1594,7 @@ memcache_post_coalesce(struct msg *request)
     }
 
     /* append END\r\n */
-    status = msg_append(response, (uint8_t *)"END\r\n", 5);
+    status = msg_append(response, (const uint8_t *)"END\r\n", 5);
     if (status != NC_OK) {
         response->owner->err = 1;
         return;

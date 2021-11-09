@@ -10,6 +10,11 @@ import sys
 from utils import *
 import conf
 
+if sys.version_info[0] < 3:
+    # Give a clear error message instead of a confusing one.
+    sys.stderr.write("Error: must use python 3 to run these nosetests, e.g. python3 -m nose [options] test_modules\n")
+    sys.exit(2)
+
 class Base:
     '''
     Sub class should implement:
@@ -39,13 +44,13 @@ class Base:
                       mkdir -p $path/conf && \
                       mkdir -p $path/log &&  \
                       mkdir -p $path/data',
-                self.args))
+                     self.args))
 
         self._pre_deploy()
         self._gen_control_script()
 
     def _gen_control_script(self):
-        content = open(os.path.join(WORKDIR, 'conf/control.sh')).read()
+        content = open(os.path.join(WORKDIR, 'conf/control.sh'), 'r').read()
         content = TT(content, self.args)
 
         control_filename = TT('${path}/${name}_control', self.args)
@@ -57,7 +62,7 @@ class Base:
 
     def start(self):
         if self._alive():
-            logging.warn('%s already running' %(self) )
+            logging.warning('%s already running' % (self))
             return
 
         logging.debug('starting %s' % self)
@@ -72,15 +77,15 @@ class Base:
             if sleeptime < 5:
                 sleeptime *= 2
             else:
-                sleeptime = 5
-                logging.warn('%s still not alive' % self)
+                sleeptime = 5.0
+                logging.warning('%s still not alive' % self)
 
         t2 = time.time()
-        logging.info('%s start ok in %.2f seconds' %(self, t2-t1) )
+        logging.info('%s start ok in %.2f seconds' %(self, t2-t1))
 
     def stop(self):
         if not self._alive():
-            logging.warn('%s already stop' %(self) )
+            logging.warning('%s already stop' %(self))
             return
 
         cmd = TT("cd $path && ./${name}_control stop", self.args)
@@ -90,21 +95,21 @@ class Base:
         while self._alive():
             lets_sleep()
         t2 = time.time()
-        logging.info('%s stop ok in %.2f seconds' %(self, t2-t1) )
+        logging.info('%s stop ok in %.2f seconds' %(self, t2-t1))
 
     def pid(self):
         cmd = TT("pgrep -f '^$runcmd'", self.args)
         return self._run(cmd)
 
     def status(self):
-        logging.warn("status: not implement")
+        logging.warning("status: not implement")
 
     def _alive(self):
-        logging.warn("_alive: not implement")
+        logging.warning("_alive: not implement")
 
     def _run(self, raw_cmd):
         ret = system(raw_cmd, logging.debug)
-        logging.debug('return : [%d] [%s] ' % (len(ret), shorten(ret)) )
+        logging.debug('return : [%d] [%s] ' % (len(ret), shorten(ret)))
         return ret
 
     def clean(self):
@@ -121,8 +126,8 @@ class RedisServer(Base):
     def __init__(self, host, port, path, cluster_name, server_name, auth = None):
         Base.__init__(self, 'redis', host, port, path)
 
-        self.args['startcmd']     = TT('bin/redis-server conf/redis.conf --port $port', self.args)
-        self.args['runcmd']       = TT('redis-server.*$port', self.args)
+        self.args['startcmd']     = TT('bin/redis-server conf/redis.conf', self.args)
+        self.args['runcmd']       = TT('redis-server \\*:$port', self.args)
         self.args['conf']         = TT('$path/conf/redis.conf', self.args)
         self.args['pidfile']      = TT('$path/log/redis.pid', self.args)
         self.args['logfile']      = TT('$path/log/redis.log', self.args)
@@ -154,7 +159,7 @@ class RedisServer(Base):
         return strstr(self._ping(), 'PONG')
 
     def _gen_conf(self):
-        content = open(os.path.join(WORKDIR, 'conf/redis.conf')).read()
+        content = open(os.path.join(WORKDIR, 'conf/redis.conf'), 'r').read()
         content = TT(content, self.args)
         if self.args['auth']:
             content += '\r\nrequirepass %s' % self.args['auth']
@@ -193,6 +198,49 @@ class RedisServer(Base):
         logging.info('%s %s' % (self, cmd))
         return self._run(cmd)
 
+class RedisSentinel(RedisServer):
+    def __init__(self, host, port, path, cluster_name, server_name, masters, quorum, down_time, auth = None):
+        RedisServer.__init__(self, host, port, path, cluster_name, server_name, auth)
+
+        self.masters = masters
+        self.quorum = quorum
+        self.down_time = down_time
+
+        self.args['startcmd']     = TT('bin/redis-sentinel conf/sentinel.conf', self.args)
+        self.args['runcmd']       = TT('redis-sentinel \\*:$port', self.args)
+        self.args['conf']         = TT('$path/conf/sentinel.conf', self.args)
+        self.args['pidfile']      = TT('$path/log/sentinel.pid', self.args)
+        self.args['logfile']      = TT('$path/log/sentinel.log', self.args)
+
+    def _gen_conf_section(self):
+        template = '''
+sentinel monitor $server_name $host $port %d
+sentinel down-after-milliseconds $server_name %d
+sentinel parallel-syncs $server_name 1
+sentinel failover-timeout $server_name 180000
+''' % (self.quorum, self.down_time)
+        cfg = '\n'.join([TT(template, master.args) for master in self.masters])
+        return cfg
+
+    def _gen_conf(self):
+        content = open(os.path.join(WORKDIR, 'conf/sentinel.conf'), 'r').read()
+        content = TT(content, self.args)
+        if self.args['auth']:
+            content += '\r\nrequirepass %s' % self.args['auth']
+        return content + self._gen_conf_section()
+
+    def _pre_deploy(self):
+        self.args['BINS'] = conf.BINARYS['REDIS_SERVER_BINS']
+        self._run(TT('cp $BINS $path/bin/', self.args))
+
+        fout = open(TT('$path/conf/sentinel.conf', self.args), 'w+')
+        fout.write(self._gen_conf())
+        fout.close()
+
+    def failover(self, server_name):
+        cmd = 'SENTINEL FAILOVER %s' % server_name
+        return self.rediscmd(cmd)
+
 class Memcached(Base):
     def __init__(self, host, port, path, cluster_name, server_name):
         Base.__init__(self, 'memcached', host, port, path)
@@ -214,10 +262,12 @@ class Memcached(Base):
 
 class NutCracker(Base):
     def __init__(self, host, port, path, cluster_name, masters, mbuf=512,
-            verbose=5, is_redis=True, redis_auth=None, redis_db=0, timeout=400):
+            verbose=5, is_redis=True, redis_auth=None, sentinels=None):
+
         Base.__init__(self, 'nutcracker', host, port, path)
 
         self.masters = masters
+        self.sentinels = sentinels
 
         self.args['mbuf']        = mbuf
         self.args['verbose']     = verbose
@@ -241,9 +291,9 @@ class NutCracker(Base):
     def _alive(self):
         return self._info_dict()
 
-    def _gen_conf_section(self):
+    def _gen_conf_section(self, servers):
         template = '    - $host:$port:1 $server_name'
-        cfg = '\n'.join([TT(template, master.args) for master in self.masters])
+        cfg = '\n'.join([TT(template, server.args) for server in servers])
         return cfg
 
     def _gen_conf(self):
@@ -268,7 +318,13 @@ $cluster_name:
             content = content.replace('redis: $is_redis',
                     'redis: $is_redis\r\n  redis_auth: $redis_auth')
         content = TT(content, self.args)
-        return content + self._gen_conf_section()
+        content += self._gen_conf_section(self.masters)
+        if self.args['is_redis'] and self.sentinels:
+            content += '''
+  sentinels:
+'''
+            content += self._gen_conf_section(self.sentinels)
+        return content
 
     def _pre_deploy(self):
         self.args['BINS'] = conf.BINARYS['NUTCRACKER_BINS']
@@ -293,8 +349,10 @@ $cluster_name:
                           [Exception: %s]' % (e, ))
             return None
 
-    def reconfig(self, masters):
+    def reconfig(self, masters, sentinels=None):
         self.masters = masters
+        if sentinels:
+            self.sentinels = sentinels
         self.stop()
         self.deploy()
         self.start()

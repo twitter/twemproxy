@@ -92,7 +92,7 @@ server_timeout(struct conn *conn)
 }
 
 bool
-server_active(struct conn *conn)
+server_active(const struct conn *conn)
 {
     ASSERT(!conn->client && !conn->proxy);
 
@@ -293,7 +293,7 @@ server_failure(struct context *ctx, struct server *server)
     next = now + pool->server_retry_timeout;
 
     log_debug(LOG_INFO, "update pool %"PRIu32" '%.*s' to delete server '%.*s' "
-              "for next %"PRIu32" secs", pool->idx, pool->name.len,
+              "for next %"PRId64" secs", pool->idx, pool->name.len,
               pool->name.data, server->pname.len, server->pname.data,
               pool->server_retry_timeout / 1000 / 1000);
 
@@ -627,7 +627,7 @@ server_pool_update(struct server_pool *pool)
 }
 
 static uint32_t
-server_pool_hash(struct server_pool *pool, uint8_t *key, uint32_t keylen)
+server_pool_hash(const struct server_pool *pool, const uint8_t *key, uint32_t keylen)
 {
     ASSERT(array_n(&pool->server) != 0);
     ASSERT(key != NULL);
@@ -640,16 +640,22 @@ server_pool_hash(struct server_pool *pool, uint8_t *key, uint32_t keylen)
         return 0;
     }
 
-    return pool->key_hash((char *)key, keylen);
+    return pool->key_hash((const char *)key, keylen);
 }
 
 uint32_t
-server_pool_idx(struct server_pool *pool, uint8_t *key, uint32_t keylen)
+server_pool_idx(const struct server_pool *pool, const uint8_t *key, uint32_t keylen)
 {
     uint32_t hash, idx;
+    uint32_t nserver = array_n(&pool->server);
 
-    ASSERT(array_n(&pool->server) != 0);
+    ASSERT(nserver != 0);
     ASSERT(key != NULL);
+
+    if (nserver == 1) {
+        /* Optimization: Skip hashing and dispatching for pools with only one server */
+        return 0;
+    }
 
     /*
      * If hash_tag: is configured for this server pool, we use the part of
@@ -657,8 +663,8 @@ server_pool_idx(struct server_pool *pool, uint8_t *key, uint32_t keylen)
      * we use the full key
      */
     if (!string_empty(&pool->hash_tag)) {
-        struct string *tag = &pool->hash_tag;
-        uint8_t *tag_start, *tag_end;
+        const struct string *tag = &pool->hash_tag;
+        const uint8_t *tag_start, *tag_end;
 
         tag_start = nc_strchr(key, key + keylen, tag->data[0]);
         if (tag_start != NULL) {
@@ -694,7 +700,7 @@ server_pool_idx(struct server_pool *pool, uint8_t *key, uint32_t keylen)
 }
 
 static struct server *
-server_pool_server(struct server_pool *pool, uint8_t *key, uint32_t keylen)
+server_pool_server(struct server_pool *pool, const uint8_t *key, uint32_t keylen)
 {
     struct server *server;
     uint32_t idx;
@@ -709,7 +715,7 @@ server_pool_server(struct server_pool *pool, uint8_t *key, uint32_t keylen)
 }
 
 struct conn *
-server_pool_conn(struct context *ctx, struct server_pool *pool, uint8_t *key,
+server_pool_conn(struct context *ctx, struct server_pool *pool, const uint8_t *key,
                  uint32_t keylen)
 {
     rstatus_t status;

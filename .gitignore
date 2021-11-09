@@ -36,7 +36,7 @@ core*
 nutcracker
 
 # extracted yaml
-!/contrib/yaml-0.1.4.tar.gz
+!/contrib/yaml-0.2.5.tar.gz
 
 # Autotools
 .deps
@@ -66,3 +66,11 @@ nutcracker
 
 Makefile
 Makefile.in
+
+# The .clang-format.example file may be copied here for use with -style=file
+.clang-format
+
+test_all
+*.trs
+tags
+

@@ -6,7 +6,7 @@
 - Make sure that your editor does not leave space at the end of the line.
 - snake_case for variable, function and file names.
 - Use your own judgment when naming variables and functions. Be as Spartan
-  as possible. Eg: Using name like this_variable_is_a_temporary_counter
+  as possible. E.g.: Using name like this_variable_is_a_temporary_counter
   will usually be frowned upon.
 - Don’t use local variables or parameters that shadow global identifiers.
   GCC’s ‘-Wshadow’ option can help you to detect this problem.
@@ -17,19 +17,19 @@
   you cannot get away from using int and char.
 - Use bool for boolean variables. You have to include <stdbool.h>
 - Avoid using a bool as type for struct member names. Instead use unsigned
-  1-bit bit field. Eg:
+  1-bit bit field. E.g.:
   struct foo {
       unsigned is_bar:1;
   };
 - Always use size_t type when dealing with sizes of objects or memory ranges.
 - Your code should be 64-bit and 32-bit friendly. Bear in mind problems
   of printing, comparisons, and structure alignment. You have to include
-  <intyptes.h> to get generic format specifier macros for printing.
+  <inttypes.h> to get generic format specifier macros for printing.
 
 - 80 column line limit.
 - If you have to wrap a long statement (> 80 column), put the operator at the
   end of the line and indent the next line at the same column as the arguments
-  in the previous column. Eg:
+  in the previous column. E.g.:
     while (cnt < 20 && this_variable_name_is_too_long &&
            ep != NULL) {
         z = a + really + long + statement + that + needs + three + lines +
@@ -43,19 +43,19 @@
                      param_g, param_h, param_i, param_j, param_k, param_l);
 
 - Always use braces for all conditional blocks (if, switch, for, while, do).
-  This holds good even for single statement conditional blocks. Eg:
+  This holds good even for single statement conditional blocks. E.g.:
     if (cond) {
         stmt;
     }
 - Placement of braces for non-function statement blocks - put opening brace
-  last on the line and closing brace first. Eg:
+  last on the line and closing brace first. E.g.:
     if (x is true) {
         we do y
     }
 - Placement of brace for functions - put the opening brace at the beginning
   of the next line and closing brace first. This is useful because several
   tools look for opening brace in column one to find beginning of C
-  functions. Eg:
+  functions. E.g.:
 int
 function(int x)
 {
@@ -79,7 +79,7 @@ function(int x)
         ....
     }
 
-- Column align switch keyword and the corresponding case/default keyword. Eg:
+- Column align switch keyword and the corresponding case/default keyword. E.g.:
     switch (alphabet) {
     case 'a':
     case 'b':
@@ -90,7 +90,7 @@ function(int x)
         break;
     }
 
-- Forever loops are done with for, and not while. Eg:
+- Forever loops are done with for, and not while. E.g.:
     for (;;) {
         stmt;
     }
@@ -102,14 +102,14 @@ function(int x)
 - Do not add spaces around (inside) parenthesized expressions.
     s = sizeof( sizeof(*p)) ); /* bad example */
     s = sizeof(sizeof(*p));    /* good example */
-- Casts should not be followed by space. Eg:
+- Casts should not be followed by space. E.g.:
   int q = *(int *)&p
 - There is no need to type cast when assigning a void pointer to a non-void
   pointer, or vice versa.
 - Avoid using goto statements. However there are some exceptions to this rule
   when a single goto label within a function and one or more goto statements
   come in handy when a function exits from multiple locations and some common
-  work such as cleanup has to be done. Eg:
+  work such as cleanup has to be done. E.g.:
 int
 fun(void)
 {
@@ -135,7 +135,7 @@ out:
     return result;
 }
 - When declaring pointer data, use '*' adjacent to the data name and not
-  adjacent to the type name. Eg:
+  adjacent to the type name. E.g.:
     int
     function(int *p)
     {
@@ -192,7 +192,7 @@ out:
   or by the header that uses it (which causes namespace pollution), or
   there must be a back-door mechanism for obtaining the typedef.
 - The only exception for using a typedef is when you are defining a type
-  for a function pointer or a type for an enum. Eg:
+  for a function pointer or a type for an enum. E.g.:
 
   typedef void (*foo_handler_t)(int, void *);
 
@@ -205,7 +205,7 @@ out:
 
 - Use just one variable declaration per line when variables are part of a
   struct. This leaves you room for a small comment on each item, explaining
-  its use. Declarations should also be aligned. Eg, use:
+  its use. Declarations should also be aligned. E.g., use:
 
   struct foo {
     int      *foo_a;   /* comment for foo_a */
@@ -222,7 +222,7 @@ out:
 
 - For variable declaration outside a struct, either collect all the
   declarations of the same type on a single line, or use one variable
-  per line if the variables purpose needs to be commented. Eg:
+  per line if the variables purpose needs to be commented. E.g.:
   char *a, *b, c;
 
   or:
@@ -235,7 +235,7 @@ out:
 
 - Function definitions should start the name of the function in column
   one. This is useful because it makes searching for function definitions
-  fairly trivial. Eg:
+  fairly trivial. E.g.:
 static char *
 concat(char *s1, char *s2)
 {
@@ -244,7 +244,7 @@ concat(char *s1, char *s2)
 
 - Function and variables local to a file should be static.
 - Separate two successive functions with one blank line.
-- Include parameter names with their datypes in function declaration. Eg:
+- Include parameter names with their datatypes in function declaration. E.g.:
 void function(int param);
 
 - Functions should be short and sweet, and do just one thing. They should
@@ -293,7 +293,7 @@ void function(int param);
   type char * which is really the address of the second character of a
   string, not the first), or any possible values that would not work the
   way one would expect (such as, that strings containing newlines are not
-  guaranteed to work), be sure to say so. Eg:
+  guaranteed to work), be sure to say so. E.g.:
 
 /*
  * Try to acquire a physical address lock while a pmap is locked. If we
@@ -324,7 +324,7 @@ vm_page_pa_tryrelock(pmap_t pmap, vm_paddr_t pa, vm_paddr_t *locked)
 
 - Recommend using UPPERCASE for macro names. However, sometimes using
   lowercase for macro names makes sense when macros masquerade as well-known
-  function calls. Eg, it makes sense to write the wrapper for the
+  function calls. E.g., it makes sense to write the wrapper for the
   standard free() function in lowercase to keep the readability
   consistent:
 
@@ -340,10 +340,10 @@ vm_page_pa_tryrelock(pmap_t pmap, vm_paddr_t pa, vm_paddr_t *locked)
 - For macros encapsulating compound statements, right justify the backslashes
   and enclose it in do { ... } while (0)
 - For parameterized macros, all the parameters used in the macro body must
-  be surrounded by parentheses. Eg:
+  be surrounded by parentheses. E.g.:
   #define ADD_1(_x) ((_x) + 1)
 
-- Use sizeof(varname) instead of sizeof(type) whenever possible. Eg:
+- Use sizeof(varname) instead of sizeof(type) whenever possible. E.g.:
   char *p;
   p = malloc(sizeof(*p));   /* good example */
   p = malloc(sizeof(char)); /* bad example */
@@ -369,7 +369,7 @@ vm_page_pa_tryrelock(pmap_t pmap, vm_paddr_t pa, vm_paddr_t *locked)
 - Every header file in the source code must have preprocessor conditional
   to prevent the header file from being scanned multiple times and avoiding
   mutual dependency cycles. Alternatively you can use #pragma once directive,
-  as it avoids name clashes and increases the compile speed. Eg, for a
+  as it avoids name clashes and increases the compile speed. E.g., for a
   header file named foo.h, the entire contents of the header file must be
   between the guard macros as follows:
 
@@ -398,7 +398,7 @@ Or,
 - Conditional compilation: when supporting configuration options already
   known when building your program we prefer using if (... ) over conditional
   compilation, as in the former case the compiler is able to perform more
-  extensive checking of all possible code paths. Eg, use:
+  extensive checking of all possible code paths. E.g., use:
 
   if (HAS_FOO)
     ...

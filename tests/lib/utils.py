@@ -65,7 +65,7 @@ def nothrow(ExceptionToCheck=Exception, logger=None):
                 if logger:
                     logger.info(e)
                 else:
-                    print((str(e)))
+                    print(str(e))
         return f_retry  # true decorator
     return deco_retry
 
@@ -77,9 +77,12 @@ def json_encode(j):
     return json.dumps(j, indent=4, cls=MyEncoder)
 
 def json_decode(j):
+    if isinstance(j, bytes):
+        j = str(j, encoding="utf-8")
+
     return json.loads(j)
 
-#commands dose not work on windows..
+#commands does not work on windows..
 def system(cmd, log_fun=logging.info):
     if log_fun: log_fun(cmd)
     r = subprocess.getoutput(cmd)

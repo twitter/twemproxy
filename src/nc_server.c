@@ -483,19 +483,11 @@ server_connect(struct context *ctx, struct server *server, struct conn *conn)
     log_debug(LOG_VVERB, "connect to server '%.*s'", server->pname.len,
               server->pname.data);
 
-    conn->sd = socket(conn->family, SOCK_STREAM, 0);
+    conn->sd = socket(conn->family, SOCK_STREAM | SOCK_NONBLOCK, 0);
     if (conn->sd < 0) {
         log_error("socket for server '%.*s' failed: %s", server->pname.len,
                   server->pname.data, strerror(errno));
         status = NC_ERROR;
-        goto error;
-    }
-
-    status = nc_set_nonblocking(conn->sd);
-    if (status != NC_OK) {
-        log_error("set nonblock on s %d for server '%.*s' failed: %s",
-                  conn->sd, server->pname.len, server->pname.data,
-                  strerror(errno));
         goto error;
     }
 

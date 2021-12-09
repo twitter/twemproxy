@@ -128,7 +128,7 @@ proxy_listen(struct context *ctx, struct conn *p)
 
     ASSERT(p->proxy);
 
-    p->sd = socket(p->family, SOCK_STREAM, 0);
+    p->sd = socket(p->family, SOCK_STREAM | SOCK_NONBLOCK, 0);
     if (p->sd < 0) {
         log_error("socket failed: %s", strerror(errno));
         return NC_ERROR;
@@ -162,13 +162,6 @@ proxy_listen(struct context *ctx, struct conn *p)
     status = listen(p->sd, pool->backlog);
     if (status < 0) {
         log_error("listen on p %d on addr '%.*s' failed: %s", p->sd,
-                  pool->addrstr.len, pool->addrstr.data, strerror(errno));
-        return NC_ERROR;
-    }
-
-    status = nc_set_nonblocking(p->sd);
-    if (status < 0) {
-        log_error("set nonblock on p %d on addr '%.*s' failed: %s", p->sd,
                   pool->addrstr.len, pool->addrstr.data, strerror(errno));
         return NC_ERROR;
     }

@@ -29,7 +29,7 @@ typedef struct msg* (*conn_send_next_t)(struct context *, struct conn *);
 typedef void (*conn_send_done_t)(struct context *, struct conn *, struct msg *);
 
 typedef void (*conn_close_t)(struct context *, struct conn *);
-typedef bool (*conn_active_t)(struct conn *);
+typedef bool (*conn_active_t)(const struct conn *);
 
 typedef void (*conn_ref_t)(struct conn *, void *);
 typedef void (*conn_unref_t)(struct conn *);
@@ -93,17 +93,17 @@ struct conn {
 
 TAILQ_HEAD(conn_tqh, conn);
 
-struct context *conn_to_ctx(struct conn *conn);
+struct context *conn_to_ctx(const struct conn *conn);
 struct conn *conn_get(void *owner, bool client, bool redis);
-struct conn *conn_get_proxy(void *owner);
+struct conn *conn_get_proxy(struct server_pool *pool);
 void conn_put(struct conn *conn);
 ssize_t conn_recv(struct conn *conn, void *buf, size_t size);
-ssize_t conn_sendv(struct conn *conn, struct array *sendv, size_t nsend);
+ssize_t conn_sendv(struct conn *conn, const struct array *sendv, size_t nsend);
 void conn_init(void);
 void conn_deinit(void);
 uint32_t conn_ncurr_conn(void);
 uint64_t conn_ntotal_conn(void);
 uint32_t conn_ncurr_cconn(void);
-bool conn_authenticated(struct conn *conn);
+bool conn_authenticated(const struct conn *conn);
 
 #endif

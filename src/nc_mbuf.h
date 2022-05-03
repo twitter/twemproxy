@@ -40,28 +40,28 @@ STAILQ_HEAD(mhdr, mbuf);
 #define MBUF_HSIZE      sizeof(struct mbuf)
 
 static inline bool
-mbuf_empty(struct mbuf *mbuf)
+mbuf_empty(const struct mbuf *mbuf)
 {
-    return mbuf->pos == mbuf->last ? true : false;
+    return mbuf->pos == mbuf->last;
 }
 
 static inline bool
-mbuf_full(struct mbuf *mbuf)
+mbuf_full(const struct mbuf *mbuf)
 {
-    return mbuf->last == mbuf->end ? true : false;
+    return mbuf->last == mbuf->end;
 }
 
-void mbuf_init(struct instance *nci);
+void mbuf_init(const struct instance *nci);
 void mbuf_deinit(void);
 struct mbuf *mbuf_get(void);
 void mbuf_put(struct mbuf *mbuf);
 void mbuf_rewind(struct mbuf *mbuf);
-uint32_t mbuf_length(struct mbuf *mbuf);
-uint32_t mbuf_size(struct mbuf *mbuf);
+uint32_t mbuf_length(const struct mbuf *mbuf);
+uint32_t mbuf_size(const struct mbuf *mbuf);
 size_t mbuf_data_size(void);
 void mbuf_insert(struct mhdr *mhdr, struct mbuf *mbuf);
 void mbuf_remove(struct mhdr *mhdr, struct mbuf *mbuf);
-void mbuf_copy(struct mbuf *mbuf, uint8_t *pos, size_t n);
+void mbuf_copy(struct mbuf *mbuf, const uint8_t *pos, size_t n);
 struct mbuf *mbuf_split(struct mhdr *h, uint8_t *pos, mbuf_copy_t cb, void *cbarg);
 
 #endif

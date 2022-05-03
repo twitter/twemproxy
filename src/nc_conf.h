@@ -98,7 +98,7 @@ struct conf_pool {
 };
 
 struct conf {
-    char          *fname;           /* file name (ref in argv[]) */
+    const char    *fname;           /* file name (ref in argv[]) */
     FILE          *fh;              /* file handle */
     struct array  arg;              /* string[] (parsed {key, value} pairs) */
     struct array  pool;             /* conf_pool[] (parsed pools) */
@@ -117,25 +117,25 @@ struct conf {
 
 struct command {
     struct string name;
-    char          *(*set)(struct conf *cf, struct command *cmd, void *data);
+    const char    *(*set)(struct conf *cf, const struct command *cmd, void *data);
     int           offset;
 };
 
 #define null_command { null_string, NULL, 0 }
 
-char *conf_set_string(struct conf *cf, struct command *cmd, void *conf);
-char *conf_set_listen(struct conf *cf, struct command *cmd, void *conf);
-char *conf_add_server(struct conf *cf, struct command *cmd, void *conf);
-char *conf_set_num(struct conf *cf, struct command *cmd, void *conf);
-char *conf_set_bool(struct conf *cf, struct command *cmd, void *conf);
-char *conf_set_hash(struct conf *cf, struct command *cmd, void *conf);
-char *conf_set_distribution(struct conf *cf, struct command *cmd, void *conf);
-char *conf_set_hashtag(struct conf *cf, struct command *cmd, void *conf);
+const char *conf_set_string(struct conf *cf, const struct command *cmd, void *conf);
+const char *conf_set_listen(struct conf *cf, const struct command *cmd, void *conf);
+const char *conf_add_server(struct conf *cf, const struct command *cmd, void *conf);
+const char *conf_set_num(struct conf *cf, const struct command *cmd, void *conf);
+const char *conf_set_bool(struct conf *cf, const struct command *cmd, void *conf);
+const char *conf_set_hash(struct conf *cf, const struct command *cmd, void *conf);
+const char *conf_set_distribution(struct conf *cf, const struct command *cmd, void *conf);
+const char *conf_set_hashtag(struct conf *cf, const struct command *cmd, void *conf);
 
 rstatus_t conf_server_each_transform(void *elem, void *data);
 rstatus_t conf_pool_each_transform(void *elem, void *data);
 
-struct conf *conf_create(char *filename);
+struct conf *conf_create(const char *filename);
 void conf_destroy(struct conf *cf);
 
 #endif

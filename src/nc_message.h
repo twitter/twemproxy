@@ -26,7 +26,7 @@ typedef rstatus_t (*msg_add_auth_t)(struct context *ctx, struct conn *c_conn, st
 typedef rstatus_t (*msg_fragment_t)(struct msg *, uint32_t, struct msg_tqh *);
 typedef void (*msg_coalesce_t)(struct msg *r);
 typedef rstatus_t (*msg_reply_t)(struct msg *r);
-typedef bool (*msg_failure_t)(struct msg *r);
+typedef bool (*msg_failure_t)(const struct msg *r);
 
 typedef enum msg_parse_result {
     MSG_PARSE_OK,                         /* parsing ok */
@@ -50,6 +50,7 @@ typedef enum msg_parse_result {
     ACTION( REQ_MC_DECR )                                                                           \
     ACTION( REQ_MC_TOUCH )                     /* memcache touch request */                         \
     ACTION( REQ_MC_QUIT )                      /* memcache quit request */                          \
+    ACTION( REQ_MC_VERSION )                   /* memcache version request */                       \
     ACTION( RSP_MC_NUM )                       /* memcache arithmetic response */                   \
     ACTION( RSP_MC_STORED )                    /* memcache cas and storage response */              \
     ACTION( RSP_MC_NOT_STORED )                                                                     \
@@ -59,6 +60,7 @@ typedef enum msg_parse_result {
     ACTION( RSP_MC_VALUE )                                                                          \
     ACTION( RSP_MC_DELETED )                   /* memcache delete response */                       \
     ACTION( RSP_MC_TOUCHED )                   /* memcache touch response */                        \
+    ACTION( RSP_MC_VERSION )                   /* memcache version response */                      \
     ACTION( RSP_MC_ERROR )                     /* memcache error responses */                       \
     ACTION( RSP_MC_CLIENT_ERROR )                                                                   \
     ACTION( RSP_MC_SERVER_ERROR )                                                                   \
@@ -228,8 +230,8 @@ typedef enum msg_type {
 #undef DEFINE_ACTION
 
 struct keypos {
-    uint8_t             *start;           /* key start pos */
-    uint8_t             *end;             /* key end pos */
+    uint8_t              *start;           /* key start pos */
+    uint8_t              *end;             /* key end pos */
 };
 
 /*
@@ -279,7 +281,7 @@ struct msg {
     uint32_t             rnarg;           /* running # arg used by parsing fsa (redis) */
     uint32_t             rlen;            /* running length in parsing fsa (redis) */
     uint32_t             integer;         /* integer reply value (redis) */
-    uint8_t             is_top_level;     /* is this top level (redis) */
+    uint8_t              is_top_level;     /* is this top level (redis) */
 
     struct msg           *frag_owner;     /* owner of fragment message */
     uint32_t             nfrag;           /* # fragment */
@@ -308,26 +310,26 @@ void msg_tmo_delete(struct msg *msg);
 
 void msg_init(void);
 void msg_deinit(void);
-struct string *msg_type_string(msg_type_t type);
+const struct string *msg_type_string(msg_type_t type);
 struct msg *msg_get(struct conn *conn, bool request, bool redis);
 void msg_put(struct msg *msg);
 struct msg *msg_get_error(bool redis, err_t err);
-void msg_dump(struct msg *msg, int level);
-bool msg_empty(struct msg *msg);
-void msg_read_line(struct msg* msg, struct mbuf *line_buf, int line_num);
+void msg_dump(const struct msg *msg, int level);
+bool msg_empty(const struct msg *msg);
 rstatus_t msg_recv(struct context *ctx, struct conn *conn);
 rstatus_t msg_send(struct context *ctx, struct conn *conn);
 uint64_t msg_gen_frag_id(void);
-uint32_t msg_backend_idx(struct msg *msg, uint8_t *key, uint32_t keylen);
+uint32_t msg_backend_idx(const struct msg *msg, const uint8_t *key, uint32_t keylen);
 struct mbuf *msg_ensure_mbuf(struct msg *msg, size_t len);
-rstatus_t msg_append(struct msg *msg, uint8_t *pos, size_t n);
-rstatus_t msg_prepend(struct msg *msg, uint8_t *pos, size_t n);
+rstatus_t msg_append(struct msg *msg, const uint8_t *pos, size_t n);
+rstatus_t msg_prepend(struct msg *msg, const uint8_t *pos, size_t n);
 rstatus_t msg_prepend_format(struct msg *msg, const char *fmt, ...);
+bool msg_set_placeholder_key(struct msg *r);
 
 struct msg *req_get(struct conn *conn);
 void req_put(struct msg *msg);
-bool req_done(struct conn *conn, struct msg *msg);
-bool req_error(struct conn *conn, struct msg *msg);
+bool req_done(const struct conn *conn, struct msg *msg);
+bool req_error(const struct conn *conn, struct msg *msg);
 void req_server_enqueue_imsgq(struct context *ctx, struct conn *conn, struct msg *msg);
 void req_server_enqueue_imsgq_head(struct context *ctx, struct conn *conn, struct msg *msg);
 void req_server_dequeue_imsgq(struct context *ctx, struct conn *conn, struct msg *msg);

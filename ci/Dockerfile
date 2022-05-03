@@ -1,6 +1,7 @@
-# Dockerfile to build nutcracker
-# ARGS: none
-# Also see travis.sh
+# Dockerfile to create a slower debug build of nutcracker with assertions enabled
+# for continuous integration checks.
+# ARGS: REDIS_VER
+# Also see test_in_docker.sh
 FROM centos:7
 
 ENV LAST_MODIFIED_DATE 2021-04-09
@@ -30,15 +31,15 @@ RUN pip3.6 install nose && \
 # RUN yum install -y redis redis-sentinel
 
 ARG REDIS_VER=3.2.11
-RUN wget https://github.com/antirez/redis/archive/$REDIS_VER.tar.gz && \
+RUN wget https://github.com/redis/redis/archive/$REDIS_VER.tar.gz && \
 	tar zxvf $REDIS_VER.tar.gz && \
 	pushd redis-$REDIS_VER && \
 		make install && \
 	popd && \
 	rm -r redis-*
 
-# This will build and twemproxy 0.4.1 (with sflow)
-# Annoyingly, can't add multiple directories at once.
+# This will build twemproxy with compilation flags for running unit tests, integration tests.
+# Annoyingly, this can't add multiple directories at once.
 ADD conf /usr/src/twemproxy/conf
 ADD contrib /usr/src/twemproxy/contrib
 ADD man /usr/src/twemproxy/man

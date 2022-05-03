@@ -1,5 +1,12 @@
- 2021-??-??  Tyson Andre
-    * twemproxy: version 0.4.2 release (dev)
+ 2021-13-07  Tyson Andre  <tysonandre775@hotmail.com>
+    * twemproxy: version 0.5.0 release
+	  Same as 0.5.0-RC1
+
+ 2021-06-07  Tyson Andre  <tysonandre775@hotmail.com>
+    * twemproxy: version 0.5.0-RC1 release
+	  Add 'tcpkeepalive' pool boolean config flag setting
+	  to enable tcp keepalive (charsyam, manju)
+	  Support redis bitpos command (clark kang)
 	  Fix parsing of redis error response for error type with no space,
 	  add tests (tyson, tom dalton)
 	  Update integration tests, add C unit test suite for 'make check' (tyson)
@@ -11,6 +18,7 @@
 	  sharding requests to backend services to improve sharding performance
 	  and fix potential invalid memory access when all hosts were ejected
 	  from a pool. (tyson)
+	  Optimize performance of deletion of single redis keys (vincentve)
 	  Don't fragment memcache/redis get commands when they only have a single
 	  key (improves performance and error handling of single key case) (tyson)
 	  Don't let requests hang when there is a dns error when processing a
@@ -23,6 +31,15 @@
 	  Upgrade from libyaml 0.1.4 to 0.2.5 (tyson)
 	  Fix compiler warnings about wrong conversion specifiers in format
 	  strings for logging (tyson)
+	  Log the async backend used and any debug options in the
+	  '--help'/'--version' output.
+	  Add support for many more new redis commands and updates to existing
+	  redis commands (tyson)
+	  Optimization: Skip hashing and choosing server index when a pool has
+	  exactly one server (tyson)
+	  Support memcache 'version' requests by proxying the request to a single
+	  backend memcache server to fetch the server version. (tyson)
+	  Make error messages for creating the stats server during startup clearer. (tyson)
 
  2015-22-06  Manju Rajashekhar  <manj@cs.stanford.edu>
     * twemproxy: version 0.4.1 release
@@ -34,7 +51,6 @@
       mark server as failed on protocol level transiet failures like -OOM, -LOADING, etc
       implemented support for parsing fine grained redis error response
       remove redundant conditional judgement in rbtree deletion (leo ma)
-      fix bug mset has invalid pair (charsyam)
       fix bug mset has invalid pair (charsyam)
       temp fix a core on kqueue (idning)
       support "touch" command for memcached (panmiaocai)

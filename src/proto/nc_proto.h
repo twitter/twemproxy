@@ -144,7 +144,7 @@
 
 void memcache_parse_req(struct msg *r);
 void memcache_parse_rsp(struct msg *r);
-bool memcache_failure(struct msg *r);
+bool memcache_failure(const struct msg *r);
 void memcache_pre_coalesce(struct msg *r);
 void memcache_post_coalesce(struct msg *r);
 rstatus_t memcache_add_auth(struct context *ctx, struct conn *c_conn, struct conn *s_conn);
@@ -155,7 +155,7 @@ void memcache_swallow_msg(struct conn *conn, struct msg *pmsg, struct msg *msg);
 
 void redis_parse_req(struct msg *r);
 void redis_parse_rsp(struct msg *r);
-bool redis_failure(struct msg *r);
+bool redis_failure(const struct msg *r);
 void redis_pre_coalesce(struct msg *r);
 void redis_post_coalesce(struct msg *r);
 rstatus_t redis_add_auth(struct context *ctx, struct conn *c_conn, struct conn *s_conn);

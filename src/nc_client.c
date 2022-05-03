@@ -66,7 +66,7 @@ client_unref(struct conn *conn)
 }
 
 bool
-client_active(struct conn *conn)
+client_active(const struct conn *conn)
 {
     ASSERT(conn->client && !conn->proxy);
 

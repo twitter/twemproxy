@@ -1,8 +1,8 @@
 # Define the package version numbers and the bug reporting address
 m4_define([NC_MAJOR], 0)
-m4_define([NC_MINOR], 4)
-m4_define([NC_PATCH], 1)
-m4_define([NC_BUGS], [manj@cs.stanford.edu])
+m4_define([NC_MINOR], 5)
+m4_define([NC_PATCH], 0)
+m4_define([NC_BUGS], [https://github.com/twitter/twemproxy/issues])
 
 # Initialize autoconf
 AC_PREREQ([2.64])
@@ -84,6 +84,7 @@ AC_CHECK_FUNCS([dup2 gethostname gettimeofday strerror])
 AC_CHECK_FUNCS([socket])
 AC_CHECK_FUNCS([memchr memmove memset])
 AC_CHECK_FUNCS([strchr strndup strtoul])
+AC_CHECK_FUNCS([strdup])
 
 AC_CACHE_CHECK([if epoll works], [ac_cv_epoll_works],
   AC_TRY_RUN([

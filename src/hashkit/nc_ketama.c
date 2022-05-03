@@ -219,9 +219,9 @@ ketama_update(struct server_pool *pool)
 }
 
 uint32_t
-ketama_dispatch(struct continuum *continuum, uint32_t ncontinuum, uint32_t hash)
+ketama_dispatch(const struct continuum *continuum, uint32_t ncontinuum, uint32_t hash)
 {
-    struct continuum *begin, *end, *left, *right, *middle;
+    const struct continuum *begin, *end, *left, *right, *middle;
 
     ASSERT(continuum != NULL);
     ASSERT(ncontinuum != 0);

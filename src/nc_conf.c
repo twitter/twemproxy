@@ -424,6 +424,7 @@ conf_write(FILE *fh, const char *fmt, ...)
     return NC_OK;
 }
 
+#define conf_write_or_fail(...) if (conf_write(__VA_ARGS__) != NC_OK) { goto error; }
 void
 conf_rewrite(struct context *ctx)
 {
@@ -431,7 +432,7 @@ conf_rewrite(struct context *ctx)
     struct conf *cf;
     struct conf_pool *cp;
     struct conf_server *cs;
-    struct string true_str, false_str, bool_str;
+    struct string bool_str;
     FILE *fh;
     char temp_conf_file[256];
 
@@ -454,74 +455,71 @@ conf_rewrite(struct context *ctx)
         return;
     }
 
-    string_set_text(&true_str, "true");
-    string_set_text(&false_str, "false");
-
     for (i = 0; i < npool; i++) {
         cp = array_get(&cf->pool, i);
 
-        conf_write(fh, "%.*s:", cp->name.len, cp->name.data);
-        conf_write(fh, "  listen: %.*s",
+        conf_write_or_fail(fh, "%.*s:", cp->name.len, cp->name.data);
+        conf_write_or_fail(fh, "  listen: %.*s",
                   cp->listen.pname.len, cp->listen.pname.data);
-        conf_write(fh, "  hash: %.*s",
+        conf_write_or_fail(fh, "  hash: %.*s",
                 hash_strings[cp->hash].len, hash_strings[cp->hash].data);
         if (cp->hash_tag.len > 0) {
-            conf_write(fh, "  hash_tag: \"%.*s\"", cp->hash_tag.len,
+            conf_write_or_fail(fh, "  hash_tag: \"%.*s\"", cp->hash_tag.len,
                     cp->hash_tag.data);
         }
-        conf_write(fh, "  distribution: %.*s",
+        conf_write_or_fail(fh, "  distribution: %.*s",
                 dist_strings[cp->distribution].len, dist_strings[cp->distribution].data);
 
         bool_str = cp->preconnect ? true_str : false_str;
-        conf_write(fh,"  preconnect: %.*s", bool_str.len, bool_str.data);
+        conf_write_or_fail(fh,"  preconnect: %.*s", bool_str.len, bool_str.data);
 
         bool_str = cp->auto_eject_hosts ? true_str : false_str;
-        conf_write(fh, "  auto_eject_hosts: %.*s", bool_str.len, bool_str.data);
+        conf_write_or_fail(fh, "  auto_eject_hosts: %.*s", bool_str.len, bool_str.data);
 
         bool_str = cp->redis ? true_str : false_str;
-        conf_write(fh, "  redis: %.*s", bool_str.len, bool_str.data);
+        conf_write_or_fail(fh, "  redis: %.*s", bool_str.len, bool_str.data);
         if (cp->timeout >= 0) {
-            conf_write(fh, "  timeout: %d", cp->timeout);
+            conf_write_or_fail(fh, "  timeout: %d", cp->timeout);
         }
-        conf_write(fh, "  backlog: %d", cp->backlog);
-        conf_write(fh, "  client_connections: %d",
+        conf_write_or_fail(fh, "  backlog: %d", cp->backlog);
+        conf_write_or_fail(fh, "  client_connections: %d",
                   cp->client_connections);
-        conf_write(fh, "  server_connections: %d",
+        conf_write_or_fail(fh, "  server_connections: %d",
                   cp->server_connections);
-        conf_write(fh, "  server_retry_timeout: %d",
+        conf_write_or_fail(fh, "  server_retry_timeout: %d",
                   cp->server_retry_timeout);
-        conf_write(fh, "  server_failure_limit: %d",
+        conf_write_or_fail(fh, "  server_failure_limit: %d",
                   cp->server_failure_limit);
 
         nserver = array_n(&cp->server);
-        conf_write(fh, "  servers:");
+        conf_write_or_fail(fh, "  servers:");
 
         for (j = 0; j < nserver; j++) {
             cs = array_get(&cp->server, j);
             if (cs->name.len >= cs->pname.len
                     || nc_strncmp(cs->pname.data, cs->name.data, cs->name.len)) {
-                conf_write(fh, "   - %.*s %.*s",
+                conf_write_or_fail(fh, "   - %.*s %.*s",
                         cs->pname.len, cs->pname.data,
                         cs->name.len, cs->name.data);
             } else {
-                conf_write(fh, "   - %.*s",
+                conf_write_or_fail(fh, "   - %.*s",
                         cs->pname.len, cs->pname.data);
             }
         }
 
         nserver = array_n(&cp->sentinel);
         if (nserver) {
-            conf_write(fh, "  sentinels:");
+            conf_write_or_fail(fh, "  sentinels:");
 
             for (j = 0; j < nserver; j++) {
                 cs = array_get(&cp->sentinel, j);
                 if (cs->name.len >= cs->pname.len
                         || nc_strncmp(cs->pname.data, cs->name.data, cs->name.len)) {
-                    conf_write(fh, "   - %.*s %.*s",
+                    conf_write_or_fail(fh, "   - %.*s %.*s",
                             cs->pname.len, cs->pname.data,
                             cs->name.len, cs->name.data);
                 } else {
-                    conf_write(fh, "   - %.*s",
+                    conf_write_or_fail(fh, "   - %.*s",
                             cs->pname.len, cs->pname.data);
                 }
             }
@@ -529,7 +527,7 @@ conf_rewrite(struct context *ctx)
 
         /* write a empty line to conf when a pool is writen except the last one. */
         if (i < npool - 1) {
-            conf_write(fh, "");
+            conf_write_or_fail(fh, "");
         }
     }
 
@@ -540,6 +538,14 @@ conf_rewrite(struct context *ctx)
                   temp_conf_file, cf->fname, strerror(errno));
         unlink(temp_conf_file);
     }
+
+    return;
+
+error:
+    log_error("conf: failed to save full configuration file '%s': %s",
+              temp_conf_file, strerror(errno));
+    fclose(fh);
+    unlink(temp_conf_file);
 }
 
 static rstatus_t

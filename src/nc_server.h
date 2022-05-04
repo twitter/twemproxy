@@ -136,7 +136,7 @@ struct server_pool {
 void server_ref(struct conn *conn, void *owner);
 void server_unref(struct conn *conn);
 int server_timeout(struct conn *conn);
-bool server_active(struct conn *conn);
+bool server_active(const struct conn *conn);
 rstatus_t server_init(struct array *server, struct array *conf_server, struct server_pool *sp, bool sentinel);
 void server_deinit(struct array *server);
 struct conn *server_conn(struct server *server);
@@ -147,8 +147,8 @@ void server_ok(struct context *ctx, struct conn *conn);
 struct server* server_find_by_name(struct context *ctx, struct server_pool *server_pool, struct string *server_name);
 rstatus_t server_switch(struct context *ctx, struct server *server, struct string *server_ip, int server_port);
 
-uint32_t server_pool_idx(struct server_pool *pool, uint8_t *key, uint32_t keylen);
-struct conn *server_pool_conn(struct context *ctx, struct server_pool *pool, uint8_t *key, uint32_t keylen);
+uint32_t server_pool_idx(const struct server_pool *pool, const uint8_t *key, uint32_t keylen);
+struct conn *server_pool_conn(struct context *ctx, struct server_pool *pool, const uint8_t *key, uint32_t keylen);
 rstatus_t server_pool_run(struct server_pool *pool);
 rstatus_t server_pool_connect(struct context *ctx);
 void server_pool_disconnect(struct context *ctx);

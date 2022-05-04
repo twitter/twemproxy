@@ -1,5 +1,4 @@
-#!/usr/bin/env python
-#coding: utf-8
+#!/usr/bin/env python3
 #file   : test_reload.py
 #author : ning
 #date   : 2014-09-03 12:28:16
@@ -19,6 +18,8 @@ from server_modules import *
 from utils import *
 from nose import with_setup
 
+# Reload support with SIGUSR1 was at one planned to be added in 0.4.2 of twitter/twemproxy but has not actually been added.
+VERSION_SUPPORTING_RELOAD = '99.99.99'
 CLUSTER_NAME = 'ntest'
 nc_verbose = int(getenv('T_VERBOSE', 5))
 mbuf = int(getenv('T_MBUF', 512))
@@ -35,7 +36,7 @@ nc = NutCracker('127.0.0.1', 4100, '/tmp/r/nutcracker-4100', CLUSTER_NAME,
                 all_redis, mbuf=mbuf, verbose=nc_verbose)
 
 def _setup():
-    print 'setup(mbuf=%s, verbose=%s)' %(mbuf, nc_verbose)
+    print('setup(mbuf=%s, verbose=%s)' %(mbuf, nc_verbose))
     for r in all_redis + [nc]:
         r.deploy()
         r.stop()
@@ -59,8 +60,8 @@ def send_cmd(s, req, resp):
 
 @with_setup(_setup, _teardown)
 def test_reload_with_old_conf():
-    if nc.version() < '0.4.2':
-        print 'Ignore test_reload for version %s' % nc.version()
+    if nc.version() < VERSION_SUPPORTING_RELOAD:
+        print('Ignore test_reload for version %s' % nc.version())
         return
     pid = nc.pid()
     # print 'old pid:', pid
@@ -99,8 +100,8 @@ def test_reload_with_old_conf():
 
 @with_setup(_setup, _teardown)
 def test_new_port():
-    if nc.version() < '0.4.2':
-        print 'Ignore test_reload for version %s' % nc.version()
+    if nc.version() < VERSION_SUPPORTING_RELOAD:
+        print('Ignore test_reload for version %s' % nc.version())
         return
     r = redis.Redis(nc.host(), nc.port())
     r.set('k', 'v')
@@ -128,8 +129,8 @@ reload_test:
 
 @with_setup(_setup, _teardown)
 def test_pool_add_del():
-    if nc.version() < '0.4.2':
-        print 'Ignore test_reload for version %s' % nc.version()
+    if nc.version() < VERSION_SUPPORTING_RELOAD:
+        print('Ignore test_reload for version %s' % nc.version())
         return
 
     r = redis.Redis(nc.host(), nc.port())
@@ -178,7 +179,7 @@ reload_test:
     nc.set_config(content)
     time.sleep(T_RELOAD_DELAY)
     pid = nc.pid()
-    print system('ls -l /proc/%s/fd/' % pid)
+    print(system('ls -l /proc/%s/fd/' % pid))
 
     r3 = redis.Redis(nc.host(), 4102)
 

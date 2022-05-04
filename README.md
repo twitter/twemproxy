@@ -1,16 +1,16 @@
-# twemproxy (nutcracker) [![Build Status](https://secure.travis-ci.org/twitter/twemproxy.png)](http://travis-ci.org/twitter/twemproxy)
+# twemproxy (nutcracker) [![Build Status](https://github.com/twitter/twemproxy/actions/workflows/main.yml/badge.svg?branch=master)](https://github.com/twitter/twemproxy/actions/workflows/main.yml?query=branch%3Amaster)
 
 **twemproxy** (pronounced "two-em-proxy"), aka **nutcracker** is a fast and lightweight proxy for [memcached](http://www.memcached.org/) and [redis](http://redis.io/) protocol. It was built primarily to reduce the number of connections to the caching servers on the backend. This, together with protocol pipelining and sharding enables you to horizontally scale your distributed caching architecture.
 
 ## Build
 
-To build twemproxy from [distribution tarball](https://drive.google.com/open?id=0B6pVMMV5F5dfMUdJV25abllhUWM&authuser=0):
+To build twemproxy 0.5.0+ from [distribution tarball](https://github.com/twitter/twemproxy/releases):
 
     $ ./configure
     $ make
     $ sudo make install
 
-To build twemproxy from [distribution tarball](https://drive.google.com/open?id=0B6pVMMV5F5dfMUdJV25abllhUWM&authuser=0) in _debug mode_:
+To build twemproxy 0.5.0+ from [distribution tarball](https://github.com/twitter/twemproxy/releases) in _debug mode_:
 
     $ CFLAGS="-ggdb3 -O0" ./configure --enable-debug=full
     $ make
@@ -31,6 +31,13 @@ A quick checklist:
 + Use CFLAGS="-O1" ./configure && make
 + Use CFLAGS="-O3 -fno-strict-aliasing" ./configure && make
 + `autoreconf -fvi && ./configure` needs `automake` and `libtool` to be installed
+
+`make check` will run unit tests.
+
+### Older Releases
+
+Distribution tarballs for older twemproxy releases (<= 0.4.1) can be found on [Google Drive](https://drive.google.com/open?id=0B6pVMMV5F5dfMUdJV25abllhUWM&authuser=0).
+The build steps are the same (`./configure; make; sudo make install`).
 
 ## Features
 
@@ -83,38 +90,39 @@ Twemproxy can be configured through a YAML file specified by the -c or --conf-fi
 + **listen**: The listening address and port (name:port or ip:port) or an absolute path to sock file (e.g. /var/run/nutcracker.sock) for this server pool.
 + **client_connections**: The maximum number of connections allowed from redis clients. Unlimited by default, though OS-imposed limitations will still apply.
 + **hash**: The name of the hash function. Possible values are:
- + one_at_a_time
- + md5
- + crc16
- + crc32 (crc32 implementation compatible with [libmemcached](http://libmemcached.org/))
- + crc32a (correct crc32 implementation as per the spec)
- + fnv1_64
- + fnv1a_64
- + fnv1_32
- + fnv1a_32
- + hsieh
- + murmur
- + jenkins
+  + one_at_a_time
+  + md5
+  + crc16
+  + crc32 (crc32 implementation compatible with [libmemcached](http://libmemcached.org/))
+  + crc32a (correct crc32 implementation as per the spec)
+  + fnv1_64
+  + fnv1a_64 (default)
+  + fnv1_32
+  + fnv1a_32
+  + hsieh
+  + murmur
+  + jenkins
 + **hash_tag**: A two character string that specifies the part of the key used for hashing. Eg "{}" or "$$". [Hash tag](notes/recommendation.md#hash-tags) enable mapping different keys to the same server as long as the part of the key within the tag is the same.
-+ **distribution**: The key distribution mode. Possible values are:
- + ketama
- + modula
- + random
++ **distribution**: The key distribution mode for choosing backend servers based on the computed hash value. Possible values are:
+  + ketama (default, recommended. An implementation of https://en.wikipedia.org/wiki/Consistent_hashing)
+  + modula (use hash modulo number of servers to choose the backend)
+  + random (choose a random backend for each key of each request)
 + **timeout**: The timeout value in msec that we wait for to establish a connection to the server or receive a response from a server. By default, we wait indefinitely.
 + **backlog**: The TCP backlog argument. Defaults to 512.
++ **tcpkeepalive**: A boolean value that controls if tcp keepalive is enabled for connections to servers. Defaults to false.
 + **preconnect**: A boolean value that controls if twemproxy should preconnect to all the servers in this pool on process start. Defaults to false.
 + **redis**: A boolean value that controls if a server pool speaks redis or memcached protocol. Defaults to false.
 + **redis_auth**: Authenticate to the Redis server on connect.
 + **redis_db**: The DB number to use on the pool servers. Defaults to 0. Note: Twemproxy will always present itself to clients as DB 0.
 + **server_connections**: The maximum number of connections that can be opened to each server. By default, we open at most 1 server connection.
 + **auto_eject_hosts**: A boolean value that controls if server should be ejected temporarily when it fails consecutively server_failure_limit times. See [liveness recommendations](notes/recommendation.md#liveness) for information. Defaults to false.
-+ **server_retry_timeout**: The timeout value in msec to wait for before retrying on a temporarily ejected server, when auto_eject_host is set to true. Defaults to 30000 msec.
-+ **server_failure_limit**: The number of consecutive failures on a server that would lead to it being temporarily ejected when auto_eject_host is set to true. Defaults to 2.
++ **server_retry_timeout**: The timeout value in msec to wait for before retrying on a temporarily ejected server, when auto_eject_hosts is set to true. Defaults to 30000 msec.
++ **server_failure_limit**: The number of consecutive failures on a server that would lead to it being temporarily ejected when auto_eject_hosts is set to true. Defaults to 2.
 + **servers**: A list of server address, port and weight (name:port:weight or ip:port:weight) for this server pool.
 + **sentinels**: A list of redis sentinel address, port and weight (name:port:weight or ip:port:weight) for this server pool. Weight of sentinel is not used.
 
 
-For example, the configuration file in [conf/nutcracker.yml](conf/nutcracker.yml), also shown below, configures 5 server pools with names - _alpha_, _beta_, _gamma_, _delta_ and omega. Clients that intend to send requests to one of the 10 servers in pool delta connect to port 22124 on 127.0.0.1. Clients that intend to send request to one of 2 servers in pool omega connect to unix path /tmp/gamma. Requests sent to pool alpha and omega have no timeout and might require timeout functionality to be implemented on the client side. On the other hand, requests sent to pool beta, gamma and delta timeout after 400 msec, 400 msec and 100 msec respectively when no response is received from the server. Of the 5 server pools, only pools alpha, gamma and delta are configured to use server ejection and hence are resilient to server failures. All the 5 server pools use ketama consistent hashing for key distribution with the key hasher for pools alpha, beta, gamma and delta set to fnv1a_64 while that for pool omega set to hsieh. Also only pool beta uses [nodes names](notes/recommendation.md#node-names-for-consistent-hashing) for consistent hashing, while pool alpha, gamma, delta and omega use 'host:port:weight' for consistent hashing. Finally, pool alpha, beta and sigma can speak the redis protocol, while pool gamma, deta and omega speak memcached protocol.
+For example, the configuration file in [conf/nutcracker.yml](conf/nutcracker.yml), also shown below, configures 5 server pools with names - _alpha_, _beta_, _gamma_, _delta_ and omega. Clients that intend to send requests to one of the 10 servers in pool delta connect to port 22124 on 127.0.0.1. Clients that intend to send request to one of 2 servers in pool omega connect to unix path /tmp/gamma. Requests sent to pool alpha and omega have no timeout and might require timeout functionality to be implemented on the client side. On the other hand, requests sent to pool beta, gamma and delta timeout after 400 msec, 400 msec and 100 msec respectively when no response is received from the server. Of the 5 server pools, only pools alpha, gamma and delta are configured to use server ejection and hence are resilient to server failures. All the 5 server pools use ketama consistent hashing for key distribution with the key hasher for pools alpha, beta, gamma and delta set to fnv1a_64 while that for pool omega set to hsieh. Also only pool beta uses [nodes names](notes/recommendation.md#node-names-for-consistent-hashing) for consistent hashing, while pool alpha, gamma, delta and omega use 'host:port:weight' for consistent hashing. Finally, only pool alpha, beta and sigma can speak the redis protocol, while pool gamma, delta and omega speak memcached protocol.
 
     alpha:
       listen: 127.0.0.1:22121
@@ -200,13 +208,13 @@ For example, the configuration file in [conf/nutcracker.yml](conf/nutcracker.yml
         - 127.0.0.1:26380:1
         - 127.0.0.1:26381:1
 
-Finally, to make writing a syntactically correct configuration file easier, twemproxy provides a command-line argument -t or --test-conf that can be used to test the YAML configuration file for any syntax error.
+Finally, to make writing a syntactically correct configuration file easier, twemproxy provides a command-line argument `-t` or `--test-conf` that can be used to test the YAML configuration file for any syntax error.
 
 ## Observability
 
 Observability in twemproxy is through logs and stats.
 
-Twemproxy exposes stats at the granularity of server pool and servers per pool through the stats monitoring port. The stats are essentially JSON formatted key-value pairs, with the keys corresponding to counter names. By default stats are exposed on port 22222 and aggregated every 30 seconds. Both these values can be configured on program start using the -c or --conf-file and -i or --stats-interval command-line arguments respectively. You can print the description of all stats exported by  using the -D or --describe-stats command-line argument.
+Twemproxy exposes stats at the granularity of server pool and servers per pool through the stats monitoring port by responding with the raw data over TCP. The stats are essentially JSON formatted key-value pairs, with the keys corresponding to counter names. By default stats are exposed on port 22222 and aggregated every 30 seconds. Both these values can be configured on program start using the `-c` or `--conf-file` and `-i` or `--stats-interval` command-line arguments respectively. You can print the description of all stats exported by  using the `-D` or `--describe-stats` command-line argument.
 
     $ nutcracker --describe-stats
 
@@ -232,31 +240,21 @@ Twemproxy exposes stats at the granularity of server pool and servers per pool t
       out_queue           "# requests in outgoing queue"
       out_queue_bytes     "current request bytes in outgoing queue"
 
-Logging in twemproxy is only available when twemproxy is built with logging enabled. By default logs are written to stderr. Twemproxy can also be configured to write logs to a specific file through the -o or --output command-line argument. On a running twemproxy, we can turn log levels up and down by sending it SIGTTIN and SIGTTOU signals respectively and reopen log files by sending it SIGHUP signal.
+See [`notes/debug.txt`](notes/debug.txt) for examples of how to read the stats from the stats port.
+
+Logging in twemproxy is only available when twemproxy is built with logging enabled. By default logs are written to stderr. Twemproxy can also be configured to write logs to a specific file through the `-o` or `--output` command-line argument. On a running twemproxy, we can turn log levels up and down by sending it SIGTTIN and SIGTTOU signals respectively and reopen log files by sending it SIGHUP signal.
 
 ## Pipelining
 
 Twemproxy enables proxying multiple client connections onto one or few server connections. This architectural setup makes it ideal for pipelining requests and responses and hence saving on the round trip time.
 
-For example, if twemproxy is proxying three client connections onto a single server and we get requests - 'get key\r\n', 'set key 0 0 3\r\nval\r\n' and 'delete key\r\n' on these three connections respectively, twemproxy would try to batch these requests and send them as a single message onto the server connection as 'get key\r\nset key 0 0 3\r\nval\r\ndelete key\r\n'.
+For example, if twemproxy is proxying three client connections onto a single server and we get requests - `get key\r\n`, `set key 0 0 3\r\nval\r\n` and `delete key\r\n` on these three connections respectively, twemproxy would try to batch these requests and send them as a single message onto the server connection as `get key\r\nset key 0 0 3\r\nval\r\ndelete key\r\n`.
 
 Pipelining is the reason why twemproxy ends up doing better in terms of throughput even though it introduces an extra hop between the client and server.
 
 ## Deployment
 
 If you are deploying twemproxy in production, you might consider reading through the [recommendation document](notes/recommendation.md) to understand the parameters you could tune in twemproxy to run it efficiently in the production environment.
-
-## Packages
-
-### Ubuntu
-
-#### PPA Stable
-
-https://launchpad.net/~twemproxy/+archive/ubuntu/stable
-
-#### PPA Daily
-
-https://launchpad.net/~twemproxy/+archive/ubuntu/daily
 
 ## Utils
 + [collectd-plugin](https://github.com/bewie/collectd-twemproxy)
@@ -272,7 +270,7 @@ https://launchpad.net/~twemproxy/+archive/ubuntu/daily
 + [smitty for twemproxy failover](https://github.com/areina/smitty)
 + [Beholder, a Python agent for twemproxy failover](https://github.com/Serekh/beholder)
 + [chef cookbook](https://supermarket.getchef.com/cookbooks/twemproxy)
-+ [twemsentinel] (https://github.com/yak0/twemsentinel)
++ [twemsentinel](https://github.com/yak0/twemsentinel)
 
 ## Companies using Twemproxy in Production
 + [Twitter](https://twitter.com/)
@@ -321,6 +319,7 @@ https://github.com/twitter/twemproxy/issues
 
 * Manju Rajashekhar ([@manju](https://twitter.com/manju))
 * Lin Yang ([@idning](https://github.com/idning))
+* Tyson Andre ([@TysonAndre](https://github.com/TysonAndre))
 
 Thank you to all of our [contributors](https://github.com/twitter/twemproxy/graphs/contributors)!
 

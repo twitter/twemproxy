@@ -69,10 +69,11 @@ uint32_t hash_jenkins(const char *key, size_t length);
 uint32_t hash_murmur(const char *key, size_t length);
 
 rstatus_t ketama_update(struct server_pool *pool);
-uint32_t ketama_dispatch(struct continuum *continuum, uint32_t ncontinuum, uint32_t hash);
+uint32_t ketama_dispatch(const struct continuum *continuum, uint32_t ncontinuum, uint32_t hash);
 rstatus_t modula_update(struct server_pool *pool);
-uint32_t modula_dispatch(struct continuum *continuum, uint32_t ncontinuum, uint32_t hash);
+uint32_t modula_dispatch(const struct continuum *continuum, uint32_t ncontinuum, uint32_t hash);
 rstatus_t random_update(struct server_pool *pool);
-uint32_t random_dispatch(struct continuum *continuum, uint32_t ncontinuum, uint32_t hash);
+uint32_t random_dispatch(const struct continuum *continuum, uint32_t ncontinuum, uint32_t hash);
+uint32_t ketama_hash(const char *key, size_t key_length, uint32_t alignment);
 
 #endif

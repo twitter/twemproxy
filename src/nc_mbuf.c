@@ -106,7 +106,7 @@ mbuf_free(struct mbuf *mbuf)
 {
     uint8_t *buf;
 
-    log_debug(LOG_VVERB, "put mbuf %p len %d", mbuf, mbuf->last - mbuf->pos);
+    log_debug(LOG_VVERB, "put mbuf %p len %d", mbuf, (int)(mbuf->last - mbuf->pos));
 
     ASSERT(STAILQ_NEXT(mbuf, next) == NULL);
     ASSERT(mbuf->magic == MBUF_MAGIC);
@@ -118,7 +118,7 @@ mbuf_free(struct mbuf *mbuf)
 void
 mbuf_put(struct mbuf *mbuf)
 {
-    log_debug(LOG_VVERB, "put mbuf %p len %d", mbuf, mbuf->last - mbuf->pos);
+    log_debug(LOG_VVERB, "put mbuf %p len %d", mbuf, (int)(mbuf->last - mbuf->pos));
 
     ASSERT(STAILQ_NEXT(mbuf, next) == NULL);
     ASSERT(mbuf->magic == MBUF_MAGIC);
@@ -143,7 +143,7 @@ mbuf_rewind(struct mbuf *mbuf)
  * 2^32 bytes (4G).
  */
 uint32_t
-mbuf_length(struct mbuf *mbuf)
+mbuf_length(const struct mbuf *mbuf)
 {
     ASSERT(mbuf->last >= mbuf->pos);
 
@@ -155,7 +155,7 @@ mbuf_length(struct mbuf *mbuf)
  * contain more than 2^32 bytes (4G).
  */
 uint32_t
-mbuf_size(struct mbuf *mbuf)
+mbuf_size(const struct mbuf *mbuf)
 {
     ASSERT(mbuf->end >= mbuf->last);
 
@@ -179,7 +179,8 @@ void
 mbuf_insert(struct mhdr *mhdr, struct mbuf *mbuf)
 {
     STAILQ_INSERT_TAIL(mhdr, mbuf, next);
-    log_debug(LOG_VVERB, "insert mbuf %p len %d", mbuf, mbuf->last - mbuf->pos);
+    log_debug(LOG_VVERB, "insert mbuf %p len %d", mbuf,
+            (int)(mbuf->last - mbuf->pos));
 }
 
 /*
@@ -188,7 +189,8 @@ mbuf_insert(struct mhdr *mhdr, struct mbuf *mbuf)
 void
 mbuf_remove(struct mhdr *mhdr, struct mbuf *mbuf)
 {
-    log_debug(LOG_VVERB, "remove mbuf %p len %d", mbuf, mbuf->last - mbuf->pos);
+    log_debug(LOG_VVERB, "remove mbuf %p len %d", mbuf,
+            (int)(mbuf->last - mbuf->pos));
 
     STAILQ_REMOVE(mhdr, mbuf, mbuf, next);
     STAILQ_NEXT(mbuf, next) = NULL;
@@ -201,7 +203,7 @@ mbuf_remove(struct mhdr *mhdr, struct mbuf *mbuf)
  * enough space for n bytes.
  */
 void
-mbuf_copy(struct mbuf *mbuf, uint8_t *pos, size_t n)
+mbuf_copy(struct mbuf *mbuf, const uint8_t *pos, size_t n)
 {
     if (n == 0) {
         return;
@@ -260,7 +262,7 @@ mbuf_split(struct mhdr *h, uint8_t *pos, mbuf_copy_t cb, void *cbarg)
 }
 
 void
-mbuf_init(struct instance *nci)
+mbuf_init(const struct instance *nci)
 {
     nfree_mbufq = 0;
     STAILQ_INIT(&free_mbufq);
@@ -269,7 +271,7 @@ mbuf_init(struct instance *nci)
     mbuf_offset = mbuf_chunk_size - MBUF_HSIZE;
 
     log_debug(LOG_DEBUG, "mbuf hsize %d chunk size %zu offset %zu length %zu",
-              MBUF_HSIZE, mbuf_chunk_size, mbuf_offset, mbuf_offset);
+              (int)MBUF_HSIZE, mbuf_chunk_size, mbuf_offset, mbuf_offset);
 }
 
 void

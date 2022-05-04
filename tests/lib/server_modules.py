@@ -10,6 +10,11 @@ import sys
 from utils import *
 import conf
 
+if sys.version_info[0] < 3:
+    # Give a clear error message instead of a confusing one.
+    sys.stderr.write("Error: must use python 3 to run these nosetests, e.g. python3 -m nose [options] test_modules\n")
+    sys.exit(2)
+
 class Base:
     '''
     Sub class should implement:
@@ -39,13 +44,13 @@ class Base:
                       mkdir -p $path/conf && \
                       mkdir -p $path/log &&  \
                       mkdir -p $path/data',
-                self.args))
+                     self.args))
 
         self._pre_deploy()
         self._gen_control_script()
 
     def _gen_control_script(self):
-        content = file(os.path.join(WORKDIR, 'conf/control.sh')).read()
+        content = open(os.path.join(WORKDIR, 'conf/control.sh'), 'r').read()
         content = TT(content, self.args)
 
         control_filename = TT('${path}/${name}_control', self.args)
@@ -53,11 +58,11 @@ class Base:
         fout = open(control_filename, 'w+')
         fout.write(content)
         fout.close()
-        os.chmod(control_filename, 0755)
+        os.chmod(control_filename, 0o755)
 
     def start(self):
         if self._alive():
-            logging.warn('%s already running' %(self) )
+            logging.warning('%s already running' % (self))
             return
 
         logging.debug('starting %s' % self)
@@ -72,15 +77,15 @@ class Base:
             if sleeptime < 5:
                 sleeptime *= 2
             else:
-                sleeptime = 5
-                logging.warn('%s still not alive' % self)
+                sleeptime = 5.0
+                logging.warning('%s still not alive' % self)
 
         t2 = time.time()
-        logging.info('%s start ok in %.2f seconds' %(self, t2-t1) )
+        logging.info('%s start ok in %.2f seconds' %(self, t2-t1))
 
     def stop(self):
         if not self._alive():
-            logging.warn('%s already stop' %(self) )
+            logging.warning('%s already stop' %(self))
             return
 
         cmd = TT("cd $path && ./${name}_control stop", self.args)
@@ -90,21 +95,21 @@ class Base:
         while self._alive():
             lets_sleep()
         t2 = time.time()
-        logging.info('%s stop ok in %.2f seconds' %(self, t2-t1) )
+        logging.info('%s stop ok in %.2f seconds' %(self, t2-t1))
 
     def pid(self):
         cmd = TT("pgrep -f '^$runcmd'", self.args)
         return self._run(cmd)
 
     def status(self):
-        logging.warn("status: not implement")
+        logging.warning("status: not implement")
 
     def _alive(self):
-        logging.warn("_alive: not implement")
+        logging.warning("_alive: not implement")
 
     def _run(self, raw_cmd):
         ret = system(raw_cmd, logging.debug)
-        logging.debug('return : [%d] [%s] ' % (len(ret), shorten(ret)) )
+        logging.debug('return : [%d] [%s] ' % (len(ret), shorten(ret)))
         return ret
 
     def clean(self):
@@ -122,7 +127,7 @@ class RedisServer(Base):
         Base.__init__(self, 'redis', host, port, path)
 
         self.args['startcmd']     = TT('bin/redis-server conf/redis.conf', self.args)
-        self.args['runcmd']       = TT('redis-server \*:$port', self.args)
+        self.args['runcmd']       = TT('redis-server \\*:$port', self.args)
         self.args['conf']         = TT('$path/conf/redis.conf', self.args)
         self.args['pidfile']      = TT('$path/log/redis.pid', self.args)
         self.args['logfile']      = TT('$path/log/redis.log', self.args)
@@ -154,7 +159,7 @@ class RedisServer(Base):
         return strstr(self._ping(), 'PONG')
 
     def _gen_conf(self):
-        content = file(os.path.join(WORKDIR, 'conf/redis.conf')).read()
+        content = open(os.path.join(WORKDIR, 'conf/redis.conf'), 'r').read()
         content = TT(content, self.args)
         if self.args['auth']:
             content += '\r\nrequirepass %s' % self.args['auth']
@@ -202,7 +207,7 @@ class RedisSentinel(RedisServer):
         self.down_time = down_time
 
         self.args['startcmd']     = TT('bin/redis-sentinel conf/sentinel.conf', self.args)
-        self.args['runcmd']       = TT('redis-sentinel \*:$port', self.args)
+        self.args['runcmd']       = TT('redis-sentinel \\*:$port', self.args)
         self.args['conf']         = TT('$path/conf/sentinel.conf', self.args)
         self.args['pidfile']      = TT('$path/log/sentinel.pid', self.args)
         self.args['logfile']      = TT('$path/log/sentinel.log', self.args)
@@ -218,7 +223,7 @@ sentinel failover-timeout $server_name 180000
         return cfg
 
     def _gen_conf(self):
-        content = file(os.path.join(WORKDIR, 'conf/sentinel.conf')).read()
+        content = open(os.path.join(WORKDIR, 'conf/sentinel.conf'), 'r').read()
         content = TT(content, self.args)
         if self.args['auth']:
             content += '\r\nrequirepass %s' % self.args['auth']
@@ -335,7 +340,7 @@ $cluster_name:
             c = telnetlib.Telnet(self.args['host'], self.args['status_port'])
             ret = c.read_all()
             return json_decode(ret)
-        except Exception, e:
+        except Exception as e:
             logging.debug('can not get _info_dict of nutcracker, \
                           [Exception: %s]' % (e, ))
             return None

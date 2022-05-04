@@ -196,19 +196,19 @@ typedef enum stats_server_field {
 
 void stats_describe(void);
 
-void _stats_pool_incr(struct context *ctx, struct server_pool *pool, stats_pool_field_t fidx);
-void _stats_pool_decr(struct context *ctx, struct server_pool *pool, stats_pool_field_t fidx);
-void _stats_pool_incr_by(struct context *ctx, struct server_pool *pool, stats_pool_field_t fidx, int64_t val);
-void _stats_pool_decr_by(struct context *ctx, struct server_pool *pool, stats_pool_field_t fidx, int64_t val);
-void _stats_pool_set_ts(struct context *ctx, struct server_pool *pool, stats_pool_field_t fidx, int64_t val);
+void _stats_pool_incr(struct context *ctx, const struct server_pool *pool, stats_pool_field_t fidx);
+void _stats_pool_decr(struct context *ctx, const struct server_pool *pool, stats_pool_field_t fidx);
+void _stats_pool_incr_by(struct context *ctx, const struct server_pool *pool, stats_pool_field_t fidx, int64_t val);
+void _stats_pool_decr_by(struct context *ctx, const struct server_pool *pool, stats_pool_field_t fidx, int64_t val);
+void _stats_pool_set_ts(struct context *ctx, const struct server_pool *pool, stats_pool_field_t fidx, int64_t val);
 
-void _stats_server_incr(struct context *ctx, struct server *server, stats_server_field_t fidx);
-void _stats_server_decr(struct context *ctx, struct server *server, stats_server_field_t fidx);
-void _stats_server_incr_by(struct context *ctx, struct server *server, stats_server_field_t fidx, int64_t val);
-void _stats_server_decr_by(struct context *ctx, struct server *server, stats_server_field_t fidx, int64_t val);
-void _stats_server_set_ts(struct context *ctx, struct server *server, stats_server_field_t fidx, int64_t val);
+void _stats_server_incr(struct context *ctx, const struct server *server, stats_server_field_t fidx);
+void _stats_server_decr(struct context *ctx, const struct server *server, stats_server_field_t fidx);
+void _stats_server_incr_by(struct context *ctx, const struct server *server, stats_server_field_t fidx, int64_t val);
+void _stats_server_decr_by(struct context *ctx, const struct server *server, stats_server_field_t fidx, int64_t val);
+void _stats_server_set_ts(struct context *ctx, const struct server *server, stats_server_field_t fidx, int64_t val);
 
-struct stats *stats_create(uint16_t stats_port, char *stats_ip, int stats_interval, char *source, struct array *server_pool);
+struct stats *stats_create(uint16_t stats_port, const char *stats_ip, int stats_interval, const char *source, const struct array *server_pool);
 void stats_destroy(struct stats *stats);
 void stats_swap(struct stats *stats);
 

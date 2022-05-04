@@ -1,8 +1,8 @@
 # Define the package version numbers and the bug reporting address
 m4_define([NC_MAJOR], 0)
-m4_define([NC_MINOR], 4)
-m4_define([NC_PATCH], 1)
-m4_define([NC_BUGS], [manj@cs.stanford.edu])
+m4_define([NC_MINOR], 5)
+m4_define([NC_PATCH], 0)
+m4_define([NC_BUGS], [https://github.com/twitter/twemproxy/issues])
 
 # Initialize autoconf
 AC_PREREQ([2.64])
@@ -84,6 +84,7 @@ AC_CHECK_FUNCS([dup2 gethostname gettimeofday strerror])
 AC_CHECK_FUNCS([socket])
 AC_CHECK_FUNCS([memchr memmove memset])
 AC_CHECK_FUNCS([strchr strndup strtoul])
+AC_CHECK_FUNCS([strdup])
 
 AC_CACHE_CHECK([if epoll works], [ac_cv_epoll_works],
   AC_TRY_RUN([
@@ -196,11 +197,11 @@ AS_IF([test "x$disable_stats" = xyes],
   [AC_DEFINE([HAVE_STATS], [1], [Define to 1 if stats is not disabled])])
 AC_MSG_RESULT($disable_stats)
 
-# Untar the yaml-0.1.4 in contrib/ before config.status is rerun
-AC_CONFIG_COMMANDS_PRE([tar xvfz contrib/yaml-0.1.4.tar.gz -C contrib])
+# Untar the yaml-0.2.5 in contrib/ before config.status is rerun
+AC_CONFIG_COMMANDS_PRE([tar xvfz contrib/yaml-0.2.5.tar.gz -C contrib])
 
-# Call yaml-0.1.4 ./configure recursively
-AC_CONFIG_SUBDIRS([contrib/yaml-0.1.4])
+# Call yaml-0.2.5 ./configure recursively
+AC_CONFIG_SUBDIRS([contrib/yaml-0.2.5])
 
 # Define Makefiles
 AC_CONFIG_FILES([Makefile

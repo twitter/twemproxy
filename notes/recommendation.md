@@ -151,12 +151,6 @@ You can also graph the timestamp at which any given server was ejected by graphi
 
 ## server_connections: > 1
 
-By design, twemproxy multiplexes several client connections over few server connections. It is important to note that **"read my last write"** constraint doesn't necessarily hold true when twemproxy is configured with `server_connections: > 1`. 
+By design, twemproxy multiplexes several client connections over few server connections. It is important to note that **"read my last write"** constraint doesn't necessarily hold true when twemproxy is configured with `server_connections: > 1`.
 
 To illustrate this, consider a scenario where twemproxy is configured with `server_connections: 2`. If a client makes pipelined requests with the first request in pipeline being `set foo 0 0 3\r\nbar\r\n` (write) and the second request being `get foo\r\n` (read), the expectation is that the read of key `foo` would return the value `bar`. However, with configuration of two server connections it is possible that write and read request are sent on different server connections which would mean that their completion could race with one another. In summary, if the client expects "read my last write" constraint, you either configure twemproxy to use `server_connections:1` or use clients that only make synchronous requests to twemproxy.
-
-## twemproxy and python-memcached
-
-The implementation of delete command in [python-memcached](https://github.com/linsomniac/python-memcached) conflicts with the one in twemproxy. See [issue 283](https://github.com/twitter/twemproxy/pull/283) for details. The workaround for this issue is to call `delete_multi` in python-memcached as follows:
-
-        mc.delete_multi([key1, key2, ... keyN], time=None)

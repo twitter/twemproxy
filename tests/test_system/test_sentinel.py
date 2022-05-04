@@ -60,7 +60,7 @@ ncs = [
     ]
 
 def _setup():
-    print 'setup(mbuf=%s, verbose=%s)' %(mbuf, nc_verbose)
+    print('setup(mbuf=%s, verbose=%s)' %(mbuf, nc_verbose))
     for r in redis_masters + redis_slaves + redis_sentinels + ncs:
         r.deploy()
         r.stop()

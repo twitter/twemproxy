@@ -1,9 +1,9 @@
-#!/usr/bin/env python
-#coding: utf-8
+#!/usr/bin/env python3
 
 import os
 import sys
 import redis
+import time
 
 PWD = os.path.dirname(os.path.realpath(__file__))
 WORKDIR = os.path.join(PWD,'../')
@@ -29,7 +29,7 @@ nc = NutCracker('127.0.0.1', 4100, '/tmp/r/nutcracker-4100', CLUSTER_NAME,
                 all_redis, mbuf=mbuf, verbose=nc_verbose)
 
 def setup():
-    print 'setup(mbuf=%s, verbose=%s)' %(mbuf, nc_verbose)
+    print('setup(mbuf=%s, verbose=%s)' %(mbuf, nc_verbose))
     for r in all_redis + [nc]:
         r.clean()
         r.deploy()
@@ -37,11 +37,14 @@ def setup():
         r.start()
 
 def teardown():
+    all_alive = True
     for r in all_redis + [nc]:
-        assert(r._alive())
+        if not r._alive():
+            all_alive = False
         r.stop()
+    assert(all_alive)
 
-default_kv = {'kkk-%s' % i : 'vvv-%s' % i for i in range(10)}
+default_kv = {b'kkk-%d' % i : b'vvv-%d' % i for i in range(10)}
 
 def getconn():
     for r in all_redis:

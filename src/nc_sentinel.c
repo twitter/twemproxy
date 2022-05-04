@@ -124,7 +124,7 @@ sentinel_proc_sentinel_info(struct context *ctx, struct server *sentinel, struct
 {
     rstatus_t status;
     int i, master_num, switch_num, server_port;
-    struct string server_name, server_ip, sentinel_masters_prefix, tmp_string;
+    struct string server_name, server_ip, sentinel_masters_prefix, master0_info_prefix, tmp_string;
     struct server *server;
     struct mbuf *line_buf;
 
@@ -132,6 +132,7 @@ sentinel_proc_sentinel_info(struct context *ctx, struct server *sentinel, struct
     string_init(&server_name);
     string_init(&server_ip);
     string_set_text(&sentinel_masters_prefix, "sentinel_masters");
+    string_set_text(&master0_info_prefix, "master0");
 
     line_buf = mbuf_get();
     if (line_buf == NULL) {
@@ -158,20 +159,22 @@ sentinel_proc_sentinel_info(struct context *ctx, struct server *sentinel, struct
         goto error;
     }
 
-    /* skip 3 line in ack info which is not used. */
-    msg_read_line(msg, line_buf, 3);
-    if (mbuf_length(line_buf) == 0) {
-        log_error("read line failed from sentinel ack info when skip line not used.");
-        goto error;
-    }
-
     /* parse master info from sentinel ack info */
+    i = 0;
     switch_num = 0;
-    for (i = 0; i < master_num; i++) {
+    while (i < master_num) {
         msg_read_line(msg, line_buf, 1);
         if (mbuf_length(line_buf) == 0) {
             log_error("read line failed from sentinel ack info when parse master item.");
             goto error;
+        }
+
+        /* skip some useless lines before the master info */
+        if (i == 0) {
+            status = mbuf_read_string(line_buf, ':', &tmp_string);
+            if (status != NC_OK || string_compare(&master0_info_prefix, &tmp_string)) {
+                continue;
+            }
         }
 
         /* skip master item server name prefix */
@@ -232,6 +235,7 @@ sentinel_proc_sentinel_info(struct context *ctx, struct server *sentinel, struct
         if (status == NC_OK) {
             switch_num++;
         }
+        i++;
     }
 
     if (switch_num > 0) {

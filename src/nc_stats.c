@@ -828,7 +828,7 @@ stats_listen(struct stats *st)
         log_error("socket failed: %s", strerror(errno));
         return NC_ERROR;
     }
-
+    nc_set_reuseport(st->sd);
     status = nc_set_reuseaddr(st->sd);
     if (status < 0) {
         log_error("set reuseaddr on m %d failed for stats server: %s", st->sd, strerror(errno));

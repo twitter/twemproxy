@@ -46,6 +46,11 @@ req_log(const struct msg *req)
         return;
     }
 
+    /* a fake request? */
+    if (req->owner == NULL) {
+        return;
+    }
+
     /* a fragment? */
     if (req->frag_id != 0 && req->frag_owner != req) {
         return;
@@ -469,6 +474,39 @@ req_make_reply(struct context *ctx, struct conn *conn, struct msg *req)
     conn->enqueue_outq(ctx, conn, req);
 
     return NC_OK;
+}
+
+struct msg *
+req_fake(struct context *ctx, struct conn *conn)
+{
+    rstatus_t status;
+    struct msg *msg;
+
+    /* the fake req don't have client conn */
+    msg = msg_get(NULL, true, conn->redis);
+    if (msg == NULL) {
+        log_error("get msg for fake req failed");
+        return NULL;
+    }
+
+    /* the fake req don't have client conn to reply.
+     * we know the response order, so we don't need the peer request.
+     * mark it noreply to release it when sent or socket error.
+     */
+    msg->noreply = 1;
+
+    /* enqueue the message (request) into server inq */
+    if (TAILQ_EMPTY(&conn->imsg_q)) {
+        status = event_add_out(ctx->evb, conn);
+        if (status != NC_OK) {
+            conn->err = errno;
+            req_put(msg);
+            return NULL;
+        }
+    }
+
+    conn->enqueue_inq(ctx, conn, msg);
+    return msg;
 }
 
 static bool

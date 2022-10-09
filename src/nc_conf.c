@@ -114,6 +114,10 @@ static const struct command conf_commands[] = {
       conf_add_server,
       offsetof(struct conf_pool, server) },
 
+    { string("sentinels"),
+      conf_add_server,
+      offsetof(struct conf_pool, sentinel) },
+
     null_command
 };
 
@@ -160,6 +164,7 @@ conf_server_each_transform(void *elem, void *data)
 
     s->idx = array_idx(server, s);
     s->owner = NULL;
+    s->conf_server = cs;
 
     s->pname = cs->pname;
     s->name = cs->name;
@@ -174,6 +179,9 @@ conf_server_each_transform(void *elem, void *data)
 
     s->next_retry = 0LL;
     s->failure_count = 0;
+
+    /* proxy will set sentinel flag after server transform */
+    s->sentinel = 0;
 
     log_debug(LOG_VERB, "transform to server %"PRIu32" '%.*s'",
               s->idx, s->pname.len, s->pname.data);
@@ -230,6 +238,14 @@ conf_pool_init(struct conf_pool *cp, const struct string *name)
         return status;
     }
 
+    status = array_init(&cp->sentinel, CONF_DEFAULT_SENTINELS,
+                        sizeof(struct conf_server));
+    if (status != NC_OK) {
+        string_deinit(&cp->name);
+        array_deinit(&cp->server);
+        return status;
+    }
+
     log_debug(LOG_VVERB, "init conf pool %p, '%.*s'", cp, name->len, name->data);
 
     return NC_OK;
@@ -276,11 +292,14 @@ conf_pool_each_transform(void *elem, void *data)
     TAILQ_INIT(&sp->c_conn_q);
 
     array_null(&sp->server);
+    array_null(&sp->sentinel);
     sp->ncontinuum = 0;
     sp->nserver_continuum = 0;
     sp->continuum = NULL;
     sp->nlive_server = 0;
     sp->next_rebuild = 0LL;
+    sp->next_sentinel_connect = 0LL;
+    sp->sentinel_idx = 0;
 
     sp->name = cp->name;
     sp->addrstr = cp->listen.pname;
@@ -312,7 +331,12 @@ conf_pool_each_transform(void *elem, void *data)
     sp->auto_eject_hosts = cp->auto_eject_hosts ? 1 : 0;
     sp->preconnect = cp->preconnect ? 1 : 0;
 
-    status = server_init(&sp->server, &cp->server, sp);
+    status = server_init(&sp->server, &cp->server, sp, false);
+    if (status != NC_OK) {
+        return status;
+    }
+
+    status = server_init(&sp->sentinel, &cp->sentinel, sp, true);
     if (status != NC_OK) {
         return status;
     }
@@ -369,7 +393,165 @@ conf_dump(const struct conf *cf)
             s = array_get(&cp->server, j);
             log_debug(LOG_VVERB, "    %.*s", s->len, s->data);
         }
+
+        nserver = array_n(&cp->sentinel);
+        if (nserver > 0) {
+            log_debug(LOG_VVERB, "  sentinels: %"PRIu32"", nserver);
+
+            for (j = 0; j < nserver; j++) {
+                s = array_get(&cp->sentinel, j);
+                log_debug(LOG_VVERB, "    %.*s", s->len, s->data);
+            }
+        }
     }
+}
+
+static rstatus_t
+conf_write(FILE *fh, const char *fmt, ...)
+{
+    size_t size, n;
+    int len;
+    char buf[256];
+    va_list args;
+
+    len = 0;
+    size = sizeof(buf);
+    va_start(args, fmt);
+    len = nc_vscnprintf(buf, size, fmt, args);
+    va_end(args);
+
+    buf[len++] = '\n';
+
+    n = fwrite(buf, (size_t)len, (size_t)1, fh);
+    if (n == 0) {
+        return NC_ERROR;
+    }
+
+    return NC_OK;
+}
+
+#define conf_write_or_fail(...) if (conf_write(__VA_ARGS__) != NC_OK) { goto error; }
+void
+conf_rewrite(struct context *ctx)
+{
+    uint32_t i, j, npool, nserver;
+    struct conf *cf;
+    struct conf_pool *cp;
+    struct conf_server *cs;
+    struct string bool_str;
+    FILE *fh;
+    char temp_conf_file[256];
+
+    cf = ctx->cf;
+
+    npool = array_n(&cf->pool);
+    if (npool == 0) {
+        return;
+    }
+
+    log_debug(LOG_VVERB, "%"PRIu32" pools in configuration file '%s'", npool,
+              cf->fname);
+
+    /* open temp conf file to rewrite */
+    nc_snprintf(temp_conf_file, 256, "%s.%d.temp", cf->fname, (int)getpid());
+    fh = fopen(temp_conf_file,"w");
+    if (fh == NULL) {
+        log_error("conf: failed to open temp configuration '%s': %s",
+                  temp_conf_file, strerror(errno));
+        return;
+    }
+
+    for (i = 0; i < npool; i++) {
+        cp = array_get(&cf->pool, i);
+
+        conf_write_or_fail(fh, "%.*s:", cp->name.len, cp->name.data);
+        conf_write_or_fail(fh, "  listen: %.*s",
+                  cp->listen.pname.len, cp->listen.pname.data);
+        conf_write_or_fail(fh, "  hash: %.*s",
+                hash_strings[cp->hash].len, hash_strings[cp->hash].data);
+        if (cp->hash_tag.len > 0) {
+            conf_write_or_fail(fh, "  hash_tag: \"%.*s\"", cp->hash_tag.len,
+                    cp->hash_tag.data);
+        }
+        conf_write_or_fail(fh, "  distribution: %.*s",
+                dist_strings[cp->distribution].len, dist_strings[cp->distribution].data);
+
+        bool_str = cp->preconnect ? true_str : false_str;
+        conf_write_or_fail(fh,"  preconnect: %.*s", bool_str.len, bool_str.data);
+
+        bool_str = cp->auto_eject_hosts ? true_str : false_str;
+        conf_write_or_fail(fh, "  auto_eject_hosts: %.*s", bool_str.len, bool_str.data);
+
+        bool_str = cp->redis ? true_str : false_str;
+        conf_write_or_fail(fh, "  redis: %.*s", bool_str.len, bool_str.data);
+        if (cp->timeout >= 0) {
+            conf_write_or_fail(fh, "  timeout: %d", cp->timeout);
+        }
+        conf_write_or_fail(fh, "  backlog: %d", cp->backlog);
+        conf_write_or_fail(fh, "  client_connections: %d",
+                  cp->client_connections);
+        conf_write_or_fail(fh, "  server_connections: %d",
+                  cp->server_connections);
+        conf_write_or_fail(fh, "  server_retry_timeout: %d",
+                  cp->server_retry_timeout);
+        conf_write_or_fail(fh, "  server_failure_limit: %d",
+                  cp->server_failure_limit);
+
+        nserver = array_n(&cp->server);
+        conf_write_or_fail(fh, "  servers:");
+
+        for (j = 0; j < nserver; j++) {
+            cs = array_get(&cp->server, j);
+            if (cs->name.len >= cs->pname.len
+                    || nc_strncmp(cs->pname.data, cs->name.data, cs->name.len)) {
+                conf_write_or_fail(fh, "   - %.*s %.*s",
+                        cs->pname.len, cs->pname.data,
+                        cs->name.len, cs->name.data);
+            } else {
+                conf_write_or_fail(fh, "   - %.*s",
+                        cs->pname.len, cs->pname.data);
+            }
+        }
+
+        nserver = array_n(&cp->sentinel);
+        if (nserver) {
+            conf_write_or_fail(fh, "  sentinels:");
+
+            for (j = 0; j < nserver; j++) {
+                cs = array_get(&cp->sentinel, j);
+                if (cs->name.len >= cs->pname.len
+                        || nc_strncmp(cs->pname.data, cs->name.data, cs->name.len)) {
+                    conf_write_or_fail(fh, "   - %.*s %.*s",
+                            cs->pname.len, cs->pname.data,
+                            cs->name.len, cs->name.data);
+                } else {
+                    conf_write_or_fail(fh, "   - %.*s",
+                            cs->pname.len, cs->pname.data);
+                }
+            }
+        }
+
+        /* write a empty line to conf when a pool is writen except the last one. */
+        if (i < npool - 1) {
+            conf_write_or_fail(fh, "");
+        }
+    }
+
+    fclose(fh);
+
+    if (rename(temp_conf_file, cf->fname) == -1) {
+        log_error("conf: failed to move temp configuration '%s' to '%s': %s",
+                  temp_conf_file, cf->fname, strerror(errno));
+        unlink(temp_conf_file);
+    }
+
+    return;
+
+error:
+    log_error("conf: failed to save full configuration file '%s': %s",
+              temp_conf_file, strerror(errno));
+    fclose(fh);
+    unlink(temp_conf_file);
 }
 
 static rstatus_t
@@ -983,8 +1165,8 @@ conf_validate_structure(struct conf *cf)
 {
     rstatus_t status;
     int type, depth;
-    uint32_t i, count[CONF_MAX_DEPTH + 1];
-    bool done, error, seq;
+    uint32_t i, seq, count[CONF_MAX_DEPTH + 1];
+    bool done, error;
 
     status = conf_yaml_init(cf);
     if (status != NC_OK) {
@@ -993,7 +1175,7 @@ conf_validate_structure(struct conf *cf)
 
     done = false;
     error = false;
-    seq = false;
+    seq = 0;
     depth = 0;
     for (i = 0; i < CONF_MAX_DEPTH + 1; i++) {
         count[i] = 0;
@@ -1006,7 +1188,7 @@ conf_validate_structure(struct conf *cf)
      * keyx:
      *   key1: value1
      *   key2: value2
-     *   seq:
+     *   seq1:
      *     - elem1
      *     - elem2
      *     - elem3
@@ -1015,11 +1197,15 @@ conf_validate_structure(struct conf *cf)
      * keyy:
      *   key1: value1
      *   key2: value2
-     *   seq:
+     *   seq1:
      *     - elem1
      *     - elem2
      *     - elem3
      *   key3: value3
+     *   seq2:
+     *     - elem1
+     *     - elem2
+     *     - elem3
      */
     do {
         status = conf_event_next(cf);
@@ -1058,8 +1244,8 @@ conf_validate_structure(struct conf *cf)
 
         case YAML_MAPPING_END_EVENT:
             if (depth == CONF_MAX_DEPTH) {
-                if (seq) {
-                    seq = false;
+                if (seq > 0) {
+                    seq = 0;
                 } else {
                     error = true;
                     log_error("conf: '%s' missing sequence directive at depth "
@@ -1071,10 +1257,10 @@ conf_validate_structure(struct conf *cf)
             break;
 
         case YAML_SEQUENCE_START_EVENT:
-            if (seq) {
+            if (seq >= CONF_MAX_SEQ) {
                 error = true;
-                log_error("conf: '%s' has more than one sequence directive",
-                          cf->fname);
+                log_error("conf: '%s' has more than %d sequence directive",
+                          cf->fname, CONF_MAX_SEQ);
             } else if (depth != CONF_MAX_DEPTH) {
                 error = true;
                 log_error("conf: '%s' has sequence at depth %d instead of %d",
@@ -1084,7 +1270,7 @@ conf_validate_structure(struct conf *cf)
                 log_error("conf: '%s' has invalid \"key:value\" at depth %d",
                           cf->fname, depth);
             }
-            seq = true;
+            seq++;
             break;
 
         case YAML_SEQUENCE_END_EVENT:
@@ -1211,6 +1397,50 @@ conf_validate_server(struct conf *cf, struct conf_pool *cp)
 }
 
 static rstatus_t
+conf_validate_sentinel(struct conf *cf, struct conf_pool *cp)
+{
+    uint32_t i, nsentinel;
+    bool valid;
+
+    nsentinel = array_n(&cp->sentinel);
+    if (nsentinel == 0)
+        return NC_OK;
+
+    if (!cp->redis) {
+        log_error("conf: pool '%.*s' is memcached, don't support sentinels",
+                  cp->name.len, cp->name.data);
+        return NC_ERROR;
+    }
+
+    /*
+     * Disallow duplicate sentinels - sentinels with identical "host:port:weight"
+     * or "name" combination are considered as duplicates. When server name
+     * is configured, we only check for duplicate "name" and not for duplicate
+     * "host:port:weight"
+     */
+    array_sort(&cp->sentinel, conf_server_name_cmp);
+    for (valid = true, i = 0; i < nsentinel - 1; i++) {
+        struct conf_server *cs1, *cs2;
+
+        cs1 = array_get(&cp->sentinel, i);
+        cs2 = array_get(&cp->sentinel, i + 1);
+
+        if (string_compare(&cs1->name, &cs2->name) == 0) {
+            log_error("conf: pool '%.*s' has sentinels with same name '%.*s'",
+                      cp->name.len, cp->name.data, cs1->name.len, 
+                      cs1->name.data);
+            valid = false;
+            break;
+        }
+    }
+    if (!valid) {
+        return NC_ERROR;
+    }
+
+    return NC_OK;
+}
+
+static rstatus_t
 conf_validate_pool(struct conf *cf, struct conf_pool *cp)
 {
     rstatus_t status;
@@ -1288,6 +1518,11 @@ conf_validate_pool(struct conf *cf, struct conf_pool *cp)
     }
 
     status = conf_validate_server(cf, cp);
+    if (status != NC_OK) {
+        return status;
+    }
+
+    status = conf_validate_sentinel(cf, cp);
     if (status != NC_OK) {
         return status;
     }

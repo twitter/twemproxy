@@ -20,6 +20,7 @@
 
 #include <nc_core.h>
 #include <nc_server.h>
+#include <nc_sentinel.h>
 #include <nc_conf.h>
 
 static void
@@ -132,15 +133,30 @@ server_each_set_owner(void *elem, void *data)
     return NC_OK;
 }
 
+static rstatus_t
+server_each_set_sentinel(void *elem, void *data)
+{
+    struct server *s = elem;
+
+    s->sentinel = 1;
+
+    return NC_OK;
+}
+
 rstatus_t
 server_init(struct array *server, struct array *conf_server,
-            struct server_pool *sp)
+            struct server_pool *sp, bool sentinel)
 {
     rstatus_t status;
     uint32_t nserver;
 
     nserver = array_n(conf_server);
-    ASSERT(nserver != 0);
+    if (nserver == 0) {
+        /* no sentinels is configured */
+        ASSERT(sentinel);
+        return NC_OK;
+    }
+
     ASSERT(array_n(server) == 0);
 
     status = array_init(server, nserver, sizeof(struct server));
@@ -161,6 +177,15 @@ server_init(struct array *server, struct array *conf_server,
     if (status != NC_OK) {
         server_deinit(server);
         return status;
+    }
+
+    if (sentinel) {
+        /* set server sentinel flag */
+        status = array_each(server, server_each_set_sentinel, NULL);
+        if (status != NC_OK) {
+            server_deinit(server);
+            return status;
+        }
     }
 
     log_debug(LOG_DEBUG, "init %"PRIu32" servers in pool %"PRIu32" '%.*s'",
@@ -270,6 +295,11 @@ server_failure(struct context *ctx, struct server *server)
     rstatus_t status;
 
     if (!pool->auto_eject_hosts) {
+        return;
+    }
+
+    /* sentinel do not need eject */
+    if (server->sentinel) {
         return;
     }
 
@@ -581,6 +611,138 @@ server_ok(struct context *ctx, struct conn *conn)
     }
 }
 
+struct server*
+server_find_by_name(struct context *ctx, struct server_pool *server_pool, struct string *server_name)
+{
+    struct server *server;
+    uint32_t i;
+
+    server = NULL;
+    for(i = 0; i < array_n(&server_pool->server); i++) {
+        server = array_get(&server_pool->server, i);
+        if (!string_compare(&server->name, server_name)) {
+            break;
+        } else {
+            server = NULL;
+        }
+    }
+
+    return server;
+}
+
+static rstatus_t
+server_set_address(struct server *server, struct string *server_ip, int server_port)
+{
+    rstatus_t status;
+    struct conf_server *conf_server;
+    char pname_buf[NC_PNAME_MAXLEN];
+
+    conf_server = server->conf_server;
+
+    /* update conf_server's pname used for conf rewrite */
+    string_deinit(&conf_server->pname);
+    nc_snprintf(pname_buf, NC_PNAME_MAXLEN, "%.*s:%d:%d",
+            server_ip->len, server_ip->data, server_port, server->weight);
+    status = string_copy(&conf_server->pname, (uint8_t *)pname_buf, (uint32_t)(nc_strlen(pname_buf)));
+    if (status != NC_OK) {
+        return status;
+    }
+
+    /* update conf_server's addrstr used for connection */
+    string_deinit(&conf_server->addrstr);
+    status = string_duplicate(&conf_server->addrstr, server_ip);
+    if (status != NC_OK) {
+        return status;
+    }
+
+    /* make server's pname and addrstr points to conf_server's */
+    server->pname = conf_server->pname;
+    server->addrstr = conf_server->addrstr;
+    conf_server->port = (uint16_t)server_port;
+    server->port = (uint16_t)server_port;
+
+    return NC_OK;
+}
+
+static void
+server_conn_done(struct server *server)
+{
+    struct conn *conn;
+
+    TAILQ_FOREACH(conn, &server->s_conn_q, conn_tqe) {
+        conn->done = 1;
+    }
+}
+
+rstatus_t
+server_switch(struct context *ctx, struct server *server,
+        struct string *server_ip, int server_port)
+{
+    rstatus_t status;
+    struct server_pool *server_pool;
+    struct string pname;
+    char pname_buf[NC_PNAME_MAXLEN];
+
+    string_init(&pname);
+    nc_snprintf(pname_buf, NC_PNAME_MAXLEN, "%.*s:%d:%d",
+            server_ip->len, server_ip->data, server_port, server->weight);
+    status = string_copy(&pname, (uint8_t *)pname_buf, (uint32_t)(nc_strlen(pname_buf)));
+    if (status != NC_OK) {
+        return status;
+    }
+    
+    /* if the address is the same, return */
+    if (!string_compare(&server->pname, &pname)) {
+        string_deinit(&pname);
+        return NC_ERROR;
+    }
+
+    /* pname is no longer used, release it */
+    string_deinit(&pname);
+
+    /* change the server's address */
+    status = server_set_address(server, server_ip, server_port);
+    if (status != NC_OK) {
+        return status;
+    }
+
+    /* Just set all conns done. If we close all connections in the
+     * sentinel event and there are events for the connections which are
+     * closed already, proxy will try to access the conns which are released.
+     */
+    server_conn_done(server);
+
+    server_pool = server->owner;
+    log_warn("success switch %.*s-%.*s to %.*s",
+            server_pool->name.len, server_pool->name.data,
+            server->name.len, server->name.data,
+            server->pname.len, server->pname.data);
+
+    return NC_OK;
+}
+
+static void
+server_pool_sentinel_check(struct context *ctx, struct server_pool *pool)
+{
+    int64_t now;
+
+    if (!array_n(&pool->sentinel)) {
+        return;
+    }
+
+    if (pool->next_sentinel_connect == 0LL) {
+        return;
+    }
+
+    now = nc_usec_now();
+    if (now > 0 && now < pool->next_sentinel_connect) {
+        return;
+    }
+
+    pool->sentinel_idx = (pool->sentinel_idx + 1) % array_n(&pool->sentinel);
+    sentinel_connect(ctx, array_get(&pool->sentinel, pool->sentinel_idx));
+}
+
 static rstatus_t
 server_pool_update(struct server_pool *pool)
 {
@@ -722,6 +884,8 @@ server_pool_conn(struct context *ctx, struct server_pool *pool, const uint8_t *k
     struct server *server;
     struct conn *conn;
 
+    server_pool_sentinel_check(ctx, pool);
+
     status = server_pool_update(pool);
     if (status != NC_OK) {
         return NULL;
@@ -749,10 +913,17 @@ server_pool_conn(struct context *ctx, struct server_pool *pool, const uint8_t *k
 }
 
 static rstatus_t
-server_pool_each_preconnect(void *elem, void *data)
+server_pool_each_connect(void *elem, void *data)
 {
     rstatus_t status;
     struct server_pool *sp = elem;
+
+    if (array_n(&sp->sentinel)) {
+        /* Try to connect the first sentinel. Proxy will try to reconnect
+         * if it connects fail. So it's ok to ignore the return status.
+         */
+        sentinel_connect(sp->ctx, array_get(&sp->sentinel, 0));
+    }
 
     if (!sp->preconnect) {
         return NC_OK;
@@ -767,11 +938,11 @@ server_pool_each_preconnect(void *elem, void *data)
 }
 
 rstatus_t
-server_pool_preconnect(struct context *ctx)
+server_pool_connect(struct context *ctx)
 {
     rstatus_t status;
 
-    status = array_each(&ctx->pool, server_pool_each_preconnect, NULL);
+    status = array_each(&ctx->pool, server_pool_each_connect, NULL);
     if (status != NC_OK) {
         return status;
     }
@@ -788,6 +959,13 @@ server_pool_each_disconnect(void *elem, void *data)
     status = array_each(&sp->server, server_each_disconnect, NULL);
     if (status != NC_OK) {
         return status;
+    }
+
+    if (array_n(&sp->sentinel)) {
+        status = array_each(&sp->sentinel, server_each_disconnect, NULL);
+        if (status != NC_OK) {
+            return status;
+        }
     }
 
     return NC_OK;
@@ -817,6 +995,10 @@ server_pool_each_calc_connections(void *elem, void *data)
     struct context *ctx = data;
 
     ctx->max_nsconn += sp->server_connections * array_n(&sp->server);
+    if (array_n(&sp->sentinel)) {
+        /* only one sentinel conn at the same time */
+        ctx->max_nsconn += 1;
+    }
     ctx->max_nsconn += 1; /* pool listening socket */
 
     return NC_OK;
@@ -922,6 +1104,10 @@ server_pool_deinit(struct array *server_pool)
         }
 
         server_deinit(&sp->server);
+
+        if (array_n(&sp->sentinel)) {
+            server_deinit(&sp->sentinel);
+        }
 
         log_debug(LOG_DEBUG, "deinit pool %"PRIu32" '%.*s'", sp->idx,
                   sp->name.len, sp->name.data);

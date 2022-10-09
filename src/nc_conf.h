@@ -32,9 +32,12 @@
 #define CONF_ROOT_DEPTH     1
 #define CONF_MAX_DEPTH      CONF_ROOT_DEPTH + 1
 
+#define CONF_MAX_SEQ        2
+
 #define CONF_DEFAULT_ARGS       3
 #define CONF_DEFAULT_POOL       8
 #define CONF_DEFAULT_SERVERS    8
+#define CONF_DEFAULT_SENTINELS  5
 
 #define CONF_UNSET_NUM  -1
 #define CONF_UNSET_PTR  NULL
@@ -95,6 +98,7 @@ struct conf_pool {
     int                server_retry_timeout;  /* server_retry_timeout: in msec */
     int                server_failure_limit;  /* server_failure_limit: */
     struct array       server;                /* servers: conf_server[] */
+    struct array       sentinel;              /* sentinels: conf_server[] */
     unsigned           valid:1;               /* valid? */
     int                reuseport;             /* set SO_REUSEPORT to socket */
 };
@@ -139,5 +143,6 @@ rstatus_t conf_pool_each_transform(void *elem, void *data);
 
 struct conf *conf_create(const char *filename);
 void conf_destroy(struct conf *cf);
+void conf_rewrite(struct context *ctx);
 
 #endif

@@ -59,6 +59,8 @@
  *            //
  */
 
+#define NC_PNAME_MAXLEN                 32
+
 typedef uint32_t (*hash_t)(const char *, size_t);
 
 struct continuum {
@@ -69,6 +71,9 @@ struct continuum {
 struct server {
     uint32_t           idx;           /* server index */
     struct server_pool *owner;        /* owner pool */
+
+    /* use this pointer to modify conf_server when switch server happens */
+    struct conf_server *conf_server;  /* conf_server transformed from */
 
     struct string      pname;         /* hostname:port:weight (ref in conf_server) */
     struct string      name;          /* hostname:port or [name] (ref in conf_server) */
@@ -82,6 +87,8 @@ struct server {
 
     int64_t            next_retry;    /* next retry time in usec */
     uint32_t           failure_count; /* # consecutive failures */
+
+    unsigned           sentinel:1;    /* redis sentinel? */
 };
 
 struct server_pool {
@@ -93,11 +100,14 @@ struct server_pool {
     struct conn_tqh    c_conn_q;             /* client connection q */
 
     struct array       server;               /* server[] */
+    struct array       sentinel;             /* sentinels: server[] */
     uint32_t           ncontinuum;           /* # continuum points */
     uint32_t           nserver_continuum;    /* # servers - live and dead on continuum (const) */
     struct continuum   *continuum;           /* continuum */
     uint32_t           nlive_server;         /* # live server */
     int64_t            next_rebuild;         /* next distribution rebuild time in usec */
+    int64_t            next_sentinel_connect;/* next reconnect sentinel time in usec */
+    uint32_t           sentinel_idx;         /* the connected sentinel's idx */
 
     struct string      name;                 /* pool name (ref in conf_pool) */
     struct string      addrstr;              /* pool address - hostname:port (ref in conf_pool) */
@@ -128,18 +138,20 @@ void server_ref(struct conn *conn, void *owner);
 void server_unref(struct conn *conn);
 int server_timeout(struct conn *conn);
 bool server_active(const struct conn *conn);
-rstatus_t server_init(struct array *server, struct array *conf_server, struct server_pool *sp);
+rstatus_t server_init(struct array *server, struct array *conf_server, struct server_pool *sp, bool sentinel);
 void server_deinit(struct array *server);
 struct conn *server_conn(struct server *server);
 rstatus_t server_connect(struct context *ctx, struct server *server, struct conn *conn);
 void server_close(struct context *ctx, struct conn *conn);
 void server_connected(struct context *ctx, struct conn *conn);
 void server_ok(struct context *ctx, struct conn *conn);
+struct server* server_find_by_name(struct context *ctx, struct server_pool *server_pool, struct string *server_name);
+rstatus_t server_switch(struct context *ctx, struct server *server, struct string *server_ip, int server_port);
 
 uint32_t server_pool_idx(const struct server_pool *pool, const uint8_t *key, uint32_t keylen);
 struct conn *server_pool_conn(struct context *ctx, struct server_pool *pool, const uint8_t *key, uint32_t keylen);
 rstatus_t server_pool_run(struct server_pool *pool);
-rstatus_t server_pool_preconnect(struct context *ctx);
+rstatus_t server_pool_connect(struct context *ctx);
 void server_pool_disconnect(struct context *ctx);
 rstatus_t server_pool_init(struct array *server_pool, struct array *conf_pool, struct context *ctx);
 void server_pool_deinit(struct array *server_pool);

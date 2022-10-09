@@ -285,3 +285,36 @@ mbuf_deinit(void)
     }
     ASSERT(nfree_mbufq == 0);
 }
+
+/* read a string from mbuf which is splited by char c,
+ * if c is found in mbuf, write the string before c to read_string,
+ * else return NC_ERROR.
+ */
+rstatus_t
+mbuf_read_string(struct mbuf *mbuf, char c, struct string *read_string)
+{
+    rstatus_t status;
+    uint32_t read_size;
+    uint8_t *p;
+
+    p = nc_strchr(mbuf->pos, mbuf->last, c);
+    if (p == NULL) {
+        log_error("mbuf read string failed, split char %c", c);
+        return NC_ERROR;
+    }
+
+    read_size = (uint32_t)(p - mbuf->pos);
+
+    if (read_string != NULL) {
+        string_deinit(read_string);
+        status = string_copy(read_string, mbuf->pos, read_size);
+        if (status != NC_OK) {
+            return status;
+        }
+    }
+
+    /* skip the split char c */
+    mbuf->pos += read_size + 1;
+
+    return NC_OK;
+}

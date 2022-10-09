@@ -124,10 +124,61 @@ nc_set_linger(int sd, int timeout)
 }
 
 int
-nc_set_tcpkeepalive(int sd)
+nc_set_tcpkeepalive(int sd, int interval)
 {
-    int val = 1;
-    return setsockopt(sd, SOL_SOCKET, SO_KEEPALIVE, &val, sizeof(val));
+    int val, status;
+    socklen_t len;
+
+    val = 1;
+    len = sizeof(val);
+    status = setsockopt(sd, SOL_SOCKET, SO_KEEPALIVE, &val, len);
+    if (status == -1)
+    {
+        log_error("setsockopt SO_KEEPALIVE to %d on %d failed: %s",
+                  val, sd, strerror(errno));
+        return status;
+    }
+
+#ifdef __linux__
+    /* Default settings are more or less garbage, with the keepalive time
+     * set to 7200 by default on Linux. Modify settings to make the feature
+     * actually useful. */
+
+    /* Send first probe after interval. */
+    val = interval;
+    status = setsockopt(sd, IPPROTO_TCP, TCP_KEEPIDLE, &val, len);
+    if (status < 0) {
+        log_error("setsockopt TCP_KEEPIDLE to %d on %d failed: %s",
+                  val, sd, strerror(errno));
+        return status;
+    }
+
+    /* Send next probes after the specified interval. Note that we set the
+     * delay as interval / 3, as we send three probes before detecting
+     * an error (see the next setsockopt call). */
+    val = interval/3;
+    if (val == 0) val = 1;
+    status = setsockopt(sd, IPPROTO_TCP, TCP_KEEPINTVL, &val, len);
+    if (status < 0) {
+        log_error("setsockopt TCP_KEEPINTVL to %d on %d failed: %s",
+                  val, sd, strerror(errno));
+        return status;
+    }
+
+    /* Consider the socket in error state after three we send three ACK
+     * probes without getting a reply. */
+    val = 3;
+    status = setsockopt(sd, IPPROTO_TCP, TCP_KEEPCNT, &val, len);
+    if (status < 0) {
+        log_error("setsockopt TCP_KEEPCNT to %d on %d failed: %s",
+                  val, sd, strerror(errno));
+        return status;
+    }
+#else
+    ((void) interval); /* Avoid unused var warning for non Linux systems. */
+#endif
+
+    return 0;
 }
 
 int

@@ -21,6 +21,7 @@
 #include <nc_server.h>
 #include <nc_client.h>
 #include <nc_proxy.h>
+#include <nc_sentinel.h>
 #include <proto/nc_proto.h>
 
 /*
@@ -158,6 +159,8 @@ _conn_get(void)
     conn->redis = 0;
     conn->authenticated = 0;
 
+    conn->status = CONN_DISCONNECTED;
+
     ntotal_conn++;
     ncurr_conn++;
 
@@ -211,15 +214,25 @@ conn_get(void *owner, bool client, bool redis)
          * server receives a response, possibly parsing it, and sends a
          * request upstream.
          */
+        struct server *server = (struct server *)owner;
+
         conn->recv = msg_recv;
         conn->recv_next = rsp_recv_next;
-        conn->recv_done = rsp_recv_done;
+        if (server->sentinel) {
+            conn->recv_done = sentinel_recv_done;
+        } else {
+            conn->recv_done = rsp_recv_done;
+        }
 
         conn->send = msg_send;
         conn->send_next = req_send_next;
         conn->send_done = req_send_done;
 
-        conn->close = server_close;
+        if (server->sentinel) {
+            conn->close = sentinel_close;
+        } else {
+            conn->close = server_close;
+        }
         conn->active = server_active;
 
         conn->ref = server_ref;

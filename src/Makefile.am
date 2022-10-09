@@ -39,6 +39,7 @@ nutcracker_SOURCES =			\
 	nc_connection.c nc_connection.h	\
 	nc_client.c nc_client.h		\
 	nc_server.c nc_server.h		\
+	nc_sentinel.c nc_sentinel.h	\
 	nc_proxy.c nc_proxy.h		\
 	nc_message.c nc_message.h	\
 	nc_request.c			\
@@ -68,6 +69,7 @@ test_all_SOURCES = test_all.c \
 	nc_connection.c nc_connection.h	\
 	nc_client.c nc_client.h		\
 	nc_server.c nc_server.h		\
+	nc_sentinel.c nc_sentinel.h	\
 	nc_proxy.c nc_proxy.h		\
 	nc_message.c nc_message.h	\
 	nc_request.c			\

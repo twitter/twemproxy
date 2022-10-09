@@ -316,6 +316,7 @@ void msg_put(struct msg *msg);
 struct msg *msg_get_error(bool redis, err_t err);
 void msg_dump(const struct msg *msg, int level);
 bool msg_empty(const struct msg *msg);
+void msg_read_line(struct msg* msg, struct mbuf *line_buf, int line_num);
 rstatus_t msg_recv(struct context *ctx, struct conn *conn);
 rstatus_t msg_send(struct context *ctx, struct conn *conn);
 uint64_t msg_gen_frag_id(void);

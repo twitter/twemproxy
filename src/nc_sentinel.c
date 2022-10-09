@@ -193,8 +193,8 @@ sentinel_proc_sentinel_info(struct context *ctx, struct server *sentinel, struct
 
         server = server_find_by_name(ctx, sentinel->owner, &server_name);
         if (server == NULL) {
-            log_error("unknown server name:%.*s", server_name.len, server_name.data);
-            goto error;
+            log_warn("unknown server name:%.*s", server_name.len, server_name.data);
+            continue;
         }
 
         /* skip master status */

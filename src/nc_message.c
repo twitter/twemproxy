@@ -123,18 +123,6 @@ static const struct string msg_type_strings[] = {
 };
 #undef DEFINE_ACTION
 
-static struct msg *
-msg_from_rbe(struct rbnode *node)
-{
-    struct msg *msg;
-    int offset;
-
-    offset = offsetof(struct msg, tmo_rbe);
-    msg = (struct msg *)((char *)node - offset);
-
-    return msg;
-}
-
 struct msg *
 msg_tmo_min(void)
 {
@@ -145,7 +133,7 @@ msg_tmo_min(void)
         return NULL;
     }
 
-    return msg_from_rbe(node);
+    return rbtree_entry(node, struct msg, tmo_rbe);
 }
 
 void

@@ -291,6 +291,7 @@ If you are deploying twemproxy in production, you might consider reading through
 + [Tradesy](https://www.tradesy.com/)
 + [Uber](http://uber.com) ([details](http://highscalability.com/blog/2015/9/14/how-uber-scales-their-real-time-market-platform.html))
 + [Greta](https://greta.io/)
++ [JFrog](https://www.jfrog.com)
 
 ## Issues and Support
 

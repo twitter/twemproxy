@@ -71,6 +71,7 @@ AC_CHECK_HEADERS([execinfo.h],
   [AC_DEFINE(HAVE_BACKTRACE, [1], [Define to 1 if backtrace is supported])], [])
 AC_CHECK_HEADERS([sys/epoll.h], [], [])
 AC_CHECK_HEADERS([sys/event.h], [], [])
+AC_CHECK_HEADERS([poll.h], [], [])
 
 # Checks for libraries
 AC_CHECK_LIB([m], [pow])
@@ -151,14 +152,31 @@ main(int argc, char **argv)
 AS_IF([test "x$ac_cv_evports_works" = "xyes"],
   [AC_DEFINE([HAVE_EVENT_PORTS], [1], [Define to 1 if event ports is supported])], [])
 
+AC_CACHE_CHECK([if poll works], [ac_cv_poll_works],
+  AC_TRY_RUN([
+#include <stdio.h>
+#include <stdlib.h>
+#include <poll.h>
+int
+main(int argc, char **argv)
+{
+    struct pollfd poll_event;
+    exit(0);
+}
+  ], [ac_cv_poll_works=yes], [ac_cv_poll_works=no]))
+AS_IF([test "x$ac_cv_poll_works" = "xyes"],
+  [AC_DEFINE([HAVE_POLL], [1], [Define to 1 if poll is supported])], [])
+
 AS_IF([test "x$ac_cv_epoll_works" = "xno" &&
        test "x$ac_cv_kqueue_works" = "xno" &&
-       test "x$ac_cv_evports_works" = "xno"],
-  [AC_MSG_ERROR([either epoll or kqueue or event ports support is required])], [])
+       test "x$ac_cv_evports_works" = "xno" &&
+       test "x$ac_cv_poll_works" = "xno" ],
+  [AC_MSG_ERROR([either epoll or kqueue or event ports or poll support is required])], [])
 
 AM_CONDITIONAL([OS_LINUX], [test "x$ac_cv_epoll_works" = "xyes"])
 AM_CONDITIONAL([OS_BSD], [test "x$ac_cv_kqueue_works" = "xyes"])
 AM_CONDITIONAL([OS_SOLARIS], [test "x$ac_cv_evports_works" = "xyes"])
+AM_CONDITIONAL([OS_LINUX], [test "x$ac_cv_poll_works" = "xyes"])
 AM_CONDITIONAL([OS_FREEBSD], [test "$(uname -v | cut -c 1-10)" == "FreeBSD 10"])
 
 # Package options

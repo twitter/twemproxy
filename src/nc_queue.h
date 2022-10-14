@@ -47,8 +47,8 @@
  * $FreeBSD: src/sys/sys/queue.h,v 1.73 2010/02/20 01:05:30 emaste Exp $
  */
 
-#ifndef _NC_QUEUE_H_
-#define _NC_QUEUE_H_
+#ifndef NC_QUEUE_H_878061AB4F4341298A1A06780ECB8160
+#define NC_QUEUE_H_878061AB4F4341298A1A06780ECB8160
 
 #include <nc_log.h>
 

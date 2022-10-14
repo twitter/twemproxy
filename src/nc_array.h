@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 
-#ifndef _NC_ARRAY_H_
-#define _NC_ARRAY_H_
+#ifndef NC_ARRAY_H_0F1C20D95CC24E229B5BE985A5984BDF
+#define NC_ARRAY_H_0F1C20D95CC24E229B5BE985A5984BDF
 
 #include <nc_core.h>
 

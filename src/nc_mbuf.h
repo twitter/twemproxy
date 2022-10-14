@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 
-#ifndef _NC_MBUF_H_
-#define _NC_MBUF_H_
+#ifndef NC_MBUF_H_026E7B82C18943139416928CEE5D987F
+#define NC_MBUF_H_026E7B82C18943139416928CEE5D987F
 
 #include <nc_core.h>
 

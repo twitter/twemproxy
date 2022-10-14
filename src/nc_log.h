@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 
-#ifndef _NC_LOG_H_
-#define _NC_LOG_H_
+#ifndef NC_LOG_H_B29D74ABB74E49A1BF4879F76A2E4261
+#define NC_LOG_H_B29D74ABB74E49A1BF4879F76A2E4261
 
 #include <nc_util.h>
 

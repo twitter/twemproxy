@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 
-#ifndef _NC_STATS_H_
-#define _NC_STATS_H_
+#ifndef NC_STATS_H_C69932D0294C48FA92E1BED3063B22E3
+#define NC_STATS_H_C69932D0294C48FA92E1BED3063B22E3
 
 #include <nc_core.h>
 

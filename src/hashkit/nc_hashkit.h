@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 
-#ifndef _NC_HASHKIT_H_
-#define _NC_HASHKIT_H_
+#ifndef NC_HASHKIT_H_67BE98BD03D14FABA3267EBA447D75E4
+#define NC_HASHKIT_H_67BE98BD03D14FABA3267EBA447D75E4
 
 #include <nc_core.h>
 #include <nc_server.h>

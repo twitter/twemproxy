@@ -28,18 +28,15 @@
 #include <nc_conf.h>
 #include <nc_signal.h>
 
-#define NC_CONF_PATH        "conf/nutcracker.yml"
+#include "cfg-options.h"
 
 #define NC_LOG_DEFAULT      LOG_NOTICE
 #define NC_LOG_MIN          LOG_EMERG
 #define NC_LOG_MAX          LOG_PVERB
-#define NC_LOG_PATH         NULL
 
 #define NC_STATS_PORT       STATS_PORT
 #define NC_STATS_ADDR       STATS_ADDR
 #define NC_STATS_INTERVAL   STATS_INTERVAL
-
-#define NC_PID_FILE         NULL
 
 #define NC_MBUF_SIZE        MBUF_SIZE
 #define NC_MBUF_MIN_SIZE    MBUF_MIN_SIZE
@@ -298,7 +295,7 @@ nc_set_default_options(struct instance *nci)
     nci->mbuf_chunk_size = NC_MBUF_SIZE;
 
     nci->pid = (pid_t)-1;
-    nci->pid_filename = NULL;
+    nci->pid_filename = NC_PID_FILE;
     nci->pidfile = 0;
 }
 

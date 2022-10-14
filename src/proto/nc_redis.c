@@ -3062,9 +3062,7 @@ redis_post_coalesce_mget(struct msg *request)
 void
 redis_post_coalesce(struct msg *r)
 {
-    struct msg *pr = r->peer; /* peer response */
-
-    ASSERT(!pr->request);
+    ASSERT(!r->peer->request);
     ASSERT(r->request && (r->frag_owner == r));
     if (r->error || r->ferror) {
         /* do nothing, if msg is in error */

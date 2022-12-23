@@ -7,6 +7,6 @@ if [[ $# == 0 ]]; then
 fi
 
 # Print test logging to stderr
-export T_LOGFILE=-
+export T_LOGFILE=1.log
 
 python3 -m nose -v --nologcapture --nocapture "$@"

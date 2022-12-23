@@ -101,3 +101,18 @@ def test_sscan():
     assert_equal('0', str(cursor))
     assert_equal({b'1'}, set(members))
 
+def test_script_load_and_exits():
+    r = getconn()
+
+    evalsha=r.script_load("return redis.call('hset',KEYS[1],KEYS[1],KEYS[1])")
+    assert_equal(evalsha,"dbbae75a09f1390aaf069fb60e951ec23cab7a15")
+
+    exists=r.script_exists("dbbae75a09f1390aaf069fb60e951ec23cab7a15")
+    assert_equal([True],exists)
+
+    assert_equal(1,r.evalsha("dbbae75a09f1390aaf069fb60e951ec23cab7a15",1,"scriptA"))
+
+    dic=r.hgetall("scriptA")
+    assert(dic,{b'scriptA': b'scriptA'})
+
+    assert_equal(True,r.script_flush())

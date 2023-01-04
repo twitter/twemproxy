@@ -573,7 +573,7 @@ req_forward(struct context *ctx, struct conn *c_conn, struct msg *msg)
     key = kpos->start;
     keylen = (uint32_t)(kpos->end - kpos->start);
 
-    s_conn = server_pool_conn(ctx, c_conn->owner, key, keylen);
+    s_conn = server_pool_conn(ctx, c_conn->owner, key, keylen, msg);
     if (s_conn == NULL) {
         /*
          * Handle a failure to establish a new connection to a server,

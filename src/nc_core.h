@@ -63,6 +63,9 @@
 #define NC_EAGAIN   -2
 #define NC_ENOMEM   -3
 
+#define NC_MAX_NSERVER_BITS 12
+#define NC_MAX_NSERVER_MASK ((1<<NC_MAX_NSERVER_BITS) -1)
+
 /* reserved fds for std streams, log, stats fd, epoll etc. */
 #define RESERVED_FDS 32
 

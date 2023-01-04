@@ -283,6 +283,7 @@ redis_argn(const struct msg *r)
     case MSG_REQ_REDIS_GEOSEARCHSTORE:
 
     case MSG_REQ_REDIS_RESTORE:
+    case MSG_REQ_REDIS_SCAN:
         return true;
 
     default:
@@ -747,6 +748,11 @@ redis_parse_req(struct msg *r)
 
                 if (str4icmp(m, 'c', 'o', 'p', 'y')) {
                     r->type = MSG_REQ_REDIS_COPY;
+                    break;
+                }
+
+                if (str4icmp(m, 's', 'c', 'a', 'n')) {
+                    r->type = MSG_REQ_REDIS_SCAN;
                     break;
                 }
 
@@ -2647,7 +2653,7 @@ redis_pre_coalesce(struct msg *r)
     ASSERT(!r->request);
     ASSERT(pr->request);
 
-    if (pr->frag_id == 0) {
+    if (pr->frag_id == 0 || pr->type == MSG_REQ_REDIS_SCAN) {
         /* do nothing, if not a response to a fragmented request */
         return;
     }
@@ -2945,10 +2951,17 @@ redis_fragment_argx(struct msg *r, uint32_t nserver, struct msg_tqh *frag_msgq,
     return NC_OK;
 }
 
+static rstatus_t redis_fragment_scan(struct msg *r, struct msg_tqh *frag_msgq){
+    r->frag_id = msg_gen_frag_id();
+    r->nfrag = 0;
+    r->frag_owner = r;
+    return NC_OK;
+}
+
 rstatus_t
 redis_fragment(struct msg *r, uint32_t nserver, struct msg_tqh *frag_msgq)
 {
-    if (1 == array_n(r->keys)){
+    if (1 == array_n(r->keys) && r->type != MSG_REQ_REDIS_SCAN){
         return NC_OK;
     }
 
@@ -2962,6 +2975,9 @@ redis_fragment(struct msg *r, uint32_t nserver, struct msg_tqh *frag_msgq)
         /* TODO: MSETNX - instead of responding with OK, respond with 1 if all fragments respond with 1 */
     case MSG_REQ_REDIS_MSET:
         return redis_fragment_argx(r, nserver, frag_msgq, 2);
+
+    case MSG_REQ_REDIS_SCAN:
+        return redis_fragment_scan(r,frag_msgq);
 
     default:
         return NC_OK;
@@ -3053,6 +3069,46 @@ redis_post_coalesce_mget(struct msg *request)
     }
 }
 
+void redis_post_coalesce_scan(struct msg *request) {
+    struct msg *response = request->peer;
+    struct mbuf *mbuf,*nbuf;
+    struct mbuf *first_mbuf;
+    rstatus_t status;
+    char *tmp_str[40];
+    int len;
+
+    for(mbuf=STAILQ_FIRST(&response->mhdr);mbuf!=NULL;mbuf=nbuf){
+        nbuf=STAILQ_NEXT(mbuf,next);
+        if(mbuf_empty(mbuf)) continue;
+
+        first_mbuf=mbuf;
+        break;
+    }
+    ASSERT(strncmp(first_mbuf->pos,"*2\r\n$",strlen("*2\r\n$")) ==0);
+    const char* p=strchr(first_mbuf->pos + sizeof("*2\r\n$"),'\n');
+    unsigned long cursor = strtoul(p+1,NULL,10);
+    unsigned long next_cursor;
+    if(cursor == 0 && request->scan_server_idx == request->max_server_idx-1){
+        // all redis servers have been scanned, and the scan command of the last redis server has returned.
+        return;
+    }else if(cursor ==0 && request->scan_server_idx < request->max_server_idx-1){
+        // the current redis server have been scanned,now we continue scan next redis server
+        next_cursor=(cursor << NC_MAX_NSERVER_BITS) | (request->scan_server_idx+1);
+    }else{
+        // the current redis server scan not finish , go on
+        next_cursor=(cursor << NC_MAX_NSERVER_BITS) | request->scan_server_idx;
+    }
+    // discard the old head "*2\r\n$%d\r\n\%dr\n"
+    p=strchr(p+1,'\n');
+    ASSERT(p < first_mbuf->last);
+    first_mbuf->pos=p+1;
+
+    // we get a new head "*2\r\n$%d\r\n\%dr\n", the cursor contain server index
+    len=sprintf(tmp_str,"%ld",next_cursor);
+    status=msg_prepend_format(response,"*2\r\n$%d\r\n%ld\r\n",len,next_cursor);
+    ASSERT(status == NC_OK);
+}
+
 /*
  * Post-coalesce handler is invoked when the message is a response to
  * the fragmented multi vector request - 'mget' or 'del' and all the
@@ -3082,6 +3138,9 @@ redis_post_coalesce(struct msg *r)
 
     case MSG_REQ_REDIS_MSET:
         return redis_post_coalesce_mset(r);
+
+    case MSG_REQ_REDIS_SCAN:
+        return redis_post_coalesce_scan(r);
 
     default:
         NOT_REACHED();

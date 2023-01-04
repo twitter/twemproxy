@@ -700,12 +700,37 @@ server_pool_idx(const struct server_pool *pool, const uint8_t *key, uint32_t key
 }
 
 static struct server *
-server_pool_server(struct server_pool *pool, const uint8_t *key, uint32_t keylen)
+server_pool_server(struct server_pool *pool, struct msg *r, const uint8_t *key, uint32_t keylen)
 {
     struct server *server;
     uint32_t idx;
+    unsigned long long cursor;
+    unsigned long real_cursor;
+    char arr[16];
+    char format[16];
 
-    idx = server_pool_idx(pool, key, keylen);
+    if (r->type == MSG_REQ_REDIS_SCAN) {
+        if(keylen == 1 && key[0] == '0') {
+            idx=0;
+        }else{
+            /* If the user request is "scan 45066",
+               the cursor 45066 in the request,
+               we get server_idx=45066 & NC_MAX_NSERVER_MASK=10,
+               real_cursor = 45066>>NC_MAX_NSERVER_BITS = 11,
+               and finally the request sent by the proxy to the redis server will be "scan 00011".
+            */
+            cursor=strtoull(key,NULL,10);
+            idx = cursor & NC_MAX_NSERVER_MASK;
+            real_cursor = (cursor >> NC_MAX_NSERVER_BITS);
+            sprintf(format,"%%0%dd",keylen);
+            sprintf(arr,format,real_cursor);
+            nc_memcpy(key,arr,keylen);
+        }
+        r->scan_server_idx=idx;
+        r->max_server_idx=(pool->server).nelem;
+    }else{
+        idx = server_pool_idx(pool, key, keylen);
+    }
     server = array_get(&pool->server, idx);
 
     log_debug(LOG_VERB, "key '%.*s' on dist %d maps to server '%.*s'", keylen,
@@ -716,7 +741,7 @@ server_pool_server(struct server_pool *pool, const uint8_t *key, uint32_t keylen
 
 struct conn *
 server_pool_conn(struct context *ctx, struct server_pool *pool, const uint8_t *key,
-                 uint32_t keylen)
+                 uint32_t keylen, struct msg *msg)
 {
     rstatus_t status;
     struct server *server;
@@ -728,7 +753,7 @@ server_pool_conn(struct context *ctx, struct server_pool *pool, const uint8_t *k
     }
 
     /* from a given {key, keylen} pick a server from pool */
-    server = server_pool_server(pool, key, keylen);
+    server = server_pool_server(pool, msg, key, keylen);
     if (server == NULL) {
         return NULL;
     }

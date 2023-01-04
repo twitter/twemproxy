@@ -75,6 +75,7 @@ typedef enum msg_parse_result {
     ACTION( REQ_REDIS_PERSIST )                                                                     \
     ACTION( REQ_REDIS_PTTL )                                                                        \
     ACTION( REQ_REDIS_SORT )                                                                        \
+    ACTION( REQ_REDIS_SCAN )                                                                        \
     ACTION( REQ_REDIS_TOUCH )                                                                       \
     ACTION( REQ_REDIS_TTL )                                                                         \
     ACTION( REQ_REDIS_TYPE )                                                                        \
@@ -300,6 +301,9 @@ struct msg {
     unsigned             fdone:1;         /* all fragments are done? */
     unsigned             swallow:1;       /* swallow response? */
     unsigned             redis:1;         /* redis? */
+
+    uint32_t             scan_server_idx; /* used for store scan redisServer index */
+    uint32_t             max_server_idx;
 };
 
 TAILQ_HEAD(msg_tqh, msg);

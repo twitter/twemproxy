@@ -17,6 +17,7 @@
 
 #include <nc_core.h>
 #include <nc_server.h>
+#include <stdlib.h>
 
 struct msg *
 rsp_get(struct conn *conn)
@@ -136,6 +137,47 @@ rsp_recv_next(struct context *ctx, struct conn *conn, bool alloc)
     }
 
     return msg;
+}
+
+static void
+rsp_update_for_scan(struct server_pool *pool,struct msg *request) {
+    struct msg *response = request->peer;
+    struct mbuf *mbuf,*nbuf;
+    struct mbuf *first_mbuf;
+    rstatus_t status;
+    char tmp_str[40];
+    int len;
+
+    for(mbuf=STAILQ_FIRST(&response->mhdr);mbuf!=NULL;mbuf=nbuf){
+        nbuf=STAILQ_NEXT(mbuf,next);
+        if(mbuf_empty(mbuf)) continue;
+
+        first_mbuf=mbuf;
+        break;
+    }
+    ASSERT(nc_strncmp(first_mbuf->pos,"*2\r\n$",strlen("*2\r\n$")) ==0);
+    uint8_t * p=nc_strchr(first_mbuf->pos + sizeof("*2\r\n$"),first_mbuf->last,'\n');
+    unsigned long cursor = strtoul((const char *)(p+1),NULL,10);
+    unsigned long next_cursor;
+    if(cursor == 0 && request->server_index == array_n(&pool->server)-1){
+        // all redis servers have been scanned, and the scan command of the last redis server has returned.
+        return;
+    }else if(cursor ==0 && request->server_index < array_n(&pool->server)-1){
+        // the current redis server have been scanned,now we continue scan next redis server
+        next_cursor=(cursor << NC_MAX_NSERVER_BITS) | (request->server_index+1);
+    }else{
+        // the current redis server scan not finish , go on
+        next_cursor=(cursor << NC_MAX_NSERVER_BITS) | request->server_index;
+    }
+    // discard the old head "*2\r\n$%d\r\n\%dr\n"
+    p=nc_strchr(p+1,first_mbuf->last,'\n');
+    ASSERT(p < first_mbuf->last);
+    first_mbuf->pos = p+1;
+
+    // we get a new head "*2\r\n$%d\r\n\%dr\n", the cursor contain server index
+    len=sprintf(tmp_str,"%ld",next_cursor);
+    status=msg_prepend_format(response,"*2\r\n$%d\r\n%ld\r\n",len,next_cursor);
+    ASSERT(status == NC_OK);
 }
 
 static bool
@@ -260,6 +302,10 @@ rsp_forward(struct context *ctx, struct conn *s_conn, struct msg *msg)
 
     c_conn = pmsg->owner;
     ASSERT(c_conn->client && !c_conn->proxy);
+
+    if(pmsg->type == MSG_REQ_REDIS_SCAN){
+        rsp_update_for_scan(c_conn->owner,pmsg);
+    }
 
     if (req_done(c_conn, TAILQ_FIRST(&c_conn->omsg_q))) {
         status = event_add_out(ctx->evb, c_conn);

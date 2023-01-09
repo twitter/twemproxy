@@ -302,8 +302,7 @@ struct msg {
     unsigned             swallow:1;       /* swallow response? */
     unsigned             redis:1;         /* redis? */
 
-    uint32_t             scan_server_idx; /* used for store scan redisServer index */
-    uint32_t             max_server_idx;
+    uint32_t             server_index; /* used for store the redis server index in server pool */
 };
 
 TAILQ_HEAD(msg_tqh, msg);

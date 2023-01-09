@@ -474,6 +474,15 @@ req_make_reply(struct context *ctx, struct conn *conn, struct msg *req)
 static bool
 req_filter(struct conn *conn, struct msg *msg)
 {
+    uint8_t *key;
+    uint32_t keylen;
+    struct keypos *kpos;
+    uint32_t idx;
+    unsigned long long cursor;
+    unsigned long real_cursor;
+    char arr[16];
+    char format[16];
+
     ASSERT(conn->client && !conn->proxy);
 
     if (msg_empty(msg)) {
@@ -509,6 +518,31 @@ req_filter(struct conn *conn, struct msg *msg)
      */
     if (!conn_authenticated(conn)) {
         msg->noforward = 1;
+    }
+
+    if (msg->type == MSG_REQ_REDIS_SCAN) {
+        ASSERT(array_n(msg->keys) > 0);
+        kpos = array_get(msg->keys, 0);
+        key = kpos->start;
+        keylen = (uint32_t)(kpos->end - kpos->start);
+
+        if (keylen == 1 && key[0] == '0') {
+            idx=0;
+        }else{
+            /* If the user request is "scan 45066",
+               the cursor 45066 in the request,
+               we get server_index=45066 & NC_MAX_NSERVER_MASK=10,
+               real_cursor = 45066>>NC_MAX_NSERVER_BITS = 11,
+               and finally the request sent by the proxy to the redis server will be "scan 00011".
+            */
+            cursor=strtoull(key,NULL,10);
+            idx = cursor & NC_MAX_NSERVER_MASK;
+            real_cursor = (cursor >> NC_MAX_NSERVER_BITS);
+            sprintf(format,"%%0%dd",keylen);
+            sprintf(arr,format,real_cursor);
+            nc_memcpy(key,arr,keylen);
+        }
+        msg->server_index=idx;
     }
 
     return false;
@@ -573,7 +607,7 @@ req_forward(struct context *ctx, struct conn *c_conn, struct msg *msg)
     key = kpos->start;
     keylen = (uint32_t)(kpos->end - kpos->start);
 
-    s_conn = server_pool_conn(ctx, c_conn->owner, key, keylen, msg);
+    s_conn = server_pool_conn(ctx, c_conn->owner, msg, key, keylen);
     if (s_conn == NULL) {
         /*
          * Handle a failure to establish a new connection to a server,

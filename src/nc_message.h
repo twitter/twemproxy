@@ -302,7 +302,7 @@ struct msg {
     unsigned             swallow:1;       /* swallow response? */
     unsigned             redis:1;         /* redis? */
 
-    uint32_t             server_index; /* used for store the redis server index in server pool */
+    uint32_t             server_index;    /* the server index which the requstion should be forwarded */
 };
 
 TAILQ_HEAD(msg_tqh, msg);

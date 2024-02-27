@@ -12,3 +12,4 @@ Therefore, I opened this repository and started to support some useful commands 
 ### 新增已支持命令 NEW SUPPORTED COMMANDS
 - [script](https://redis.io/commands/script-load/) :script load/script exists/script flush
 - [scan](https://redis.io/commands/scan/)
+- [ping](https://redis.io/commands/ping/): ping [message]

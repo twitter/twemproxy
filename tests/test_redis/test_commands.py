@@ -125,3 +125,19 @@ def test_scan():
             break
     rets.sort()
     assert_equal(rets,[b'hello_scan_a1', b'hello_scan_b1', b'hello_scan_h1', b'hello_scan_l1', b'hello_scan_s1', b'hello_scan_z1'])
+
+def test_script_load_and_exits():
+    r = getconn()
+
+    evalsha=r.script_load("return redis.call('hset',KEYS[1],KEYS[1],KEYS[1])")
+    assert_equal(evalsha,"dbbae75a09f1390aaf069fb60e951ec23cab7a15")
+
+    exists=r.script_exists("dbbae75a09f1390aaf069fb60e951ec23cab7a15")
+    assert_equal([True],exists)
+
+    assert_equal(1,r.evalsha("dbbae75a09f1390aaf069fb60e951ec23cab7a15",1,"scriptA"))
+
+    dic=r.hgetall("scriptA")
+    assert_equal(dic,{b'scriptA': b'scriptA'})
+
+    assert_equal(True,r.script_flush())

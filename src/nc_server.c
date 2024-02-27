@@ -707,7 +707,9 @@ server_pool_server(struct server_pool *pool, struct msg *r, const uint8_t *key, 
 
     if (r->type == MSG_REQ_REDIS_SCAN) {
         idx = r->server_index;
-    }else{
+    }else if (r->type == MSG_REQ_REDIS_SCRIPT) {
+        idx = r->server_index;
+    } else {
         idx = server_pool_idx(pool, key, keylen);
     }
     server = array_get(&pool->server, idx);

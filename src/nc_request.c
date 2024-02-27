@@ -478,7 +478,7 @@ req_make_reply(struct context *ctx, struct conn *conn, struct msg *req)
  * real_cursor = 45066>>NC_MAX_NSERVER_BITS = 11,
  * and finally the request sent to the redis server will be "scan 00011".
 */
-static void req_update_for_scan(struct msg *msg)
+static void req_update_for_scan(struct server_pool *pool,struct msg *msg)
 {
     if (msg->type != MSG_REQ_REDIS_SCAN) {
         return;
@@ -504,6 +504,9 @@ static void req_update_for_scan(struct msg *msg)
     }else{
         cursor=strtoull((const char *)key,NULL,10);
         idx = cursor & NC_MAX_NSERVER_MASK;
+        if (array_n(&pool->server)<=idx){
+            idx=0;
+        }
         real_cursor = (cursor >> NC_MAX_NSERVER_BITS);
         sprintf(format,"%%0%dd",keylen);
         sprintf(arr,format,real_cursor);
@@ -552,7 +555,7 @@ req_filter(struct conn *conn, struct msg *msg)
         msg->noforward = 1;
     }
 
-    req_update_for_scan(msg);
+    req_update_for_scan(conn->owner,msg);
 
     return false;
 }

@@ -75,6 +75,7 @@ typedef enum msg_parse_result {
     ACTION( REQ_REDIS_PERSIST )                                                                     \
     ACTION( REQ_REDIS_PTTL )                                                                        \
     ACTION( REQ_REDIS_SORT )                                                                        \
+    ACTION( REQ_REDIS_SCAN )                                                                        \
     ACTION( REQ_REDIS_TOUCH )                                                                       \
     ACTION( REQ_REDIS_TTL )                                                                         \
     ACTION( REQ_REDIS_TYPE )                                                                        \
@@ -303,7 +304,7 @@ struct msg {
     unsigned             swallow:1;       /* swallow response? */
     unsigned             redis:1;         /* redis? */
 
-    uint32_t             redis_script_idx; /* redis script command server index */
+    uint32_t             server_index;    /* the server index which the requstion should be forwarded */
 };
 
 TAILQ_HEAD(msg_tqh, msg);

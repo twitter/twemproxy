@@ -705,8 +705,10 @@ server_pool_server(struct server_pool *pool, struct msg *r, const uint8_t *key, 
     struct server *server;
     uint32_t idx;
 
-    if (r->type == MSG_REQ_REDIS_SCRIPT) {
-        idx = r->redis_script_idx;
+    if (r->type == MSG_REQ_REDIS_SCAN) {
+        idx = r->server_index;
+    }else if (r->type == MSG_REQ_REDIS_SCRIPT) {
+        idx = r->server_index;
     } else {
         idx = server_pool_idx(pool, key, keylen);
     }
@@ -719,8 +721,7 @@ server_pool_server(struct server_pool *pool, struct msg *r, const uint8_t *key, 
 }
 
 struct conn *
-server_pool_conn(struct context *ctx, struct server_pool *pool, const uint8_t *key,
-                 uint32_t keylen, struct msg *msg)
+server_pool_conn(struct context *ctx, struct server_pool *pool, struct msg *msg, const uint8_t *key, uint32_t keylen)
 {
     rstatus_t status;
     struct server *server;

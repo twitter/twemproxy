@@ -25,6 +25,7 @@
 #define RSP_STRING(ACTION)                                                          \
     ACTION( ok,               "+OK\r\n"                                           ) \
     ACTION( pong,             "+PONG\r\n"                                         ) \
+    ACTION( ping_message_too_long, "-ERR ping message too long\r\n"               ) \
     ACTION( invalid_password, "-ERR invalid password\r\n"                         ) \
     ACTION( auth_required,    "-NOAUTH Authentication required\r\n"               ) \
     ACTION( no_password,      "-ERR Client sent AUTH, but no password is set\r\n" ) \
@@ -306,6 +307,7 @@ redis_argx(const struct msg *r)
     case MSG_REQ_REDIS_DEL:
     case MSG_REQ_REDIS_UNLINK:
     case MSG_REQ_REDIS_TOUCH:
+    case MSG_REQ_REDIS_PING:
         return true;
 
     default:
@@ -1346,9 +1348,13 @@ redis_parse_req(struct msg *r)
             switch (ch) {
             case LF:
                 if (redis_argz(r)) {
-                    if (r->narg != 1) {
+                    if (r->narg != 1 && r->type != MSG_REQ_REDIS_PING) {
                         /* It's an error to provide more than one argument. */
                         goto error;
+                    }
+                    if(r->type == MSG_REQ_REDIS_PING && r->narg !=1) {
+                        state = SW_KEY_LEN;
+                        break;
                     }
                     goto done;
                 } else if (redis_nokey(r)) {
@@ -3102,6 +3108,9 @@ redis_fragment(struct msg *r, uint32_t nserver, struct msg_tqh *frag_msgq)
 rstatus_t
 redis_reply(struct msg *r)
 {
+    struct keypos *kpos;
+    size_t key_len;
+    rstatus_t status;
     struct conn *c_conn;
     struct msg *response = r->peer;
 
@@ -3118,6 +3127,17 @@ redis_reply(struct msg *r)
 
     switch (r->type) {
     case MSG_REQ_REDIS_PING:
+        if(array_n(r->keys)==1){
+            kpos = array_get(r->keys, 0);
+            key_len = (uint32_t) (kpos->end - kpos->start);
+            if(key_len>200){
+                return msg_append(response, rsp_ping_message_too_long.data, rsp_ping_message_too_long.len);
+            }
+            char buf[LOG_MAX_LEN];
+            snprintf(buf,LOG_MAX_LEN,"$%ld\r\n%.*s\r\n",key_len,(int)key_len, kpos->start);
+            status = msg_append(response, (uint8_t *)buf, strlen(buf));
+            return status;
+        }
         return msg_append(response, rsp_pong.data, rsp_pong.len);
 
     default:

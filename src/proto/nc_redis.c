@@ -283,6 +283,8 @@ redis_argn(const struct msg *r)
     case MSG_REQ_REDIS_GEOSEARCHSTORE:
 
     case MSG_REQ_REDIS_RESTORE:
+    case MSG_REQ_REDIS_SCAN:
+    case MSG_REQ_REDIS_SCRIPT:
         return true;
 
     default:
@@ -750,6 +752,11 @@ redis_parse_req(struct msg *r)
                     break;
                 }
 
+                if (str4icmp(m, 's', 'c', 'a', 'n')) {
+                    r->type = MSG_REQ_REDIS_SCAN;
+                    break;
+                }
+
                 break;
 
             case 5:
@@ -1006,6 +1013,11 @@ redis_parse_req(struct msg *r)
                     if (!msg_set_placeholder_key(r)) {
                         goto enomem;
                     }
+                    break;
+                }
+
+                if (str6icmp(m, 's', 'c', 'r', 'i', 'p', 't')) {
+                    r->type = MSG_REQ_REDIS_SCRIPT;
                     break;
                 }
 
@@ -1633,14 +1645,14 @@ redis_parse_req(struct msg *r)
 
             m = p + r->rlen;
             if (m >= b->last) {
-                /* 
+                /*
                  * For EVAL/EVALHASH, the r->token has been assigned a value.  When
-                 * m >= b->last happens will need to repair mbuf.  
-                 * 
+                 * m >= b->last happens will need to repair mbuf.
+                 *
                  * At the end of redis_parse_req, r->token will be used to choose
                  * the start (p) for the next call to redis_parse_req and clear
                  * r->token when repairing this and adding more data.
-                 * 
+                 *
                  * So, only when r->token == NULL we need to calculate r->rlen again.
                  */
                 if (r->token == NULL) {
@@ -2585,12 +2597,18 @@ redis_copy_bulk(struct msg *dst, struct msg *src)
     }
 
     p = mbuf->pos;
-    ASSERT(*p == '$');
+    // ASSERT(*p == '$');
     p++;
 
     if (p[0] == '-' && p[1] == '1') {
         len = 1 + 2 + CRLF_LEN;             /* $-1\r\n */
         p = mbuf->pos + len;
+    } else if ((mbuf->pos)[0] == ':') {
+        for (; p < mbuf->last && isdigit(*p);) {
+            p++;
+        }
+        len = (p - mbuf->pos);
+        len += CRLF_LEN;
     } else {
         len = 0;
         for (; p < mbuf->last && isdigit(*p); p++) {
@@ -2643,6 +2661,8 @@ redis_pre_coalesce(struct msg *r)
 {
     struct msg *pr = r->peer; /* peer request */
     struct mbuf *mbuf;
+    uint8_t *key;
+    struct keypos *kpos;
 
     ASSERT(!r->request);
     ASSERT(pr->request);
@@ -2652,6 +2672,9 @@ redis_pre_coalesce(struct msg *r)
         return;
     }
     pr->frag_owner->nfrag_done++;
+
+    kpos = array_get(pr->keys, 0);
+    key = kpos->start;
 
     switch (r->type) {
     case MSG_RSP_REDIS_INTEGER:
@@ -2677,7 +2700,7 @@ redis_pre_coalesce(struct msg *r)
 
     case MSG_RSP_REDIS_MULTIBULK:
         /* only redis 'mget' fragmented request sends back multi-bulk reply */
-        ASSERT(pr->type == MSG_REQ_REDIS_MGET);
+        ASSERT(pr->type == MSG_REQ_REDIS_MGET || pr->type == MSG_REQ_REDIS_SCRIPT);
 
         mbuf = STAILQ_FIRST(&r->mhdr);
         /*
@@ -2693,6 +2716,26 @@ redis_pre_coalesce(struct msg *r)
         r->mlen -= (uint32_t)(r->narg_end - r->narg_start);
         mbuf->pos = r->narg_end;
 
+        if (pr->type == MSG_REQ_REDIS_SCRIPT && str6icmp(key, 'e', 'x', 'i', 's', 't', 's')) {
+            uint8_t *p;
+            uint32_t len = 0;
+            p = r->narg_start;
+            ASSERT(p[0] == '*');
+            p++;
+
+            if (p[0] == '-' && p[1] == '1') {
+                r->frag_multibulk_len = 0;
+            } else {
+                for(;p < r->narg_end && isdigit(*p); p++){
+                        len = 10*len + (uint32_t)(*p - '0');
+                }
+                r->frag_multibulk_len = len;
+            }
+        }
+
+        break;
+
+    case MSG_RSP_REDIS_BULK:
         break;
 
     case MSG_RSP_REDIS_STATUS:
@@ -2945,10 +2988,97 @@ redis_fragment_argx(struct msg *r, uint32_t nserver, struct msg_tqh *frag_msgq,
     return NC_OK;
 }
 
+static rstatus_t redis_fragment_script(struct msg *r, struct msg_tqh *frag_msgq) {
+    struct server_pool *sp = r->owner->owner;
+    struct msg **sub_msgs;
+    uint32_t i,n;
+    struct mbuf *mbuf,*nbuf,*rbuf;
+    size_t mlen;
+    rstatus_t status;
+    struct keypos *rkpos;
+    uint32_t rklen;
+    uint32_t rkey_offset;
+
+    ASSERT(sp != NULL);
+
+    n = array_n(&sp->server);
+    log_debug(LOG_VVERB,"server_name: %.*s,server_count:%i",sp->name.len,sp->name.data,n);
+
+    sub_msgs = nc_zalloc(n * sizeof(*sub_msgs));
+    if (sub_msgs == NULL) {
+        return NC_ENOMEM;
+    }
+
+    ASSERT(r->frag_seq == NULL);
+    r->frag_seq = nc_alloc(n * sizeof(*r->frag_seq));
+    if (r->frag_seq == NULL) {
+        nc_free(sub_msgs);
+        return NC_ENOMEM;
+    }
+
+    r->frag_id = msg_gen_frag_id();
+    r->nfrag = 0;
+    r->frag_owner = r;
+
+    ASSERT(array_n(r->keys)>0);
+    rkpos=array_get(r->keys,0); // key position in original request
+    rklen = (uint32_t)(rkpos->end - rkpos->start); // the keylen in original request
+    rbuf = STAILQ_FIRST(&r->mhdr);
+    if (rbuf == NULL) {
+            return NC_ERROR;
+    }
+    rkey_offset = (uint32_t)(rkpos->start - rbuf->pos); // the offset of key->start from rbuf->pos
+
+    for (i = 0; i < n; i++) {        /* create a sub_msg for per server */
+        struct msg *sub_msg;
+        uint32_t idx = i;
+        if (sub_msgs[idx] == NULL) {
+            sub_msgs[idx] = msg_get(r->owner, r->request, r->redis);
+            if (sub_msgs[idx] == NULL) {
+                nc_free(sub_msgs);
+                return NC_ENOMEM;
+            }
+        }
+        r->frag_seq[i] = sub_msg = sub_msgs[idx];
+
+        sub_msg->narg = r->narg;
+        sub_msg->server_index = idx;
+        //copy r->mhdr
+        for (mbuf=STAILQ_FIRST(&r->mhdr);mbuf!=NULL;mbuf=nbuf) {
+            nbuf=STAILQ_NEXT(mbuf,next);
+            if(mbuf_empty(mbuf)) continue;
+
+            mlen=mbuf_length(mbuf);
+            status=msg_append(sub_msg,mbuf->pos,mlen);
+            if (status != NC_OK) return status;
+        }
+        struct keypos *kpos;
+        kpos = array_push(sub_msg->keys);
+        if (kpos == NULL) {
+                return NC_ENOMEM;
+        }
+        mbuf = STAILQ_FIRST(&sub_msg->mhdr);
+        if (mbuf == NULL) {
+            return NC_ERROR;
+        }
+        kpos->start=mbuf->pos + rkey_offset; //confirm sub_msg key position
+        kpos->end=kpos->start + rklen;
+
+        sub_msg->type = r->type;
+        sub_msg->frag_id = r->frag_id;
+        sub_msg->frag_owner = r->frag_owner;
+        TAILQ_INSERT_TAIL(frag_msgq, sub_msg, m_tqe);
+        r->nfrag++;
+    }
+
+    nc_free(sub_msgs);
+    return NC_OK;
+}
+
 rstatus_t
 redis_fragment(struct msg *r, uint32_t nserver, struct msg_tqh *frag_msgq)
 {
-    if (1 == array_n(r->keys)){
+    if (1 == array_n(r->keys) && r->type != MSG_REQ_REDIS_SCRIPT){
         return NC_OK;
     }
 
@@ -2962,7 +3092,8 @@ redis_fragment(struct msg *r, uint32_t nserver, struct msg_tqh *frag_msgq)
         /* TODO: MSETNX - instead of responding with OK, respond with 1 if all fragments respond with 1 */
     case MSG_REQ_REDIS_MSET:
         return redis_fragment_argx(r, nserver, frag_msgq, 2);
-
+    case MSG_REQ_REDIS_SCRIPT:
+        return redis_fragment_script(r,frag_msgq);
     default:
         return NC_OK;
     }
@@ -3053,6 +3184,61 @@ redis_post_coalesce_mget(struct msg *request)
     }
 }
 
+static void redis_post_coalesce_script(struct msg *request)
+{
+    struct msg *response = request->peer;
+    struct msg *sub_msg;
+    rstatus_t status;
+    uint32_t i,j;
+    uint8_t *key;
+    struct keypos *kpos;
+
+    kpos = array_get(request->keys, 0);
+    key = kpos->start;
+
+    for (i = 0; i < request->nfrag; i++) {      /* for each key */
+        sub_msg = request->frag_seq[i]->peer;   /* get it's peer response */
+        if (sub_msg == NULL) {
+            response->owner->err = 1;
+            return;
+        }
+        /* Only one response data is retained and the rest is discarded */
+        if(i ==0){
+            if(str6icmp(key, 'e', 'x', 'i', 's', 't', 's')){
+                status = msg_prepend_format(response, "*%d\r\n", sub_msg->frag_multibulk_len);
+                if (status != NC_OK) {
+                    response->owner->err = 1;
+                    return;
+                }
+                for(j=0;j<sub_msg->frag_multibulk_len;j++){
+                    status = redis_copy_bulk(response, sub_msg);
+                    if (status != NC_OK) {
+                            response->owner->err = 1;
+                            return;
+                    }
+                }
+            }else{
+                status = redis_copy_bulk(response, sub_msg);
+            }
+        }else{
+            if(str6icmp(key, 'e', 'x', 'i', 's', 't', 's')){
+                for(j=0;j<sub_msg->frag_multibulk_len;j++){
+                    status = redis_copy_bulk(NULL, sub_msg);
+                    if (status != NC_OK) {
+                            response->owner->err = 1;
+                            return;
+                    }
+                }
+            }else{
+                status = redis_copy_bulk(NULL, sub_msg);
+            }
+        }
+        if (status != NC_OK) {
+            response->owner->err = 1;
+            return;
+        }
+    }
+}
 /*
  * Post-coalesce handler is invoked when the message is a response to
  * the fragmented multi vector request - 'mget' or 'del' and all the
@@ -3082,6 +3268,9 @@ redis_post_coalesce(struct msg *r)
 
     case MSG_REQ_REDIS_MSET:
         return redis_post_coalesce_mset(r);
+
+    case MSG_REQ_REDIS_SCRIPT:
+        return redis_post_coalesce_script(r);
 
     default:
         NOT_REACHED();

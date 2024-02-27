@@ -101,3 +101,43 @@ def test_sscan():
     assert_equal('0', str(cursor))
     assert_equal({b'1'}, set(members))
 
+
+def test_scan():
+    r = getconn()
+    r.set('hello_scan_a1',11)
+    r.set('hello_scan_b1',22)
+    r.hmset("hello_scan_h1",{"a":1,"b":2})
+    r.rpush("hello_scan_l1","a","b")
+    r.sadd("hello_scan_s1","a","a","b")
+    r.zadd("hello_scan_z1",{"one": 1, "two": 2, "three": 3})
+
+    zsetval=r.zrange("hello_scan_z1",0,-1,False,True)
+
+    cursor = 0
+    match_str = "hello_scan_*"
+    rets = []
+    subrets = []
+    while True:
+        cursor,subrets =  r.scan(cursor,match_str,100)
+        if len(subrets):
+            rets.extend(subrets)
+        if cursor == 0:
+            break
+    rets.sort()
+    assert_equal(rets,[b'hello_scan_a1', b'hello_scan_b1', b'hello_scan_h1', b'hello_scan_l1', b'hello_scan_s1', b'hello_scan_z1'])
+
+def test_script_load_and_exits():
+    r = getconn()
+
+    evalsha=r.script_load("return redis.call('hset',KEYS[1],KEYS[1],KEYS[1])")
+    assert_equal(evalsha,"dbbae75a09f1390aaf069fb60e951ec23cab7a15")
+
+    exists=r.script_exists("dbbae75a09f1390aaf069fb60e951ec23cab7a15")
+    assert_equal([True],exists)
+
+    assert_equal(1,r.evalsha("dbbae75a09f1390aaf069fb60e951ec23cab7a15",1,"scriptA"))
+
+    dic=r.hgetall("scriptA")
+    assert_equal(dic,{b'scriptA': b'scriptA'})
+
+    assert_equal(True,r.script_flush())

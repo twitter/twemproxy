@@ -75,6 +75,7 @@ typedef enum msg_parse_result {
     ACTION( REQ_REDIS_PERSIST )                                                                     \
     ACTION( REQ_REDIS_PTTL )                                                                        \
     ACTION( REQ_REDIS_SORT )                                                                        \
+    ACTION( REQ_REDIS_SCAN )                                                                        \
     ACTION( REQ_REDIS_TOUCH )                                                                       \
     ACTION( REQ_REDIS_TTL )                                                                         \
     ACTION( REQ_REDIS_TYPE )                                                                        \
@@ -196,6 +197,7 @@ typedef enum msg_parse_result {
     ACTION( REQ_REDIS_GEOSEARCHSTORE)                                                               \
     ACTION( REQ_REDIS_EVAL )                   /* redis requests - eval */                          \
     ACTION( REQ_REDIS_EVALSHA )                                                                     \
+    ACTION( REQ_REDIS_SCRIPT)                                                                       \
     ACTION( REQ_REDIS_PING )                   /* redis requests - ping/quit */                     \
     ACTION( REQ_REDIS_QUIT)                                                                         \
     ACTION( REQ_REDIS_AUTH)                                                                         \
@@ -288,6 +290,7 @@ struct msg {
     uint32_t             nfrag_done;      /* # fragment done */
     uint64_t             frag_id;         /* id of fragmented message */
     struct msg           **frag_seq;      /* sequence of fragment message, map from keys to fragments*/
+    uint32_t             frag_multibulk_len; /* fragment response multibulk length */
 
     err_t                err;             /* errno on error? */
     unsigned             error:1;         /* error? */
@@ -300,6 +303,8 @@ struct msg {
     unsigned             fdone:1;         /* all fragments are done? */
     unsigned             swallow:1;       /* swallow response? */
     unsigned             redis:1;         /* redis? */
+
+    uint32_t             server_index;    /* the server index which the requstion should be forwarded */
 };
 
 TAILQ_HEAD(msg_tqh, msg);

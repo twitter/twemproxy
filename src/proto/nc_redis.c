@@ -29,6 +29,8 @@
     ACTION( invalid_password, "-ERR invalid password\r\n"                         ) \
     ACTION( auth_required,    "-NOAUTH Authentication required\r\n"               ) \
     ACTION( no_password,      "-ERR Client sent AUTH, but no password is set\r\n" ) \
+    ACTION( only_select_0_support,      "-ERR only select 0 support\r\n"          ) \
+    ACTION( wrong_number_of_arguments,  "-ERR wrong number of arguments for command\r\n" ) \
 
 #define DEFINE_ACTION(_var, _str) static struct string rsp_##_var = string(_str);
     RSP_STRING( DEFINE_ACTION )
@@ -90,6 +92,7 @@ redis_arg0(const struct msg *r)
     case MSG_REQ_REDIS_ZCARD:
         /* TODO: Support emulating 2-arg username+password auth by just checking password? */
     case MSG_REQ_REDIS_AUTH:
+    case MSG_REQ_REDIS_SELECT:
         return true;
 
     default:
@@ -1020,6 +1023,12 @@ redis_parse_req(struct msg *r)
 
                 if (str6icmp(m, 's', 'c', 'r', 'i', 'p', 't')) {
                     r->type = MSG_REQ_REDIS_SCRIPT;
+                    break;
+                }
+
+                if (str6icmp(m, 's', 'e', 'l', 'e', 'c', 't')) {
+                    r->type = MSG_REQ_REDIS_SELECT;
+                    r->noforward = 1;
                     break;
                 }
 
@@ -3127,7 +3136,9 @@ redis_reply(struct msg *r)
 
     switch (r->type) {
     case MSG_REQ_REDIS_PING:
-        if(array_n(r->keys)==1){
+        if(array_n(r->keys)==0){
+            return msg_append(response, rsp_pong.data, rsp_pong.len);
+        }else if(array_n(r->keys)==1){
             kpos = array_get(r->keys, 0);
             key_len = (uint32_t) (kpos->end - kpos->start);
             if(key_len>200){
@@ -3137,8 +3148,16 @@ redis_reply(struct msg *r)
             snprintf(buf,LOG_MAX_LEN,"$%ld\r\n%.*s\r\n",key_len,(int)key_len, kpos->start);
             status = msg_append(response, (uint8_t *)buf, strlen(buf));
             return status;
+        }else if(array_n(r->keys)>1){
+            return msg_append(response, rsp_wrong_number_of_arguments.data, rsp_wrong_number_of_arguments.len);
         }
-        return msg_append(response, rsp_pong.data, rsp_pong.len);
+    case MSG_REQ_REDIS_SELECT:
+        kpos = array_get(r->keys, 0);
+        key_len = (uint32_t) (kpos->end - kpos->start);
+        if(key_len == 1 && *(char *)kpos->start == '0') {
+            return msg_append(response, rsp_ok.data, rsp_ok.len);
+        }
+        return msg_append(response, rsp_only_select_0_support.data, rsp_only_select_0_support.len);
 
     default:
         NOT_REACHED();

@@ -141,3 +141,10 @@ def test_script_load_and_exits():
     assert_equal(dic,{b'scriptA': b'scriptA'})
 
     assert_equal(True,r.script_flush())
+
+def test_select():
+    r = getconn()
+    val=r.select(0)
+    assert_equal(True,val)
+
+    assert_fail("only select 0 support",r.select,1)

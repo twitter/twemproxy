@@ -57,8 +57,8 @@ AC_TYPE_SSIZE_T
 AC_C_BIGENDIAN(
   [],
   [AC_DEFINE(HAVE_LITTLE_ENDIAN, 1, [Define to 1 if machine is little endian])],
-  [AC_MSG_ERROR([endianess of this machine is unknown])],
-  [AC_MSG_ERROR([universial endianess not supported])]
+  [AC_MSG_ERROR([endianness of this machine is unknown])],
+  [AC_MSG_ERROR([universial endianness not supported])]
 )
 
 # Checks for header files
